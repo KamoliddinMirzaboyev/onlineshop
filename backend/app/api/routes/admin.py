@@ -12,7 +12,7 @@ from app.api.deps import (
 from app.core.config import settings
 from app.core.db import get_db
 from app.models import (
-    AdminUser, Business, Category, Order, OrderItem, Product, PushSubscription,
+    AdminUser, Business, Category, CategoryGroup, Order, OrderItem, Product, PushSubscription,
     Restaurant, SupplyRecord, User,
 )
 from app.models.enums import OrderStatus
@@ -22,7 +22,8 @@ from app.schemas.admin import (
 )
 from app.schemas.admin import AdminUserOut
 from app.schemas.catalog import (
-    CategoryIn, CategoryOut, ProductIn, ProductOut, RestaurantOut, StoreSettingsIn,
+    CategoryGroupIn, CategoryGroupOut, CategoryIn, CategoryOut, ProductIn, ProductOut,
+    RestaurantOut, StoreSettingsIn,
 )
 from app.schemas.admin import DeliveryZoneIn, DeliveryZoneOut
 from app.models import DeliveryZone
@@ -349,6 +350,58 @@ def delete_category(
     c = db.get(Category, cid)
     if c and c.restaurant_id == store.id:
         db.delete(c)
+        db.commit()
+
+
+# ── Category groups (Home sahifadagi bo'lim sarlavhalari) ─────────
+@router.get("/category-groups", response_model=list[CategoryGroupOut])
+def list_category_groups(
+    store: Restaurant = Depends(current_restaurant), db: Session = Depends(get_db)
+):
+    return db.scalars(
+        select(CategoryGroup)
+        .where(CategoryGroup.restaurant_id == store.id)
+        .order_by(CategoryGroup.sort_order)
+    ).all()
+
+
+@router.post("/category-groups", response_model=CategoryGroupOut, status_code=201)
+def create_category_group(
+    data: CategoryGroupIn,
+    store: Restaurant = Depends(current_restaurant),
+    db: Session = Depends(get_db),
+):
+    g = CategoryGroup(**data.model_dump(), restaurant_id=store.id)
+    db.add(g)
+    db.commit()
+    db.refresh(g)
+    return g
+
+
+@router.put("/category-groups/{gid}", response_model=CategoryGroupOut)
+def update_category_group(
+    gid: int,
+    data: CategoryGroupIn,
+    store: Restaurant = Depends(current_restaurant),
+    db: Session = Depends(get_db),
+):
+    g = db.get(CategoryGroup, gid)
+    if not g or g.restaurant_id != store.id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Not found")
+    for k, v in data.model_dump().items():
+        setattr(g, k, v)
+    db.commit()
+    db.refresh(g)
+    return g
+
+
+@router.delete("/category-groups/{gid}", status_code=204)
+def delete_category_group(
+    gid: int, store: Restaurant = Depends(current_restaurant), db: Session = Depends(get_db)
+):
+    g = db.get(CategoryGroup, gid)
+    if g and g.restaurant_id == store.id:
+        db.delete(g)
         db.commit()
 
 
