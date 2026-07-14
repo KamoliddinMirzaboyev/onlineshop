@@ -21,9 +21,26 @@ class ProductOut(BaseModel):
         from_attributes = True
 
 
+class CategoryGroupOut(BaseModel):
+    id: int
+    name_uz: str
+    name_ru: str
+    sort_order: int
+
+    class Config:
+        from_attributes = True
+
+
+class CategoryGroupIn(BaseModel):
+    name_uz: str
+    name_ru: str
+    sort_order: int = 0
+
+
 class CategoryOut(BaseModel):
     id: int
     parent_id: int | None = None
+    group_id: int | None = None
     name_uz: str
     name_ru: str
     image_url: str | None = None
@@ -82,6 +99,7 @@ class StoreSettingsIn(BaseModel):
 
 class RestaurantDetail(RestaurantOut):
     categories: list[CategoryWithSubcategories] = []
+    category_groups: list[CategoryGroupOut] = []
 
 
 # ── Admin write schemas ──────────────────────────────────────────
@@ -100,6 +118,7 @@ class RestaurantIn(BaseModel):
 
 class CategoryIn(BaseModel):
     parent_id: int | None = None
+    group_id: int | None = None
     name_uz: str
     name_ru: str
     image_url: str | None = None
