@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class TelegramAuthIn(BaseModel):
@@ -32,8 +32,8 @@ class UserOut(BaseModel):
 
 
 class UserUpdateIn(BaseModel):
-    first_name: str | None = None
-    phone: str | None = None
+    first_name: str | None = Field(default=None, max_length=128)
+    phone: str | None = Field(default=None, max_length=32)
 
 
 class AuthResult(BaseModel):

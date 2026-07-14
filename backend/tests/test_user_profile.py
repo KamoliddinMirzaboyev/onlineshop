@@ -47,3 +47,15 @@ def test_patch_me_partial_update_keeps_other_field(client, db_session):
 def test_patch_me_requires_auth(client, db_session):
     resp = client.patch("/api/auth/me", json={"first_name": "X"})
     assert resp.status_code == 401
+
+
+def test_patch_me_rejects_overlong_phone(client, db_session):
+    user = _make_user(db_session)
+    token = create_access_token(subject=str(user.id), role="user")
+
+    resp = client.patch(
+        "/api/auth/me",
+        json={"phone": "9" * 33},
+        headers=auth(token),
+    )
+    assert resp.status_code == 422
