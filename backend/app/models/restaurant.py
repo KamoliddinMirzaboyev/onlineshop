@@ -39,6 +39,20 @@ class Restaurant(Base):
     products = relationship("Product", back_populates="restaurant", cascade="all, delete-orphan")
 
 
+class CategoryGroup(Base):
+    """Bosh sahifadagi kategoriya bo'limi sarlavhasi (masalan 'Meva va sabzavotlar').
+
+    Faqat vizual guruhlash — mahsulot qo'shishda tanlanmaydi.
+    """
+    __tablename__ = "category_groups"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    restaurant_id: Mapped[int] = mapped_column(ForeignKey("restaurants.id", ondelete="CASCADE"), index=True)
+    name_uz: Mapped[str] = mapped_column(String(128))
+    name_ru: Mapped[str] = mapped_column(String(128))
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+
+
 class Category(Base):
     __tablename__ = "categories"
 
@@ -46,6 +60,11 @@ class Category(Base):
     restaurant_id: Mapped[int] = mapped_column(ForeignKey("restaurants.id", ondelete="CASCADE"), index=True)
     parent_id: Mapped[int | None] = mapped_column(
         ForeignKey("categories.id", ondelete="CASCADE"), index=True
+    )
+    # Faqat top-level (parent_id IS NULL) qatorlarda ma'noli — Home sahifada
+    # qaysi bo'lim ostida ko'rsatilishini belgilaydi. NULL = guruhsiz (sarlavhasiz).
+    group_id: Mapped[int | None] = mapped_column(
+        ForeignKey("category_groups.id", ondelete="SET NULL"), index=True
     )
     name_uz: Mapped[str] = mapped_column(String(128))
     name_ru: Mapped[str] = mapped_column(String(128))

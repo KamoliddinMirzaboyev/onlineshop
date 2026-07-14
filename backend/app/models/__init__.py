@@ -5,7 +5,7 @@ from app.models.enums import AdminRole, AnnouncementStatus, OrderStatus, Payment
 from app.models.order import Address, Courier, DeliveryZone, Order, OrderItem
 from app.models.platform_admin import PlatformAdmin
 from app.models.push import PushSubscription
-from app.models.restaurant import Category, Product, Restaurant
+from app.models.restaurant import Category, CategoryGroup, Product, Restaurant
 from app.models.supply import SupplyRecord
 from app.models.user import User
 
@@ -26,6 +26,7 @@ __all__ = [
     "Order",
     "OrderItem",
     "Category",
+    "CategoryGroup",
     "Product",
     "Restaurant",
     "SupplyRecord",
