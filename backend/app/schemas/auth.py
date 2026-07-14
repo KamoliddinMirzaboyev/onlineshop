@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel
 
 
@@ -23,9 +25,15 @@ class UserOut(BaseModel):
     last_name: str | None = None
     phone: str | None = None
     language: str
+    created_at: datetime
 
     class Config:
         from_attributes = True
+
+
+class UserUpdateIn(BaseModel):
+    first_name: str | None = None
+    phone: str | None = None
 
 
 class AuthResult(BaseModel):

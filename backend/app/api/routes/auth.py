@@ -7,7 +7,7 @@ from app.core.db import get_db
 from app.core.ratelimit import rate_limiter
 from app.core.security import create_access_token, verify_telegram_init_data
 from app.models import User
-from app.schemas.auth import AuthResult, TelegramAuthIn, TokenOut, UserOut
+from app.schemas.auth import AuthResult, TelegramAuthIn, TokenOut, UserOut, UserUpdateIn
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -43,4 +43,17 @@ def telegram_auth(data: TelegramAuthIn, db: Session = Depends(get_db)):
 
 @router.get("/me", response_model=UserOut)
 def me(user: User = Depends(get_current_user)):
+    return user
+
+
+@router.patch("/me", response_model=UserOut)
+def update_me(
+    data: UserUpdateIn, user: User = Depends(get_current_user), db: Session = Depends(get_db)
+):
+    if data.first_name is not None:
+        user.first_name = data.first_name
+    if data.phone is not None:
+        user.phone = data.phone
+    db.commit()
+    db.refresh(user)
     return user
