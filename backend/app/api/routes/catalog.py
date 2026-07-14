@@ -3,8 +3,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.db import get_db
-from app.models import Category, Product, Restaurant
+from app.models import Category, CategoryGroup, Product, Restaurant
 from app.schemas.catalog import (
+    CategoryGroupOut,
     CategoryWithSubcategories,
     ProductOut,
     RestaurantDetail,
@@ -25,6 +26,12 @@ def list_restaurants(db: Session = Depends(get_db), q: str | None = None):
 
 
 def _build_detail(restaurant: Restaurant, db: Session) -> RestaurantDetail:
+    groups = db.scalars(
+        select(CategoryGroup)
+        .where(CategoryGroup.restaurant_id == restaurant.id)
+        .order_by(CategoryGroup.sort_order)
+    ).all()
+
     top_categories = db.scalars(
         select(Category)
         .where(Category.restaurant_id == restaurant.id, Category.parent_id.is_(None))
@@ -50,6 +57,7 @@ def _build_detail(restaurant: Restaurant, db: Session) -> RestaurantDetail:
 
     detail = RestaurantDetail.model_validate(restaurant)
     detail.categories = cat_out
+    detail.category_groups = [CategoryGroupOut.model_validate(g) for g in groups]
     return detail
 
 
