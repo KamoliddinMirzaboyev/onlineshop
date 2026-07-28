@@ -1,5 +1,7 @@
+import { useEffect, useRef } from "react";
 import { MapPin } from "lucide-react";
 import type { LocationIssue } from "../api/client";
+import { hasLocationPermissionHint } from "../api/client";
 import { useI18n } from "../i18n";
 import { openTelegramLocationSettings } from "../telegram";
 
@@ -8,35 +10,25 @@ interface Props {
   onRetry: () => void;
 }
 
-/** Do'konni joylashuv bo'yicha yuklab bo'lmaganda ko'rsatiladi — hech qachon
- * xarita ochilmaydi, faqat holatga mos ravishda ruxsat so'raladi yoki
- * sozlamaga yo'naltiriladi.
- *
- * MUHIM: Telegram'ning openSettings() metodi faqat botning Telegram ICHIDAGI
- * ruxsat ekranini ochadi ("denied" holati) — qurilmaning OS darajasidagi
- * GPS/Location Services tumblerini ESLATMA OCHMAYDI ("device_off" holati).
- * Mini App'dan OS sozlamalariga bunday deep-link umuman mavjud emas (Telegram
- * sandbox'i buni taqiqlaydi), shu sabab "device_off" holatida foydalanuvchini
- * noto'g'ri ekranga yubormaymiz — faqat telefon sozlamalarini o'zi ochishini
- * aytamiz va "Qayta tekshirish" beramiz (yoqib qaytganda avtomatik ham
- * tekshiriladi — useStore'dagi visibilitychange orqali). */
+/**
+ * Joylashuv kerak bo'lganda (edge-case).
+ * - Ruxsat allaqachon berilgan → avtomatik qayta urinish, "Ruxsat berish" yo'q
+ * - GPS o'chiq → yoqish haqida xabar + avto-retry (visibility)
+ * - Rad etilgan → Telegram sozlamalari
+ */
 export default function LocationNeeded({ issue, onRetry }: Props) {
   const { t } = useI18n();
+  const tried = useRef(false);
+  const granted = hasLocationPermissionHint() || issue === "device_off";
 
-  if (issue === "device_off") {
-    return (
-      <div className="flex flex-col items-center gap-4 py-16 px-4 text-center">
-        <MapPin size={32} className="text-tg-hint" />
-        <p className="text-tg-hint">{t.location_off}</p>
-        <button
-          onClick={onRetry}
-          className="bg-brand text-white font-medium px-6 py-3 rounded-2xl active:scale-95 transition"
-        >
-          {t.check_again}
-        </button>
-      </div>
-    );
-  }
+  // Ruxsat bor yoki GPS masalasi — tugma kutmasdan darhol qayta urinish.
+  useEffect(() => {
+    if (tried.current) return;
+    if (issue === "denied") return;
+    tried.current = true;
+    const t0 = window.setTimeout(() => onRetry(), 200);
+    return () => window.clearTimeout(t0);
+  }, [issue, onRetry]);
 
   if (issue === "denied") {
     return (
@@ -44,6 +36,7 @@ export default function LocationNeeded({ issue, onRetry }: Props) {
         <MapPin size={32} className="text-tg-hint" />
         <p className="text-tg-hint">{t.location_denied}</p>
         <button
+          type="button"
           onClick={openTelegramLocationSettings}
           className="bg-brand text-white font-medium px-6 py-3 rounded-2xl active:scale-95 transition"
         >
@@ -53,11 +46,32 @@ export default function LocationNeeded({ issue, onRetry }: Props) {
     );
   }
 
+  if (issue === "device_off" || granted) {
+    return (
+      <div className="flex flex-col items-center gap-4 py-16 px-4 text-center">
+        <MapPin size={32} className="text-tg-hint" />
+        <p className="text-tg-hint">{t.location_off}</p>
+        <p className="text-xs text-tg-hint/80">
+          {t.location_auto_hint}
+        </p>
+        <button
+          type="button"
+          onClick={onRetry}
+          className="bg-brand text-white font-medium px-6 py-3 rounded-2xl active:scale-95 transition"
+        >
+          {t.check_again}
+        </button>
+      </div>
+    );
+  }
+
+  // Hali ruxsat so'ralmagan — bir marta so'rash.
   return (
     <div className="flex flex-col items-center gap-4 py-16 px-4 text-center">
       <MapPin size={32} className="text-tg-hint" />
       <p className="text-tg-hint">{t.location_needed}</p>
       <button
+        type="button"
         onClick={onRetry}
         className="bg-brand text-white font-medium px-6 py-3 rounded-2xl active:scale-95 transition"
       >

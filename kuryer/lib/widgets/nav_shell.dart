@@ -10,11 +10,10 @@ import '../state/order_alerts.dart';
 import '../pages/dashboard_page.dart';
 import '../pages/orders_page.dart';
 import '../pages/history_page.dart';
-import '../pages/earnings_page.dart';
 import '../pages/profile_page.dart';
 import 'toast.dart';
 
-/// The logged-in shell: five tabs + bottom nav. Mirrors `Layout.tsx` +
+/// The logged-in shell: four tabs + bottom nav. Mirrors `Layout.tsx` +
 /// `BottomNav.tsx`, including the app-wide new-order poller (`useNewOrderAlerts`)
 /// that fires a notification + sound + toast when a new, unassigned order shows
 /// up, and keeps [OrderAlerts.availableCount] in sync for the Dashboard banner.
@@ -38,7 +37,6 @@ class _NavShellState extends State<NavShell> {
     (Icons.home_outlined, Icons.home, 'Asosiy'),
     (Icons.inventory_2_outlined, Icons.inventory_2, 'Buyurtma'),
     (Icons.access_time, Icons.access_time_filled, 'Tarix'),
-    (Icons.account_balance_wallet_outlined, Icons.account_balance_wallet, 'Daromad'),
     (Icons.person_outline, Icons.person, 'Profil'),
   ];
 
@@ -97,7 +95,6 @@ class _NavShellState extends State<NavShell> {
       DashboardPage(onGoTab: (i) => setState(() => _index = i)),
       const OrdersPage(),
       const HistoryPage(),
-      const EarningsPage(),
       const ProfilePage(),
     ];
 

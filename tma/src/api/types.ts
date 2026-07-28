@@ -29,6 +29,7 @@ export interface Category {
   image_url?: string | null;
   /** TMA kartochka foni — yumshoq pastel hex */
   bg_color?: string | null;
+  is_active?: boolean;
   sort_order: number;
   subcategories: Subcategory[];
 }
@@ -38,6 +39,8 @@ export interface CategoryGroup {
   id: number;
   name_uz: string;
   name_ru: string;
+  /** Shu title ostidagi barcha kategoriya kartochkalari fon rangi */
+  bg_color?: string | null;
   sort_order: number;
 }
 

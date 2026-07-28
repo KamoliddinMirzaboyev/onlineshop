@@ -1,4 +1,4 @@
-import { Clock, Home, Package, User, Wallet } from "lucide-react";
+import { Clock, Home, Package, User } from "lucide-react";
 import { motion } from "motion/react";
 import { NavLink } from "react-router-dom";
 import { spring } from "../lib/motion";
@@ -7,14 +7,13 @@ const TABS = [
   { to: "/", label: "Asosiy", icon: Home, end: true },
   { to: "/orders", label: "Buyurtma", icon: Package, end: false },
   { to: "/history", label: "Tarix", icon: Clock, end: false },
-  { to: "/earnings", label: "Daromad", icon: Wallet, end: false },
   { to: "/profile", label: "Profil", icon: User, end: false },
 ];
 
 export default function BottomNav() {
   return (
     <nav className="fixed bottom-0 inset-x-0 z-20 bg-white border-t border-slate-200 pb-[env(safe-area-inset-bottom)]">
-      <div className="max-w-md mx-auto grid grid-cols-5">
+      <div className="max-w-md mx-auto grid grid-cols-4">
         {TABS.map(({ to, label, icon: Icon, end }) => (
           <NavLink
             key={to}

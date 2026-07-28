@@ -10,6 +10,7 @@ from app.api.deps import (
     require_store_admin_or_business,
 )
 from app.core.config import settings
+from app.core.cache import invalidate_restaurant_catalog
 from app.core.db import get_db
 from app.models import (
     AdminUser, Business, Category, CategoryGroup, Order, OrderItem, Product,
@@ -311,6 +312,7 @@ def create_category_group(
     db.add(g)
     db.commit()
     db.refresh(g)
+    invalidate_restaurant_catalog(store.id)
     return g
 
 
@@ -328,6 +330,7 @@ def update_category_group(
         setattr(g, k, v)
     db.commit()
     db.refresh(g)
+    invalidate_restaurant_catalog(store.id)
     return g
 
 
@@ -339,6 +342,7 @@ def delete_category_group(
     if g and g.restaurant_id == store.id:
         db.delete(g)  # categories.group_id SET NULL (ondelete) — kategoriyalar o'chmaydi
         db.commit()
+        invalidate_restaurant_catalog(store.id)
 
 
 # ── Categories ───────────────────────────────────────────────────
@@ -384,6 +388,7 @@ def create_category(
     db.add(c)
     db.commit()
     db.refresh(c)
+    invalidate_restaurant_catalog(store.id)
     return c
 
 
@@ -403,6 +408,7 @@ def update_category(
         setattr(c, k, v)
     db.commit()
     db.refresh(c)
+    invalidate_restaurant_catalog(store.id)
     return c
 
 
@@ -414,6 +420,7 @@ def delete_category(
     if c and c.restaurant_id == store.id:
         db.delete(c)
         db.commit()
+        invalidate_restaurant_catalog(store.id)
 
 
 # ── Products ─────────────────────────────────────────────────────

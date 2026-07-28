@@ -50,6 +50,8 @@ class CategoryGroup(Base):
     restaurant_id: Mapped[int] = mapped_column(ForeignKey("restaurants.id", ondelete="CASCADE"), index=True)
     name_uz: Mapped[str] = mapped_column(String(128))
     name_ru: Mapped[str] = mapped_column(String(128))
+    # Shu title ostidagi barcha kategoriya kartochkalari fon rangi.
+    bg_color: Mapped[str | None] = mapped_column(String(16))
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
 
     restaurant = relationship("Restaurant")
@@ -74,6 +76,8 @@ class Category(Base):
     image_url: Mapped[str | None] = mapped_column(String(512))
     # TMA bosh sahifa kartochka foni — yumshoq pastel hex (#RRGGBB).
     bg_color: Mapped[str | None] = mapped_column(String(16))
+    # Nofaol kategoriya TMA katalogida ko'rinmaydi.
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
 
     restaurant = relationship("Restaurant", back_populates="categories")

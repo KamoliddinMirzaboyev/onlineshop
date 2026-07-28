@@ -48,7 +48,11 @@ def _build_detail(restaurant: Restaurant, db: Session) -> RestaurantDetail:
 
     top_categories = db.scalars(
         select(Category)
-        .where(Category.restaurant_id == restaurant.id, Category.parent_id.is_(None))
+        .where(
+            Category.restaurant_id == restaurant.id,
+            Category.parent_id.is_(None),
+            Category.is_active.is_(True),
+        )
         .order_by(Category.sort_order)
         .options(selectinload(Category.children).selectinload(Category.products))
     ).all()
@@ -57,6 +61,8 @@ def _build_detail(restaurant: Restaurant, db: Session) -> RestaurantDetail:
     for top in top_categories:
         sub_out = []
         for sub in sorted(top.children, key=lambda x: x.sort_order):
+            if not sub.is_active:
+                continue
             products = [
                 ProductOut.model_validate(p)
                 for p in sorted(sub.products, key=lambda x: x.sort_order)
@@ -65,19 +71,25 @@ def _build_detail(restaurant: Restaurant, db: Session) -> RestaurantDetail:
             sw = SubcategoryOut.model_validate(sub)
             sw.products = products
             sub_out.append(sw)
+        # Mahsuloti yo'q bo'sh kategoriya ham TMA da ko'rinsin (rasm/navigatsiya).
         cw = CategoryWithSubcategories.model_validate(top)
         cw.subcategories = sub_out
         cat_out.append(cw)
 
+    # Faqat kamida 1 ta faol kategoriya bog'langan Title'lar.
+    linked_group_ids = {c.group_id for c in top_categories if c.group_id is not None}
     groups = db.scalars(
         select(CategoryGroup)
         .where(CategoryGroup.restaurant_id == restaurant.id)
         .order_by(CategoryGroup.sort_order)
     ).all()
+    groups_out = [
+        CategoryGroupOut.model_validate(g) for g in groups if g.id in linked_group_ids
+    ]
 
     detail = RestaurantDetail.model_validate(restaurant)
     detail.categories = cat_out
-    detail.category_groups = [CategoryGroupOut.model_validate(g) for g in groups]
+    detail.category_groups = groups_out
     cache_set_json(cache_key, detail.model_dump(mode="json"), CACHE_TTL)
     return detail
 

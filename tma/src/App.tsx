@@ -43,8 +43,8 @@ export default function App() {
 
   useEffect(() => {
     login();
-    // Katalogni darhol yuklash (default do'kon joylashuvsiz ham ishlaydi).
-    // getCoords alohida — bloklamaydi.
+    // Do'kon va joylashuv parallel — joylashuv sekin bo'lsa ham katalog ochiladi.
+    // getCoords birinchi marta Telegram ruxsat so'raydi; keyin kesh.
     void prefetchStore();
     void getCoords();
   }, [login]);
