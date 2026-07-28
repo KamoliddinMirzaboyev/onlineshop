@@ -36,51 +36,62 @@ export function getLastLocationIssue(): LocationIssue | null {
   return lastLocationIssue;
 }
 
+function browserCoords(): Promise<{ lat: number; lng: number } | null> {
+  if (!navigator.geolocation) {
+    lastLocationIssue = "other";
+    return Promise.resolve(null);
+  }
+  return new Promise((resolve) => {
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        lastLocationIssue = null;
+        resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+      },
+      (err) => {
+        // 1 = PERMISSION_DENIED
+        lastLocationIssue = err.code === 1 ? "denied" : "other";
+        resolve(null);
+      },
+      // Noutbukda Wi‑Fi joylashuv sekinroq bo'lishi mumkin — timeout biroz uzoqroq.
+      { enableHighAccuracy: false, timeout: 10_000, maximumAge: 120_000 },
+    );
+  });
+}
+
 // TMA ochilishi bilan (App.tsx) va checkout paytida (CheckoutPage) ham shu
 // funksiya chaqiriladi — natija keshlangani uchun ikkinchisi darhol qaytadi.
 export function getCoords(): Promise<{ lat: number; lng: number } | null> {
   if (coordsCache !== undefined) return Promise.resolve(coordsCache);
   if (coordsPromise) return coordsPromise;
-  coordsPromise = requestTelegramLocation()
-    .then((result) => {
-      if (result.status === "ok") {
-        lastLocationIssue = null;
-        coordsCache = { lat: result.lat, lng: result.lng };
-        return coordsCache;
-      }
-      if (result.status === "device_off" || result.status === "denied") {
-        // Qurilma holati aniq — brauzer Geolocation'ga tushish shart emas,
-        // xuddi shu sababdan u ham muvaffaqiyatsiz bo'ladi.
-        lastLocationIssue = result.status;
-        coordsCache = null;
-        return null;
-      }
-      if (!navigator.geolocation) {
-        lastLocationIssue = "other";
-        coordsCache = null;
-        return null;
-      }
-      return new Promise<{ lat: number; lng: number } | null>((resolve) => {
-        navigator.geolocation.getCurrentPosition(
-          (pos) => {
-            lastLocationIssue = null;
-            coordsCache = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-            resolve(coordsCache);
-          },
-          () => {
-            lastLocationIssue = "other";
-            coordsCache = null;
-            resolve(null);
-          },
-          // enableHighAccuracy sekin (GPS lock); coarse joylashuv do'kon
-          // tanlash uchun yetarli va 1–2 s tezroq.
-          { enableHighAccuracy: false, timeout: 4000, maximumAge: 60_000 }
-        );
-      });
-    })
-    .finally(() => {
-      coordsPromise = null;
-    });
+  coordsPromise = (async () => {
+    // 1) Telegram LocationManager (asosan mobil).
+    const tgResult = await requestTelegramLocation();
+    if (tgResult.status === "ok") {
+      lastLocationIssue = null;
+      coordsCache = { lat: tgResult.lat, lng: tgResult.lng };
+      return coordsCache;
+    }
+
+    // 2) HAR DOIM brauzer geolocation (noutbuk/desktop uchun asosiy yo'l).
+    // Eski kod device_off/denied da shu yerni o'tkazib yuborardi — Desktop
+    // LocationManager "device_off" qaytarib, ilova butunlay to'xtab qolardi.
+    const browser = await browserCoords();
+    if (browser) {
+      coordsCache = browser;
+      return coordsCache;
+    }
+
+    if (!lastLocationIssue) {
+      lastLocationIssue =
+        tgResult.status === "device_off" || tgResult.status === "denied"
+          ? tgResult.status
+          : "other";
+    }
+    coordsCache = null;
+    return null;
+  })().finally(() => {
+    coordsPromise = null;
+  });
   return coordsPromise;
 }
 
@@ -124,17 +135,25 @@ export const api = {
     req<Restaurant[]>(`/restaurants${q ? `?q=${encodeURIComponent(q)}` : ""}`),
   restaurant: (id: number) => req<RestaurantDetail>(`/restaurants/${id}`),
 
-  // faol do'kon — mijoz joylashuviga eng yaqinini tanlaydi. Joylashuv aniqlanmasa
-  // (ruxsat berilmagan/xato) standart do'konni taxmin qilmaymiz — LocationDeniedError
-  // tashlaymiz, chaqiruvchi sahifa foydalanuvchidan manzilni qo'lda so'raydi.
+  // faol do'kon — joylashuv bo'lsa eng yaqin; bo'lmasa default do'kon
+  // (noutbuk/desktop da GPS yo'q yoki ruxsat berilmasa ham katalog ochilsin).
   store: async (): Promise<RestaurantDetail | null> => {
     const coords = await getCoords();
-    if (!coords) throw new LocationDeniedError();
+    if (coords) {
+      try {
+        return await req<RestaurantDetail>(
+          `/restaurants/nearest?lat=${coords.lat}&lng=${coords.lng}`,
+        );
+      } catch (e) {
+        if (e instanceof Error && e.message.includes("OUT_OF_RANGE")) throw new OutOfRangeError();
+        throw e;
+      }
+    }
     try {
-      return await req<RestaurantDetail>(`/restaurants/nearest?lat=${coords.lat}&lng=${coords.lng}`);
-    } catch (e) {
-      if (e instanceof Error && e.message.includes("OUT_OF_RANGE")) throw new OutOfRangeError();
-      throw e;
+      return await req<RestaurantDetail>("/restaurants/default");
+    } catch {
+      // Default do'kon ham yo'q — UI joylashuv so'raydi.
+      throw new LocationDeniedError();
     }
   },
 

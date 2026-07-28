@@ -80,16 +80,35 @@ export type TelegramLocationResult =
   | { status: "ok"; lat: number; lng: number }
   | { status: "unsupported" | "device_off" | "denied" | "error" };
 
+/** Desktop/Web Telegram — LocationManager ishonchsiz yoki GPS yo'q. */
+export function isTelegramDesktopLike(): boolean {
+  const p = (tg?.platform ?? "").toLowerCase();
+  return (
+    p === "tdesktop" ||
+    p === "macos" ||
+    p === "web" ||
+    p === "weba" ||
+    p === "unigram" ||
+    // platform bo'sh bo'lsa ham, oddiy brauzer (window.Telegram yo'q emas lekin
+    // desktop WebView bo'lishi mumkin) — LocationManager'ga tayanmaymiz.
+    (!p && typeof navigator !== "undefined" && !/Android|iPhone|iPad|iPod/i.test(navigator.userAgent))
+  );
+}
+
 export function requestTelegramLocation(): Promise<TelegramLocationResult> {
   const lm = tg?.LocationManager;
   if (!lm) return Promise.resolve({ status: "unsupported" });
 
+  // Noutbuk / Telegram Desktop: LocationManager ko'pincha device_off yoki
+  // callback bermaydi — brauzer geolocation'ga tezroq o'tish uchun skip.
+  if (isTelegramDesktopLike()) {
+    return Promise.resolve({ status: "unsupported" });
+  }
+
   const attempt = new Promise<TelegramLocationResult>((resolve) => {
     // Har safar init() chaqiramiz (isInited bo'lsa ham) — isLocationAvailable
-    // faqat init() ishga tushganda yangilanadi degan taxmin bilan (foydalanuvchi
-    // sozlamalardan qaytib, GPS'ni endigina yoqqan bo'lishi mumkin — eski
-    // keshlangan qiymatni emas, YANGI holatni tekshirishimiz kerak). Callback
-    // chaqirilmay qolish xavfiga esa pastdagi timeout javob beradi.
+    // faqat init() ishga tushganda yangilanadi. Callback chaqirilmay qolish
+    // xavfiga pastdagi timeout javob beradi.
     lm.init(() => {
       if (!lm.isLocationAvailable) {
         resolve({ status: "device_off" });
@@ -105,16 +124,11 @@ export function requestTelegramLocation(): Promise<TelegramLocationResult> {
     });
   });
 
-  // Telegram Desktop'da (Windows/Mac/Linux) ma'lum platforma xatosi bor:
-  // LocationManager mount bo'ladi, lekin getLocation/init callback'i HECH
-  // QACHON chaqirilmasligi mumkin — bu bizni abadiy "yuklanmoqda" holatida
-  // qoldirardi (loading skeleton ilashib qolishi shu sabab edi). Timeout
-  // bilan brauzer Geolocation'ga zaxira sifatida tushamiz.
   // https://github.com/Telegram-Mini-Apps/issues/issues/77
   return Promise.race([
     attempt,
     new Promise<TelegramLocationResult>((resolve) =>
-      setTimeout(() => resolve({ status: "error" }), 6000)
+      setTimeout(() => resolve({ status: "error" }), 3500)
     ),
   ]);
 }

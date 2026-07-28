@@ -12,6 +12,8 @@ interface TelegramWebApp {
   initDataUnsafe: { user?: { id: number; first_name?: string; language_code?: string } };
   colorScheme: "light" | "dark";
   themeParams: Record<string, string>;
+  /** android | ios | tdesktop | macos | web | weba | ... */
+  platform?: string;
   ready(): void;
   expand(): void;
   close(): void;
