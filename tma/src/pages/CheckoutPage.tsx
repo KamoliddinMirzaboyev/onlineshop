@@ -8,7 +8,11 @@ import { formatUzPhone, money } from "../lib/format";
 import { reverseGeocode } from "../lib/geocode";
 import { useAuth } from "../store/auth";
 import { useCart } from "../store/cart";
-import { useCheckoutDraft } from "../store/checkoutDraft";
+import {
+  formatAddressLine,
+  isAddressComplete,
+  useCheckoutDraft,
+} from "../store/checkoutDraft";
 import { haptic } from "../telegram";
 
 const DEFAULT_FREE_FROM = 50_000;
@@ -54,37 +58,77 @@ function estimateDeliveryFee(
   return Math.ceil(distanceKm) * rate;
 }
 
+function Field({
+  label,
+  value,
+  onChange,
+  placeholder,
+  required,
+  className = "",
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  required?: boolean;
+  className?: string;
+}) {
+  return (
+    <div className={`space-y-1.5 ${className}`}>
+      <label className="text-sm text-slate-500 font-medium px-1">
+        {label}
+        {required && <span className="text-rose-500 ml-0.5">*</span>}
+      </label>
+      <input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="w-full rounded-[16px] bg-[#F4F5F7] text-base text-slate-900 font-normal px-4 py-3.5 outline-none focus:ring-2 focus:ring-brand/25"
+      />
+    </div>
+  );
+}
+
 export default function CheckoutPage() {
   const { t, lang } = useI18n();
   const nav = useNavigate();
   const cart = useCart();
   const user = useAuth((s) => s.user);
 
-  const { phone, comment, loc, address, setPhone, setComment, setLocation, reset: resetDraft } = useCheckoutDraft();
+  const {
+    phone,
+    comment,
+    loc,
+    geoHint,
+    addressParts,
+    setPhone,
+    setComment,
+    setLocation,
+    setAddressPart,
+    reset: resetDraft,
+  } = useCheckoutDraft();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [store, setStore] = useState<Restaurant | null>(null);
 
-  // Qoralamada telefon hali bo'sh bo'lsa, profildagi raqam bilan to'ldiramiz.
   useEffect(() => {
     if (!phone && user?.phone) setPhone(formatUzPhone(user.phone));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.phone]);
 
-  // Yetkazib berish manzili sifatida TMA ochilishida aniqlangan joylashuv
-  // jim ishlatiladi — checkoutda qayta so'ralmaydi, qo'lda tanlash yo'q.
+  // GPS — faqat masofa/yordamchi; aniq manzilni foydalanuvchi o'zi yozadi.
   const fetchLocation = () =>
     getCoords().then((coords) => {
       if (!coords) return null;
       return reverseGeocode(coords.lat, coords.lng).then((a) => {
-        const addr = a ?? `📍 ${coords.lat.toFixed(5)}, ${coords.lng.toFixed(5)}`;
-        setLocation(coords.lat, coords.lng, addr);
-        return { ...coords, address: addr };
+        const hint = a ?? `📍 ${coords.lat.toFixed(5)}, ${coords.lng.toFixed(5)}`;
+        setLocation(coords.lat, coords.lng, hint);
+        return { ...coords, address: hint };
       });
     });
 
   useEffect(() => {
-    if (!loc) fetchLocation();
+    if (!loc) void fetchLocation();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -107,6 +151,7 @@ export default function CheckoutPage() {
   }, [itemsTotal, loc, store, freeFrom, perKm]);
 
   const grandTotal = itemsTotal + deliveryFee;
+  const addressLine = formatAddressLine(addressParts, geoHint);
 
   const submit = async () => {
     if (cart.restaurantId == null) {
@@ -117,18 +162,16 @@ export default function CheckoutPage() {
       setError(lang === "uz" ? "Telefon raqamini to'liq kiriting" : "Введите номер телефона полностью");
       return;
     }
+    if (!isAddressComplete(addressParts)) {
+      setError(t.address_required);
+      return;
+    }
+
     let deliveryLoc = loc;
     if (!deliveryLoc) {
       deliveryLoc = await fetchLocation();
     }
-    if (!deliveryLoc) {
-      setError(
-        lang === "uz"
-          ? "Joylashuvni aniqlab bo'lmadi. Telegram sozlamalaridan geolokatsiyaga ruxsat bering va qayta urinib ko'ring"
-          : "Не удалось определить местоположение. Разрешите геолокацию в настройках Telegram и попробуйте снова"
-      );
-      return;
-    }
+    // Manzil matni majburiy; GPS bo'lmasa ham buyurtma ketadi (0,0 o'rniga null).
     setSubmitting(true);
     setError(null);
     try {
@@ -138,11 +181,18 @@ export default function CheckoutPage() {
           product_id: l.product.id,
           quantity: l.quantity,
         })),
-        address_line: address || undefined,
-        lat: deliveryLoc.lat,
-        lng: deliveryLoc.lng,
+        address_line: addressLine,
+        lat: deliveryLoc?.lat ?? undefined,
+        lng: deliveryLoc?.lng ?? undefined,
         phone,
-        comment,
+        comment: [
+          comment.trim(),
+          addressParts.entrance.trim() && `Podyezd: ${addressParts.entrance.trim()}`,
+          addressParts.floor.trim() && `Qavat: ${addressParts.floor.trim()}`,
+          addressParts.apartment.trim() && `Xonadon: ${addressParts.apartment.trim()}`,
+        ]
+          .filter(Boolean)
+          .join(" · ") || undefined,
         payment_method: "cash",
       });
       haptic("medium");
@@ -171,7 +221,70 @@ export default function CheckoutPage() {
             onChange={(e) => setPhone(formatUzPhone(e.target.value))}
             inputMode="tel"
             placeholder="+998 88 888 88 88"
-            className="w-full rounded-[16px] bg-[#F4F5F7] text-base text-slate-900 font-normal px-4 py-4 outline-none"
+            className="w-full rounded-[16px] bg-[#F4F5F7] text-base text-slate-900 font-normal px-4 py-4 outline-none focus:ring-2 focus:ring-brand/25"
+          />
+        </div>
+
+        {/* Aniq yetkazish manzili */}
+        <div className="space-y-3 rounded-2xl border border-slate-100 bg-slate-50/50 p-3">
+          <p className="text-sm font-semibold text-slate-800 px-1">{t.address}</p>
+          <p className="text-xs text-slate-400 px-1 -mt-1">
+            {lang === "uz"
+              ? "Mahalla, ko'cha va uy raqamini aniq yozing — kuryer topishi uchun."
+              : "Укажите махаллю, улицу и номер дома точно — для курьера."}
+          </p>
+
+          {geoHint && (
+            <div className="rounded-xl bg-white border border-slate-100 px-3 py-2.5">
+              <p className="text-[11px] text-slate-400 mb-0.5">{t.address_geo_hint}</p>
+              <p className="text-sm text-slate-600 leading-snug">{geoHint}</p>
+            </div>
+          )}
+
+          <Field
+            label={t.address_street}
+            value={addressParts.street}
+            onChange={(v) => setAddressPart("street", v)}
+            placeholder={t.address_street_ph}
+            required
+          />
+
+          <div className="grid grid-cols-2 gap-3">
+            <Field
+              label={t.address_house}
+              value={addressParts.house}
+              onChange={(v) => setAddressPart("house", v)}
+              placeholder={t.address_house_ph}
+              required
+            />
+            <Field
+              label={t.address_apt}
+              value={addressParts.apartment}
+              onChange={(v) => setAddressPart("apartment", v)}
+              placeholder={t.address_apt_ph}
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <Field
+              label={t.address_entrance}
+              value={addressParts.entrance}
+              onChange={(v) => setAddressPart("entrance", v)}
+              placeholder={t.address_entrance_ph}
+            />
+            <Field
+              label={t.address_floor}
+              value={addressParts.floor}
+              onChange={(v) => setAddressPart("floor", v)}
+              placeholder={t.address_floor_ph}
+            />
+          </div>
+
+          <Field
+            label={t.address_landmark}
+            value={addressParts.landmark}
+            onChange={(v) => setAddressPart("landmark", v)}
+            placeholder={t.address_landmark_ph}
           />
         </div>
 
@@ -180,11 +293,12 @@ export default function CheckoutPage() {
           <input
             value={comment}
             onChange={(e) => setComment(e.target.value)}
-            className="w-full rounded-[16px] bg-[#F4F5F7] text-base text-slate-900 font-normal px-4 py-4 outline-none"
+            placeholder={lang === "uz" ? "Buyurtmaga izoh (ixtiyoriy)" : "Комментарий к заказу"}
+            className="w-full rounded-[16px] bg-[#F4F5F7] text-base text-slate-900 font-normal px-4 py-4 outline-none focus:ring-2 focus:ring-brand/25"
           />
         </div>
 
-        <div className="mt-6 space-y-2 px-1">
+        <div className="mt-2 space-y-2 px-1">
           <div className="flex justify-between text-sm text-slate-600">
             <span>{lang === "uz" ? "Mahsulotlar" : "Товары"}</span>
             <span>{money(itemsTotal)} {t.sum}</span>
@@ -212,7 +326,12 @@ export default function CheckoutPage() {
 
         {error && <p className="text-rose-500 text-sm font-medium px-1 mb-2">{error}</p>}
 
-        <button onClick={submit} disabled={submitting} className="w-full bg-brand text-white font-medium text-base py-4 rounded-[16px] active:scale-[0.98] transition disabled:opacity-60 shadow-lg shadow-brand/30">
+        <button
+          type="button"
+          onClick={() => void submit()}
+          disabled={submitting}
+          className="w-full bg-brand text-white font-medium text-base py-4 rounded-[16px] active:scale-[0.98] transition disabled:opacity-60 shadow-lg shadow-brand/30"
+        >
           {submitting ? "…" : (lang === "uz" ? "Buyurtma berish" : "Заказать")}
         </button>
       </div>
