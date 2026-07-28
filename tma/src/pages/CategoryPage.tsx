@@ -1,6 +1,6 @@
 import { ChevronLeft, Minus, Plus } from "lucide-react";
 import { useMemo } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import type { Category, Product } from "../api/types";
 import CartPill from "../components/CartPill";
 import ErrorState from "../components/ErrorState";
@@ -10,12 +10,14 @@ import { MenuSkeleton } from "../components/Skeleton";
 import { useStore } from "../hooks/useStore";
 import { loc, useI18n } from "../i18n";
 import { money, unitLabel } from "../lib/format";
+import { goBack } from "../lib/navBack";
 import { useCart } from "../store/cart";
 import { haptic } from "../telegram";
 
 export default function CategoryPage() {
   const { id } = useParams();
   const nav = useNavigate();
+  const { pathname } = useLocation();
   const { t, lang } = useI18n();
   const { store, error, needsLocation, locationIssue, reload } = useStore();
   const cart = useCart();
@@ -59,8 +61,9 @@ export default function CategoryPage() {
 
         <button
           type="button"
-          onClick={() => nav(-1)}
+          onClick={() => goBack(nav, pathname)}
           className="absolute top-3 left-3 h-10 w-10 rounded-full bg-white/25 backdrop-blur-sm flex items-center justify-center text-white active:scale-95 transition"
+          aria-label="Orqaga"
         >
           <ChevronLeft size={22} />
         </button>

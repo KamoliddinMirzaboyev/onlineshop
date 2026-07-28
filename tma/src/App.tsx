@@ -4,6 +4,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { getCoords } from "./api/client";
 import BottomNav from "./components/BottomNav";
 import Splash from "./components/Splash";
+import { useTelegramBackButton } from "./hooks/useTelegramBackButton";
 import { prefetchStore } from "./hooks/useStore";
 import CartPage from "./pages/CartPage";
 import CategoryPage from "./pages/CategoryPage";
@@ -14,6 +15,28 @@ import OrdersPage from "./pages/OrdersPage";
 import ProfilePage from "./pages/ProfilePage";
 import SearchPage from "./pages/SearchPage";
 import { useAuth } from "./store/auth";
+
+function AppRoutes() {
+  // Nested sahifada Telegram/Android Back → SPA ichida orqaga (TMA yopilmaydi).
+  useTelegramBackButton();
+
+  return (
+    <div className="min-h-full pb-20">
+      <Routes>
+        <Route path="/" element={<HomePage />} />
+        <Route path="/category/:id" element={<CategoryPage />} />
+        <Route path="/search" element={<SearchPage />} />
+        <Route path="/cart" element={<CartPage />} />
+        <Route path="/checkout" element={<CheckoutPage />} />
+        <Route path="/orders" element={<OrdersPage />} />
+        <Route path="/orders/:id" element={<OrderDetailPage />} />
+        <Route path="/profile" element={<ProfilePage />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+      <BottomNav />
+    </div>
+  );
+}
 
 export default function App() {
   const { ready, login } = useAuth();
@@ -28,22 +51,7 @@ export default function App() {
   return (
     <>
       <AnimatePresence>{!ready && <Splash />}</AnimatePresence>
-      {ready && (
-        <div className="min-h-full pb-20">
-          <Routes>
-            <Route path="/" element={<HomePage />} />
-            <Route path="/category/:id" element={<CategoryPage />} />
-            <Route path="/search" element={<SearchPage />} />
-            <Route path="/cart" element={<CartPage />} />
-            <Route path="/checkout" element={<CheckoutPage />} />
-            <Route path="/orders" element={<OrdersPage />} />
-            <Route path="/orders/:id" element={<OrderDetailPage />} />
-            <Route path="/profile" element={<ProfilePage />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-          <BottomNav />
-        </div>
-      )}
+      {ready && <AppRoutes />}
     </>
   );
 }

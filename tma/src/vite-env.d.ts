@@ -29,6 +29,7 @@ interface TelegramWebApp {
     offClick(cb: () => void): void;
   };
   BackButton: {
+    isVisible?: boolean;
     show(): void;
     hide(): void;
     onClick(cb: () => void): void;

@@ -1,5 +1,6 @@
 import { ChevronLeft } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
+import { goBack } from "../lib/navBack";
 
 interface Props {
   title: string;
@@ -7,16 +8,19 @@ interface Props {
   back?: boolean;
 }
 
-/** Barcha asosiy sahifalar (Bosh sahifa, Savat, Profil) uchun umumiy —
- * pastki burchaklari yumaloqlangan brand yashil banner. */
+/** Barcha asosiy sahifalar uchun brand yashil banner. */
 export default function PageHeader({ title, subtitle, back }: Props) {
   const nav = useNavigate();
+  const { pathname } = useLocation();
+
   return (
     <div className="sticky top-0 z-20 bg-brand text-white rounded-b-2xl shadow-sm px-4 py-4 flex items-center gap-3">
       {back && (
         <button
-          onClick={() => nav(-1)}
+          type="button"
+          onClick={() => goBack(nav, pathname)}
           className="h-9 w-9 shrink-0 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center active:scale-90 transition"
+          aria-label="Orqaga"
         >
           <ChevronLeft size={20} />
         </button>
