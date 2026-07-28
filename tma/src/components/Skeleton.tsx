@@ -20,21 +20,20 @@ export function StoreListSkeleton({ rows = 5 }: { rows?: number }) {
 
 export function MenuSkeleton() {
   return (
-    <div className="p-4 space-y-5">
-      <div className="space-y-2">
-        <Skeleton className="h-7 w-1/2" />
-        <Skeleton className="h-3 w-3/4" />
-      </div>
-      {Array.from({ length: 4 }).map((_, i) => (
-        <div key={i} className="card flex items-center">
-          <Skeleton className="h-20 w-20 rounded-none shrink-0" />
-          <div className="flex-1 p-3 space-y-2">
-            <Skeleton className="h-4 w-1/2" />
-            <Skeleton className="h-3 w-3/4" />
-            <Skeleton className="h-5 w-24" />
+    <div className="p-2.5 space-y-4">
+      <Skeleton className="h-36 w-full rounded-b-3xl rounded-t-none" />
+      <Skeleton className="h-4 w-1/3" />
+      <div className="grid grid-cols-3 gap-2">
+        {Array.from({ length: 9 }).map((_, i) => (
+          <div key={i} className="card overflow-hidden">
+            <Skeleton className="aspect-square w-full rounded-none" />
+            <div className="p-1.5 space-y-1">
+              <Skeleton className="h-3 w-2/3" />
+              <Skeleton className="h-3 w-full" />
+            </div>
           </div>
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
   );
 }

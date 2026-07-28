@@ -1,18 +1,16 @@
-import { ChevronLeft, Minus, Plus } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
 import { useMemo } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import type { Category, Product } from "../api/types";
+import type { Category } from "../api/types";
 import CartPill from "../components/CartPill";
 import ErrorState from "../components/ErrorState";
 import LocationNeeded from "../components/LocationNeeded";
 import OptimizedImage from "../components/OptimizedImage";
+import ProductCard from "../components/ProductCard";
 import { MenuSkeleton } from "../components/Skeleton";
 import { useStore } from "../hooks/useStore";
 import { loc, useI18n } from "../i18n";
-import { money, unitLabel } from "../lib/format";
 import { goBack } from "../lib/navBack";
-import { useCart } from "../store/cart";
-import { haptic } from "../telegram";
 
 export default function CategoryPage() {
   const { id } = useParams();
@@ -20,7 +18,6 @@ export default function CategoryPage() {
   const { pathname } = useLocation();
   const { t, lang } = useI18n();
   const { store, error, needsLocation, locationIssue, reload } = useStore();
-  const cart = useCart();
 
   const cat: Category | undefined = useMemo(
     () => store?.categories.find((c) => c.id === Number(id)),
@@ -33,21 +30,9 @@ export default function CategoryPage() {
   if (error) return <ErrorState onRetry={reload} />;
   if (!store) return <MenuSkeleton />;
 
-  const add = (p: Product) => {
-    cart.add(p);
-    haptic("light");
-  };
-  const dec = (p: Product) => {
-    const q = cart.lines[p.id]?.quantity ?? 0;
-    cart.setQty(p.id, q - 1);
-    haptic("light");
-  };
-  const qtyOf = (p: Product) => cart.lines[p.id]?.quantity ?? 0;
-
   return (
     <div className="min-h-full bg-tg-bg">
-      {/* ── Header banner ──────────────────────────────────────── */}
-      <div className="relative h-40 overflow-hidden rounded-b-3xl">
+      <div className="relative h-36 overflow-hidden rounded-b-3xl">
         {cat?.image_url ? (
           <OptimizedImage
             src={cat.image_url}
@@ -73,67 +58,18 @@ export default function CategoryPage() {
         </h1>
       </div>
 
-      {/* ── Subcategory sections ──────────────────────────────── */}
-      <div className="px-4 py-4 pb-28">
+      <div className="px-2.5 py-3 pb-28">
         {(() => {
           const sections = (cat?.subcategories ?? []).filter((sc) => sc.products.length > 0);
           if (sections.length === 0) {
             return <p className="text-center text-tg-hint py-16">{t.empty_category}</p>;
           }
           return sections.map((sc) => (
-            <div key={sc.id} className="mb-6 last:mb-0">
-              <h2 className="font-semibold text-base mb-3">{loc(sc, "name", lang)}</h2>
-              <div className="grid grid-cols-2 gap-3">
+            <div key={sc.id} className="mb-5 last:mb-0">
+              <h2 className="font-semibold text-sm mb-2 px-0.5">{loc(sc, "name", lang)}</h2>
+              <div className="grid grid-cols-3 gap-2">
                 {sc.products.map((p) => (
-                  <div key={p.id} className="card border border-black/5">
-                    <div className="relative h-28 bg-tg-card flex items-center justify-center text-3xl">
-                      {p.image_url ? (
-                        <OptimizedImage src={p.image_url} className="h-full w-full object-cover" />
-                      ) : (
-                        "🛒"
-                      )}
-                      <div className="absolute -bottom-5 left-1/2 -translate-x-1/2">
-                        {qtyOf(p) === 0 ? (
-                          <button
-                            type="button"
-                            onClick={() => add(p)}
-                            className="h-11 w-11 rounded-full bg-brand text-white flex items-center justify-center shadow-md shadow-brand/30 active:scale-90 transition"
-                          >
-                            <Plus size={24} />
-                          </button>
-                        ) : (
-                          <div className="flex items-center gap-2 shrink-0 rounded-full bg-white shadow-md shadow-black/10 p-1 whitespace-nowrap">
-                            <button
-                              type="button"
-                              onClick={() => dec(p)}
-                              className="h-9 w-9 rounded-full text-slate-800 flex items-center justify-center active:scale-90 transition"
-                            >
-                              <Minus size={20} />
-                            </button>
-                            <span className="min-w-[3rem] text-center text-sm font-medium text-slate-900">
-                              {qtyOf(p)} {p.unit ? unitLabel(p.unit, lang) : ""}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => add(p)}
-                              className="h-9 w-9 rounded-full bg-brand text-white flex items-center justify-center active:scale-90 transition shadow-sm"
-                            >
-                              <Plus size={20} />
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    <div className="px-3 pt-6 pb-3">
-                      <span className="font-medium text-sm">
-                        {money(p.price)} {t.sum}
-                      </span>
-                      <h3 className="text-sm leading-tight line-clamp-1 mt-0.5">
-                        {loc(p, "name", lang)}
-                      </h3>
-                      {p.unit && <p className="text-xs text-tg-hint mt-0.5">1{unitLabel(p.unit, lang)}</p>}
-                    </div>
-                  </div>
+                  <ProductCard key={p.id} product={p} />
                 ))}
               </div>
             </div>
