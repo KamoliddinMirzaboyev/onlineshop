@@ -20,9 +20,7 @@ export function StoreListSkeleton({ rows = 5 }: { rows?: number }) {
 
 export function MenuSkeleton() {
   return (
-    <div className="p-2.5 space-y-4">
-      <Skeleton className="h-36 w-full rounded-b-3xl rounded-t-none" />
-      <Skeleton className="h-4 w-1/3" />
+    <div className="p-2.5 pt-2">
       <div className="grid grid-cols-3 gap-2">
         {Array.from({ length: 9 }).map((_, i) => (
           <div key={i} className="card overflow-hidden">
