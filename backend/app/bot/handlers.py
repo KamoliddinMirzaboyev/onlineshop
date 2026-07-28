@@ -6,7 +6,7 @@ from aiogram.types import (
 )
 
 from app.bot import repo
-from app.bot.i18n import TEXTS, t
+from app.bot.i18n import TEXTS, split_telegram_html, t
 from app.core.config import settings
 from app.services.notify import notify_location_update
 
@@ -93,8 +93,11 @@ async def on_help_btn(message: Message) -> None:
 @router.message(F.text.in_(_btn_texts("offer")))
 async def on_offer_btn(message: Message) -> None:
     user = repo.get_or_create_user(message.from_user.id, message.from_user.first_name, message.from_user.username)
-    # Oferta uzun — HTML parse_mode bilan yuboriladi.
-    await message.answer(t(user.language, "offer_text"), parse_mode="HTML")
+    chunks = split_telegram_html(t(user.language, "offer_text"))
+    total = len(chunks)
+    for i, chunk in enumerate(chunks, start=1):
+        prefix = t(user.language, "offer_chunk", n=i, total=total) + "\n\n" if total > 1 else ""
+        await message.answer(prefix + chunk)
 
 
 @router.message(F.text.in_(_btn_texts("open_app")))

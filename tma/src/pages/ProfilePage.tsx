@@ -227,17 +227,34 @@ export default function ProfilePage() {
       )}
 
       {showOffer && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-end" onClick={() => setShowOffer(false)}>
-          <div className="w-full bg-tg-bg rounded-t-3xl p-5 max-h-[70vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="font-semibold text-base">{lang === "uz" ? "Ommaviy oferta" : "Публичная оферта"}</h2>
-              <button onClick={() => setShowOffer(false)} className="h-8 w-8 rounded-full bg-tg-card flex items-center justify-center">
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-end sm:items-center sm:justify-center" onClick={() => setShowOffer(false)}>
+          <div
+            className="w-full sm:max-w-lg bg-tg-bg rounded-t-3xl sm:rounded-3xl max-h-[85vh] flex flex-col shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3 px-5 pt-5 pb-3 border-b border-black/5">
+              <div>
+                <h2 className="font-semibold text-lg text-tg-text">
+                  {lang === "uz" ? "Ommaviy oferta" : "Публичная оферта"}
+                </h2>
+                <p className="text-sm text-tg-hint mt-0.5">
+                  {lang === "uz" ? "Foydalanish shartlari" : "Условия использования"}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowOffer(false)}
+                className="h-9 w-9 shrink-0 rounded-full bg-tg-card flex items-center justify-center"
+                aria-label="Yopish"
+              >
                 <X size={16} />
               </button>
             </div>
-            <p className="text-sm text-tg-text leading-relaxed whitespace-pre-wrap">
-              {offerText(lang)}
-            </p>
+            <div className="px-5 py-4 overflow-y-auto">
+              <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap">
+                {offerText(lang)}
+              </p>
+            </div>
           </div>
         </div>
       )}
