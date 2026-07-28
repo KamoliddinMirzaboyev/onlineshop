@@ -11,15 +11,14 @@ import { useStore } from "../hooks/useStore";
 import { loc, useI18n } from "../i18n";
 import { haptic } from "../telegram";
 
-// Kartochka foni bo'sh bo'lganda — Title guruhi bo'yicha barqaror pastel rang.
-// Kartochka foni — brand yashil oilasida (orange/sariq yo'q).
-const PALETTES = [
-  "bg-[#E1F3D8]",
-  "bg-[#DCFCE7]",
-  "bg-[#BBF7D0]",
-  "bg-[#CDE3FC]",
-  "bg-[#E6E0FB]",
-  "bg-[#F7DEE6]",
+// bg_color yo'q bo'lsa — yumshoq fallback pastel.
+const FALLBACK_COLORS = [
+  "#E1F3D8",
+  "#DCFCE7",
+  "#CDE3FC",
+  "#FEF9C3",
+  "#FCE7F3",
+  "#EDE9FE",
 ];
 
 export default function HomePage() {
@@ -85,12 +84,18 @@ export default function HomePage() {
                     }
                   }
 
+                  const bg =
+                    c.bg_color && /^#[0-9A-Fa-f]{6}$/.test(c.bg_color)
+                      ? c.bg_color
+                      : FALLBACK_COLORS[(si + ci) % FALLBACK_COLORS.length];
+
                   return (
                     <button
                       key={c.id}
                       type="button"
                       onClick={() => open(c)}
-                      className={`relative h-[160px] rounded-[24px] overflow-hidden text-left p-4 flex flex-col active:scale-[0.97] transition-transform ${spanClass} ${PALETTES[si % PALETTES.length]}`}
+                      style={{ backgroundColor: bg }}
+                      className={`relative h-[160px] rounded-[24px] overflow-hidden text-left p-4 flex flex-col active:scale-[0.97] transition-transform ${spanClass}`}
                     >
                       <h3 className={`font-medium text-slate-900 leading-tight z-10 ${isLastAndAlone ? "text-base w-1/2" : "text-sm pr-2"}`}>
                         {loc(c, "name", lang)}

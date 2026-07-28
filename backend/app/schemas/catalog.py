@@ -29,6 +29,7 @@ class CategoryOut(BaseModel):
     name_uz: str
     name_ru: str
     image_url: str | None = None
+    bg_color: str | None = None  # pastel hex, masalan #E1F3D8
     sort_order: int
 
     class Config:
@@ -123,6 +124,7 @@ class CategoryIn(BaseModel):
     name_uz: str
     name_ru: str
     image_url: str | None = None
+    bg_color: str | None = None
     sort_order: int = 0
 
 

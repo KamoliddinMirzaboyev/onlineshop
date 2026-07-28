@@ -67,6 +67,7 @@ export interface Category {
   name_uz: string;
   name_ru: string;
   image_url?: string | null;
+  bg_color?: string | null;
   sort_order: number;
 }
 

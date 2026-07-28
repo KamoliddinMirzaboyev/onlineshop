@@ -2,9 +2,11 @@ import { CircleCheck, CircleX, FolderTree, Heading, Pencil, Plus, Search, Shoppi
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { del, get, post, put, withStore } from "../api";
+import ColorPicker from "../components/ColorPicker";
 import { confirm } from "../components/Confirm";
 import ImageUpload from "../components/ImageUpload";
 import { ErrorRetry, TableSkeleton } from "../components/Skeleton";
+import { DEFAULT_CATEGORY_COLOR } from "../lib/softColors";
 import { useStore } from "../store";
 import type { Category, CategoryGroup, Product } from "../types";
 
@@ -206,6 +208,7 @@ export default function ProductsPage() {
         name_uz: editCat.name_uz,
         name_ru: editCat.name_ru || editCat.name_uz,
         image_url: editCat.image_url ?? null,
+        bg_color: editCat.bg_color ?? DEFAULT_CATEGORY_COLOR,
         sort_order: editCat.sort_order ?? topCategories.length,
       };
       if (editCat.id) await put(withStore(`/admin/categories/${editCat.id}`, storeId), body);
@@ -551,7 +554,7 @@ export default function ProductsPage() {
       {tab === "categories" && (
         <>
           <div className="flex justify-end mb-4">
-            <button className="btn" disabled={isAll} title={isAll ? "Aniq do'kon tanlang" : ""} onClick={() => setEditCat({})}><Plus size={18} /> Kategoriya qo'shish</button>
+            <button className="btn" disabled={isAll} title={isAll ? "Aniq do'kon tanlang" : ""} onClick={() => setEditCat({ bg_color: DEFAULT_CATEGORY_COLOR })}><Plus size={18} /> Kategoriya qo'shish</button>
           </div>
 
           {err ? <ErrorRetry onRetry={reload} /> : loading ? <TableSkeleton cols={3} /> : (
@@ -835,6 +838,10 @@ export default function ProductsPage() {
                 </select>
                 <p className="text-xs text-slate-400 mt-1">Bosh sahifada bu kategoriya shu sarlavha ostida ko'rsatiladi.</p>
               </div>
+              <ColorPicker
+                value={editCat.bg_color}
+                onChange={(hex) => setEditCat({ ...editCat, bg_color: hex })}
+              />
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1.5">Kategoriya rasmi</label>
                 <ImageUpload

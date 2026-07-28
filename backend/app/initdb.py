@@ -28,6 +28,7 @@ _CATEGORY_COLUMNS = (
     "ALTER TABLE categories ADD COLUMN IF NOT EXISTS image_url VARCHAR(512)",
     "ALTER TABLE categories ADD COLUMN IF NOT EXISTS parent_id INTEGER REFERENCES categories(id) ON DELETE CASCADE",
     "ALTER TABLE categories ADD COLUMN IF NOT EXISTS group_id INTEGER REFERENCES category_groups(id) ON DELETE SET NULL",
+    "ALTER TABLE categories ADD COLUMN IF NOT EXISTS bg_color VARCHAR(16)",
 )
 
 # order_items.cost — sotuv vaqtidagi tannarx snapshot'i (foyda hisobi uchun).

@@ -27,6 +27,8 @@ export interface Category {
   name_uz: string;
   name_ru: string;
   image_url?: string | null;
+  /** TMA kartochka foni — yumshoq pastel hex */
+  bg_color?: string | null;
   sort_order: number;
   subcategories: Subcategory[];
 }

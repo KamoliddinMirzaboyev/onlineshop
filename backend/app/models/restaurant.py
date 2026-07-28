@@ -72,6 +72,8 @@ class Category(Base):
     name_uz: Mapped[str] = mapped_column(String(128))
     name_ru: Mapped[str] = mapped_column(String(128))
     image_url: Mapped[str | None] = mapped_column(String(512))
+    # TMA bosh sahifa kartochka foni — yumshoq pastel hex (#RRGGBB).
+    bg_color: Mapped[str | None] = mapped_column(String(16))
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
 
     restaurant = relationship("Restaurant", back_populates="categories")
