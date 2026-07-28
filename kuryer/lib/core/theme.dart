@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 
-/// Brand palette — mirrors the courier web app (Tailwind `brand: #FF5722`,
+/// Brand palette — mirrors the courier web app (Tailwind `brand: #16A34A`,
 /// slate greys, and the status accent colours).
 class AppColors {
-  static const brand = Color(0xFFFF5722);
-  static const brandLight = Color(0xFFFF7043);
+  static const brand = Color(0xFF16A34A);
+  static const brandLight = Color(0xFF22C55E);
 
   // slate scale
   static const slate50 = Color(0xFFF8FAFC);

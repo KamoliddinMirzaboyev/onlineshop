@@ -19,11 +19,11 @@ export default defineConfig({
       // kodni "CORS xatosi"day ko'rsatib xato diagnostika qildirar edi.
       devOptions: { enabled: false, type: "module" },
       manifest: {
-        name: "All Foods — Admin",
-        short_name: "AF Admin",
-        description: "All Foods do'kon boshqaruv paneli",
+        name: "Barakali Bozor — Admin",
+        short_name: "BB Admin",
+        description: "Barakali Bozor do'kon boshqaruv paneli",
         lang: "uz",
-        theme_color: "#FF5722",
+        theme_color: "#16A34A",
         background_color: "#f1f5f9",
         display: "standalone",
         orientation: "portrait",

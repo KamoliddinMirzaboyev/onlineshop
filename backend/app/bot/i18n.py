@@ -4,7 +4,7 @@ TEXTS = {
     "uz": {
         "start": (
             "👋 Assalomu alaykum, {name}!\n\n"
-            "<b>All Foods</b> — eng mazali taomlar bir joyda.\n"
+            "<b>Barakali Bozor</b> — eng mazali taomlar bir joyda.\n"
             "Biz vaqtingizni, asablaringizni va pulingizni tejaymiz.\n\n"
             "Buyurtma berish uchun pastdagi tugmani bosing 👇"
         ),
@@ -31,7 +31,7 @@ TEXTS = {
     "ru": {
         "start": (
             "👋 Здравствуйте, {name}!\n\n"
-            "<b>All Foods</b> — самые вкусные блюда в одном месте.\n"
+            "<b>Barakali Bozor</b> — самые вкусные блюда в одном месте.\n"
             "Мы экономим ваше время, нервы и деньги.\n\n"
             "Нажмите кнопку ниже, чтобы заказать 👇"
         ),

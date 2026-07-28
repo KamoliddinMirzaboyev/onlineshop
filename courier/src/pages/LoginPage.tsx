@@ -44,7 +44,7 @@ export default function LoginPage() {
           <div className="h-16 w-16 rounded-2xl bg-brand flex items-center justify-center shadow-lg shadow-brand/30 mb-3">
             <Bike size={32} className="text-white" />
           </div>
-          <h1 className="text-2xl font-bold tracking-tight">All Foods</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Barakali Bozor</h1>
           <p className="text-slate-500 text-sm mt-1">Kuryer paneli</p>
         </div>
 

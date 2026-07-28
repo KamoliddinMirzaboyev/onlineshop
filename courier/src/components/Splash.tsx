@@ -10,7 +10,7 @@ export default function Splash() {
   return (
     <motion.div
       key="splash"
-      className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-gradient-to-b from-[#FF7043] to-brand"
+      className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-gradient-to-b from-[#22C55E] to-brand"
       initial={{ opacity: 1 }}
       exit={{ opacity: 0, transition: { duration: 0.45, ease: "easeInOut" } }}
     >
@@ -54,7 +54,7 @@ export default function Splash() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.25, duration: 0.4 }}
       >
-        All Foods
+        Barakali Bozor
       </motion.h1>
       <motion.p
         className="text-white/80 text-sm mt-1"

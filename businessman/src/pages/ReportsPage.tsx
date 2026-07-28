@@ -15,7 +15,7 @@ const TABS: { key: Period; label: string }[] = [
 ];
 
 // Do'kon segmentlari uchun ranglar (brand + qo'shimchalar). Ro'yxatdan aylanib ishlatiladi.
-const STORE_COLORS = ["#FF5722", "#0EA5E9", "#10B981", "#F59E0B", "#8B5CF6", "#EC4899", "#14B8A6", "#EF4444"];
+const STORE_COLORS = ["#16A34A", "#0EA5E9", "#10B981", "#F59E0B", "#8B5CF6", "#EC4899", "#14B8A6", "#EF4444"];
 
 function fmtLabel(iso: string, period: Period) {
   const d = new Date(iso);

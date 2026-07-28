@@ -1,4 +1,4 @@
-# All Foods — Backend (API + Bot)
+# Barakali Bozor — Backend (API + Bot)
 
 FastAPI + aiogram + SQLAlchemy + PostgreSQL + Redis.
 

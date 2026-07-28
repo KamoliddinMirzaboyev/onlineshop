@@ -200,7 +200,7 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
               ),
               const SizedBox(height: 16),
               const Center(
-                child: Text('All Foods Kuryer · v1.1.0',
+                child: Text('Barakali Bozor Kuryer · v1.1.0',
                     style: TextStyle(fontSize: 12, color: AppColors.slate300)),
               ),
             ],

@@ -33,7 +33,7 @@ export default function LoginPage() {
             <UtensilsCrossed size={28} />
           </span>
           <div className="text-center">
-            <h1 className="text-xl font-bold tracking-tight">All Foods Admin</h1>
+            <h1 className="text-xl font-bold tracking-tight">Barakali Bozor Admin</h1>
             <p className="text-sm text-slate-500">Boshqaruv paneliga kirish</p>
           </div>
         </div>

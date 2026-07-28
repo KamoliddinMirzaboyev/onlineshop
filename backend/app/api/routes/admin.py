@@ -141,7 +141,7 @@ def push_subscribe(
 
 @router.post("/push/test")
 def push_test(_: AdminUser = Depends(require_staff)):
-    webpush.notify_admins("All Foods", "Bildirishnoma ishlayapti ✅", "/")
+    webpush.notify_admins("Barakali Bozor", "Bildirishnoma ishlayapti ✅", "/")
     return {"ok": True}
 
 

@@ -32,7 +32,7 @@ async def main() -> None:
     dp = Dispatcher(storage=MemoryStorage())
     dp.include_router(onboarding_router)  # in-state messages captured first
     dp.include_router(router)
-    logging.info("All Foods bot started polling…")
+    logging.info("Barakali Bozor bot started polling…")
     await dp.start_polling(bot)
 
 

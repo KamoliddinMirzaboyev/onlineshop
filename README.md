@@ -1,6 +1,6 @@
-# All Foods — Telegram Food Delivery Platform
+# Barakali Bozor — Telegram Food Delivery Platform
 
-Marketplace-style food delivery system (Uzbekistan). Clone of the AllFoods concept.
+Marketplace-style food delivery system (Uzbekistan).
 
 ## Components
 

@@ -12,7 +12,7 @@ export default function PushBridge() {
         window.dispatchEvent(new CustomEvent("courier-push", { detail: p }));
         show({
           type: "push",
-          title: p.title || "All Foods Kuryer",
+          title: p.title || "Barakali Bozor Kuryer",
           body: p.body || "",
           url: p.url,
           duration: 10000,

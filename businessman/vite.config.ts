@@ -19,11 +19,11 @@ export default defineConfig({
       // kodni "CORS xatosi"day ko'rsatib xato diagnostika qildirar edi.
       devOptions: { enabled: false, type: "module" },
       manifest: {
-        name: "All Foods — Tadbirkor",
-        short_name: "AF Tadbirkor",
-        description: "All Foods tadbirkor boshqaruv paneli",
+        name: "Barakali Bozor — Tadbirkor",
+        short_name: "BB Tadbirkor",
+        description: "Barakali Bozor tadbirkor boshqaruv paneli",
         lang: "uz",
-        theme_color: "#FF5722",
+        theme_color: "#16A34A",
         background_color: "#f1f5f9",
         display: "standalone",
         orientation: "portrait",

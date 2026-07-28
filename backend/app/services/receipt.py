@@ -27,12 +27,12 @@ _BOLD = _FONT_DIR / "DejaVuSans-Bold.ttf"
 
 W = 640
 PAD = 36
-BRAND = (255, 87, 34)
+BRAND = (22, 163, 74)  # #16A34A
 INK = (20, 20, 20)
 MUTED = (130, 130, 130)
 LINE = (232, 232, 232)
 CARD = (248, 248, 248)
-TOTAL_BG = (255, 244, 240)
+TOTAL_BG = (240, 253, 244)  # green-50
 THUMB = 56                       # mahsulot rasmi o'lchami
 ROW_H = THUMB + 18               # bitta mahsulot qatori balandligi
 NOTE_H = 24                      # izohli mahsulot uchun qo'shimcha balandlik
@@ -116,7 +116,7 @@ def render_receipt(order: Order) -> bytes:
     d.rectangle([0, 0, W, 10], fill=BRAND)
     y = PAD + 4
 
-    d.text((PAD, y), "All Foods", font=f_title, fill=BRAND)
+    d.text((PAD, y), "Barakali Bozor", font=f_title, fill=BRAND)
     y += 48
     d.text((PAD, y), f"Buyurtma № {order.number}", font=f_h, fill=INK)
     y += 30

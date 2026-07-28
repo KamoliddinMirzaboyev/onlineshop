@@ -305,7 +305,7 @@ export default function OrderDetailPage() {
                 <div className="mx-auto mb-2 h-11 w-11 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center">
                   <CheckCircle2 size={24} />
                 </div>
-                <div className="text-xl font-black tracking-tight text-slate-900">{store?.name || "All Foods"}</div>
+                <div className="text-xl font-black tracking-tight text-slate-900">{store?.name || "Barakali Bozor"}</div>
                 {store?.address && <div className="text-xs text-slate-400 mt-1">📍 {store.address}</div>}
                 {store?.phones?.[0] && <div className="text-xs text-slate-400">📱 {store.phones[0]}</div>}
               </div>

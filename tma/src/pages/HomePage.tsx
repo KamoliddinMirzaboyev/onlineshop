@@ -50,7 +50,7 @@ export default function HomePage() {
 
   return (
     <div className="min-h-full bg-tg-bg pb-16">
-      <PageHeader title="AllFoods" />
+      <PageHeader title="Barakali Bozor" />
 
       <div className="px-3 pb-4 pt-4">
         {needsLocation ? (

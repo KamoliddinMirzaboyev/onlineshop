@@ -150,7 +150,7 @@ class _DashboardPageState extends State<DashboardPage> {
           children: [
             PageHeader(
               title: 'Salom, $username 👋',
-              subtitle: 'All Foods Kuryer',
+              subtitle: 'Barakali Bozor Kuryer',
               loading: _stats.loading || _stats.refreshing || _orders.refreshing,
               onRefresh: () {
                 _stats.refresh();

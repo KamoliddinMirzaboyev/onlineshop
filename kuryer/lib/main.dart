@@ -21,17 +21,17 @@ Future<void> main() async {
   attachCachePrefs(prefs);
   await api.init();
   await notifications.init();
-  runApp(const AllFoodsCourierApp());
+  runApp(const BarakaliCourierApp());
 }
 
-class AllFoodsCourierApp extends StatefulWidget {
-  const AllFoodsCourierApp({super.key});
+class BarakaliCourierApp extends StatefulWidget {
+  const BarakaliCourierApp({super.key});
 
   @override
-  State<AllFoodsCourierApp> createState() => _AllFoodsCourierAppState();
+  State<BarakaliCourierApp> createState() => _BarakaliCourierAppState();
 }
 
-class _AllFoodsCourierAppState extends State<AllFoodsCourierApp> {
+class _BarakaliCourierAppState extends State<BarakaliCourierApp> {
   // Boot splash: shown once on cold start with a minimum on-screen time so the
   // brand animation reads even on a fast connection (mirrors App.tsx).
   bool _booting = true;
@@ -52,7 +52,7 @@ class _AllFoodsCourierAppState extends State<AllFoodsCourierApp> {
         ChangeNotifierProvider(create: (_) => OrderAlerts()),
       ],
       child: MaterialApp(
-        title: 'All Foods Kuryer',
+        title: 'Barakali Bozor Kuryer',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.light,
         home: const AuthGate(),

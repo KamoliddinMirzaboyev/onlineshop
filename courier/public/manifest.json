@@ -1,12 +1,12 @@
 {
-  "name": "All Foods — Kuryer",
-  "short_name": "AF Kuryer",
-  "description": "All Foods kuryer ilovasi — buyurtmalarni qabul qilish va yetkazish",
+  "name": "Barakali Bozor — Kuryer",
+  "short_name": "BB Kuryer",
+  "description": "Barakali Bozor kuryer ilovasi — buyurtmalarni qabul qilish va yetkazish",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#FF5722",
-  "theme_color": "#FF5722",
+  "background_color": "#16A34A",
+  "theme_color": "#16A34A",
   "orientation": "portrait",
   "icons": [
     { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },

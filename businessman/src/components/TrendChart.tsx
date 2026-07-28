@@ -46,14 +46,14 @@ export default function TrendChart({ points, compact = false }: { points: Period
       <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className={compact ? "w-full h-24 sm:h-28" : "w-full h-36 sm:h-44"}>
         <defs>
           <linearGradient id="trendFill" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#FF5722" stopOpacity="0.22" />
-            <stop offset="100%" stopColor="#FF5722" stopOpacity="0" />
+            <stop offset="0%" stopColor="#16A34A" stopOpacity="0.22" />
+            <stop offset="100%" stopColor="#16A34A" stopOpacity="0" />
           </linearGradient>
         </defs>
         <path d={area} fill="url(#trendFill)" stroke="none" />
-        <path d={line} fill="none" stroke="#FF5722" strokeWidth="2.5" vectorEffect="non-scaling-stroke" strokeLinejoin="round" strokeLinecap="round" />
+        <path d={line} fill="none" stroke="#16A34A" strokeWidth="2.5" vectorEffect="non-scaling-stroke" strokeLinejoin="round" strokeLinecap="round" />
         {coords.map(([x, y], i) => (
-          <circle key={points[i].period} cx={x} cy={y} r="3" fill="#FF5722">
+          <circle key={points[i].period} cx={x} cy={y} r="3" fill="#16A34A">
             <title>{`${fmtDate(points[i].period)}: ${money(points[i].revenue)} so'm`}</title>
           </circle>
         ))}

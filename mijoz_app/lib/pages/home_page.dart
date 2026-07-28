@@ -55,7 +55,7 @@ class HomePage extends StatelessWidget {
     return Scaffold(
       backgroundColor: AppColors.slate50,
       appBar: AppBar(
-        title: const Text('Rasta', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('Barakali Bozor', style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.white,
         elevation: 0,
         foregroundColor: Colors.black,

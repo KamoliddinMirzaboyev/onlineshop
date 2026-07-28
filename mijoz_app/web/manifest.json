@@ -1,11 +1,11 @@
 {
-    "name": "mijoz_app",
-    "short_name": "mijoz_app",
+    "name": "Barakali Bozor",
+    "short_name": "Barakali",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#16A34A",
+    "theme_color": "#16A34A",
+    "description": "Barakali Bozor — taom yetkazib berish",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

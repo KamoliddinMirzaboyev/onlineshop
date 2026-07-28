@@ -102,7 +102,7 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
               ),
               const SizedBox(height: 24),
               const Text(
-                'Rasta',
+                'Barakali Bozor',
                 style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
               ),
               const SizedBox(height: 4),

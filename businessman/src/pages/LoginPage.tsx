@@ -33,7 +33,7 @@ export default function LoginPage() {
             <Store size={28} />
           </span>
           <div className="text-center">
-            <h1 className="text-xl font-bold tracking-tight">All Foods — Tadbirkor</h1>
+            <h1 className="text-xl font-bold tracking-tight">Barakali Bozor — Tadbirkor</h1>
             <p className="text-sm text-slate-500">Tadbirkor paneliga kirish</p>
           </div>
         </div>

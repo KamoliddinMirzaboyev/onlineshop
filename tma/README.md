@@ -1,4 +1,4 @@
-# All Foods — TMA (Telegram Mini App)
+# Barakali Bozor — TMA (Telegram Mini App)
 
 React + TS + Tailwind + Vite. Runs inside Telegram as a Mini App.
 

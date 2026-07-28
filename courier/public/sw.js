@@ -1,4 +1,4 @@
-// All Foods Kuryer — Web Push service worker (plain, no build step).
+// Barakali Bozor Kuryer — Web Push service worker (plain, no build step).
 // Registered manually from src/push.ts.
 
 self.addEventListener("install", () => self.skipWaiting());
@@ -13,7 +13,7 @@ self.addEventListener("push", (event) => {
   }
 
   const payload = {
-    title: data.title || "All Foods Kuryer",
+    title: data.title || "Barakali Bozor Kuryer",
     body: data.body || "",
     url: data.url || "/",
     tag: data.tag,

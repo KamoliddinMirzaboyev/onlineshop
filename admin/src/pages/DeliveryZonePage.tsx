@@ -126,12 +126,12 @@ export default function DeliveryZonePage() {
               <Circle
                 center={center}
                 radius={radiusKm * 1000}
-                pathOptions={{ color: "#FF5722", fillColor: "#FF5722", fillOpacity: 0.12 }}
+                pathOptions={{ color: "#16A34A", fillColor: "#16A34A", fillOpacity: 0.12 }}
               />
               <CircleMarker
                 center={center}
                 radius={6}
-                pathOptions={{ color: "#FF5722", fillColor: "#FF5722", fillOpacity: 1 }}
+                pathOptions={{ color: "#16A34A", fillColor: "#16A34A", fillOpacity: 1 }}
               />
             </MapContainer>
           )}

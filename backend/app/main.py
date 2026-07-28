@@ -29,7 +29,7 @@ if settings.environment == "production":
             f".env'da o'zgartiring: {', '.join(leaked)}"
         )
 
-app = FastAPI(title="All Foods API", version="1.0.0")
+app = FastAPI(title="Barakali Bozor API", version="1.0.0")
 
 if settings.environment == "production":
     # Faqat aniq ro'yxatdagi origin'lar (TMA_URL/ADMIN_URL/COURIER_URL + .env).

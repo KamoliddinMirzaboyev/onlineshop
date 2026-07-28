@@ -127,7 +127,7 @@ export default function ProfilePage() {
           <LogOut size={16} /> Chiqish
         </button>
 
-        <p className="text-center text-xs text-slate-300">All Foods Kuryer · v1.1.0</p>
+        <p className="text-center text-xs text-slate-300">Barakali Bozor Kuryer · v1.1.0</p>
       </div>
     </>
   );

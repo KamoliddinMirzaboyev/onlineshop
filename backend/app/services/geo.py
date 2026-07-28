@@ -71,7 +71,7 @@ def reverse_geocode(lat: float, lng: float) -> str | None:
                 "accept-language": "uz,ru",
                 "zoom": 18,
             },
-            headers={"User-Agent": "AllFoods/1.0 (delivery)"},
+            headers={"User-Agent": "BarakaliBozor/1.0 (delivery)"},
             timeout=5,
         )
         if r.status_code == 200:

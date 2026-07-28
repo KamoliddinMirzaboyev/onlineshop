@@ -1,4 +1,4 @@
-# All Foods — Admin Panel
+# Barakali Bozor — Admin Panel
 
 React + TS + Tailwind + Vite. Manages restaurants, menus, orders, couriers, zones, users.
 

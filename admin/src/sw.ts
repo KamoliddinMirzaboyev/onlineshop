@@ -53,7 +53,7 @@ self.addEventListener("push", (event: PushEvent) => {
     data = { body: event.data ? event.data.text() : "" };
   }
   event.waitUntil(
-    self.registration.showNotification(data.title || "All Foods", {
+    self.registration.showNotification(data.title || "Barakali Bozor", {
       body: data.body || "",
       icon: "/pwa-192.png",
       badge: "/pwa-192.png",

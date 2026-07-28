@@ -1,5 +1,5 @@
 name: mijoz_app
-description: "Rasta — taomlarni yetkazib berish ilovasi."
+description: "Barakali Bozor — taomlarni yetkazib berish ilovasi."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -56,7 +56,7 @@ dev_dependencies:
 flutter_launcher_icons:
   image_path: "assets/icon/icon.png"
   android: true
-  adaptive_icon_background: "#FF5722"
+  adaptive_icon_background: "#16A34A"
   adaptive_icon_foreground: "assets/icon/icon_foreground.png"
   ios: true
   remove_alpha_ios: true

@@ -65,7 +65,7 @@ class _MijozAppState extends State<MijozApp> {
         ChangeNotifierProvider(create: (_) => CartProvider()),
       ],
       child: MaterialApp(
-        title: 'Rasta',
+        title: 'Barakali Bozor',
         navigatorKey: _navKey,
         theme: AppTheme.light,
         debugShowCheckedModeBanner: false,

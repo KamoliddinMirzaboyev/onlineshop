@@ -79,7 +79,7 @@ export default function DashboardPage() {
     <>
       <PageHeader
         title={`Salom, ${username ?? "kuryer"} 👋`}
-        subtitle="All Foods Kuryer"
+        subtitle="Barakali Bozor Kuryer"
         loading={loading || refreshing || ordersRefreshing}
         onRefresh={() => {
           refresh();

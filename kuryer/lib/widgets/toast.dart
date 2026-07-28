@@ -64,7 +64,7 @@ class ToastHost extends StatelessWidget {
     ToastType.success: (Color(0xFFECFDF5), AppColors.emerald600),
     ToastType.error: (Color(0xFFFFF1F2), AppColors.rose500),
     ToastType.info: (Color(0xFFEFF6FF), AppColors.blue600),
-    ToastType.push: (Color(0x1AFF5722), AppColors.brand),
+    ToastType.push: (Color(0x1A16A34A), AppColors.brand),
   };
 
   @override

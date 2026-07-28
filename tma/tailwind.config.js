@@ -5,9 +5,9 @@ export default {
     extend: {
       colors: {
         brand: {
-          DEFAULT: "#FF5722",
-          dark: "#E64A19",
-          light: "#FFCCBC",
+          DEFAULT: "#16A34A",
+          dark: "#15803D",
+          light: "#BBF7D0",
         },
         tg: {
           bg: "var(--tg-bg, #ffffff)",
