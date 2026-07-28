@@ -16,9 +16,11 @@ which supplies `initData` for HMAC verification.
 
 ## Connecting to Telegram
 
-1. Deploy this app to an HTTPS URL.
-2. Set `TMA_URL` in `backend/.env` to that URL.
-3. BotFather → set the Mini App / menu button URL to it.
+Prod URL: **https://barakali-bozor.uz**
+
+1. Deploy TMA to that domain (Vercel / DNS).
+2. `TMA_URL=https://barakali-bozor.uz` in `backend/.env` (bot keyboard + CORS).
+3. BotFather → Mini App / Menu Button URL = `https://barakali-bozor.uz`.
 
 ## Structure
 

@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     # Telegram
     bot_token: str = "changeme"
     bot_username: str = "allfoodsuzbot"
-    tma_url: str = "https://onlineshop-o1fa.vercel.app"
+    tma_url: str = "https://barakali-bozor.uz"
     # Qo'shimcha prod origin'lar (CORS). Bo'sh bo'lsa faqat tma_url ishlatiladi.
     admin_url: str = ""
     courier_url: str = ""
@@ -76,6 +76,10 @@ class Settings(BaseSettings):
             "http://localhost:5175", "http://127.0.0.1:5175",  # courier (eski port)
         ]
         origins = [self.tma_url, self.admin_url, self.courier_url, *localhost_dev]
+        # Apex TMA domeni uchun www. varianti ham (DNS redirect bo'lmasa ham CORS ishlasin).
+        if self.tma_url.startswith("https://") and not self.tma_url.startswith("https://www."):
+            host = self.tma_url.removeprefix("https://").split("/")[0]
+            origins.append(f"https://www.{host}")
         return [o for o in origins if o]
 
 
