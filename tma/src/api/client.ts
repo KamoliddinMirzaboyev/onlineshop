@@ -1,4 +1,4 @@
-import { requestTelegramLocation } from "../telegram";
+import { isTelegramDesktopLike, requestTelegramLocation } from "../telegram";
 import type { Address, Order, Restaurant, RestaurantDetail, User } from "./types";
 
 const BASE = import.meta.env.VITE_API_URL ?? "https://allfoodapi.webportfolio.uz/api";
@@ -36,24 +36,36 @@ export function getLastLocationIssue(): LocationIssue | null {
   return lastLocationIssue;
 }
 
-function browserCoords(): Promise<{ lat: number; lng: number } | null> {
+function browserCoords(timeoutMs = 2500): Promise<{ lat: number; lng: number } | null> {
   if (!navigator.geolocation) {
     lastLocationIssue = "other";
     return Promise.resolve(null);
   }
   return new Promise((resolve) => {
+    let done = false;
+    const finish = (v: { lat: number; lng: number } | null) => {
+      if (done) return;
+      done = true;
+      resolve(v);
+    };
+    // Ba'zi desktop brauzerlar callback bermaydi — hard timeout.
+    const timer = window.setTimeout(() => {
+      lastLocationIssue = "other";
+      finish(null);
+    }, timeoutMs);
+
     navigator.geolocation.getCurrentPosition(
       (pos) => {
+        window.clearTimeout(timer);
         lastLocationIssue = null;
-        resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        finish({ lat: pos.coords.latitude, lng: pos.coords.longitude });
       },
       (err) => {
-        // 1 = PERMISSION_DENIED
+        window.clearTimeout(timer);
         lastLocationIssue = err.code === 1 ? "denied" : "other";
-        resolve(null);
+        finish(null);
       },
-      // Noutbukda Wi‑Fi joylashuv sekinroq bo'lishi mumkin — timeout biroz uzoqroq.
-      { enableHighAccuracy: false, timeout: 10_000, maximumAge: 120_000 },
+      { enableHighAccuracy: false, timeout: timeoutMs, maximumAge: 300_000 },
     );
   });
 }
@@ -64,7 +76,19 @@ export function getCoords(): Promise<{ lat: number; lng: number } | null> {
   if (coordsCache !== undefined) return Promise.resolve(coordsCache);
   if (coordsPromise) return coordsPromise;
   coordsPromise = (async () => {
-    // 1) Telegram LocationManager (asosan mobil).
+    // Desktop/noutbuk: Telegram GPS ishonchsiz va sekin — darhol brauzer,
+    // u ham bo'lmasa tez null (default do'kon ochiladi).
+    if (isTelegramDesktopLike()) {
+      const browser = await browserCoords(2000);
+      if (browser) {
+        coordsCache = browser;
+        return coordsCache;
+      }
+      coordsCache = null;
+      return null;
+    }
+
+    // Mobil: avval Telegram LocationManager.
     const tgResult = await requestTelegramLocation();
     if (tgResult.status === "ok") {
       lastLocationIssue = null;
@@ -72,10 +96,8 @@ export function getCoords(): Promise<{ lat: number; lng: number } | null> {
       return coordsCache;
     }
 
-    // 2) HAR DOIM brauzer geolocation (noutbuk/desktop uchun asosiy yo'l).
-    // Eski kod device_off/denied da shu yerni o'tkazib yuborardi — Desktop
-    // LocationManager "device_off" qaytarib, ilova butunlay to'xtab qolardi.
-    const browser = await browserCoords();
+    // Mobil brauzer fallback (qisqa timeout).
+    const browser = await browserCoords(2500);
     if (browser) {
       coordsCache = browser;
       return coordsCache;
@@ -135,9 +157,11 @@ export const api = {
     req<Restaurant[]>(`/restaurants${q ? `?q=${encodeURIComponent(q)}` : ""}`),
   restaurant: (id: number) => req<RestaurantDetail>(`/restaurants/${id}`),
 
-  // faol do'kon — joylashuv bo'lsa eng yaqin; bo'lmasa default do'kon
-  // (noutbuk/desktop da GPS yo'q yoki ruxsat berilmasa ham katalog ochilsin).
+  // faol do'kon — joylashuv bo'lsa eng yaqin; bo'lmasa yoki zona tashqarida
+  // bo'lsa default do'kon. Joylashuv hech qachon ilovani to'liq bloklamaydi.
   store: async (): Promise<RestaurantDetail | null> => {
+    const loadDefault = () => req<RestaurantDetail>("/restaurants/default");
+
     const coords = await getCoords();
     if (coords) {
       try {
@@ -145,14 +169,22 @@ export const api = {
           `/restaurants/nearest?lat=${coords.lat}&lng=${coords.lng}`,
         );
       } catch (e) {
-        if (e instanceof Error && e.message.includes("OUT_OF_RANGE")) throw new OutOfRangeError();
-        throw e;
+        // Hudud tashqarida yoki boshqa xato — default do'konni ochamiz.
+        try {
+          return await loadDefault();
+        } catch {
+          if (e instanceof Error && e.message.includes("OUT_OF_RANGE")) {
+            throw new OutOfRangeError();
+          }
+          throw e;
+        }
       }
     }
+
     try {
-      return await req<RestaurantDetail>("/restaurants/default");
+      return await loadDefault();
     } catch {
-      // Default do'kon ham yo'q — UI joylashuv so'raydi.
+      // Faqat default ham yo'q bo'lsa — joylashuv so'rash (edge-case).
       throw new LocationDeniedError();
     }
   },

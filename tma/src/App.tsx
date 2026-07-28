@@ -43,9 +43,10 @@ export default function App() {
 
   useEffect(() => {
     login();
-    // TMA ochilishi bilan darhol joylashuv + katalog — Home skeleton qisqaroq.
-    // Natija keshlanadi, sahifalar qayta so'ramaydi.
-    void getCoords().then(() => prefetchStore());
+    // Katalogni darhol yuklash (default do'kon joylashuvsiz ham ishlaydi).
+    // getCoords alohida — bloklamaydi.
+    void prefetchStore();
+    void getCoords();
   }, [login]);
 
   return (
