@@ -38,7 +38,7 @@ export default function BottomNav() {
   );
 
   return (
-    <nav className="fixed bottom-0 inset-x-0 z-30 flex border-t border-slate-200/80 bg-tg-bg/95 backdrop-blur-md pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_20px_rgba(15,23,42,0.06)]">
+    <nav className="fixed bottom-0 inset-x-0 z-30 flex border-t border-black/10 bg-tg-bg pb-[env(safe-area-inset-bottom)]">
       {item("/", t.home, House)}
       {item("/search", t.search_tab, Search)}
       {item("/orders", t.orders, History)}
