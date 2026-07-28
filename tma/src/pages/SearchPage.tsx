@@ -48,14 +48,14 @@ export default function SearchPage() {
         </div>
       </div>
 
-      <div className="px-2.5 pb-28 pt-1">
+      <div className="px-3 pb-28 pt-2">
         {results.length === 0 ? (
           <p className="text-center text-tg-hint py-16">
             {q ? "🔍 " : ""}
             {t.empty_category}
           </p>
         ) : (
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-3 gap-2.5">
             {results.map((p) => (
               <ProductCard key={p.id} product={p} />
             ))}

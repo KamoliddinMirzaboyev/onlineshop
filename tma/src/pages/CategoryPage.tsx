@@ -29,17 +29,16 @@ export default function CategoryPage() {
 
   return (
     <div className="min-h-full bg-tg-bg">
-      <div className="px-2.5 pt-2 pb-28">
+      <div className="px-3 pt-3 pb-28">
         {sections.length === 0 ? (
           <p className="text-center text-tg-hint py-16">{t.empty_category}</p>
         ) : (
           sections.map((sc) => (
             <div key={sc.id} className="mb-5 last:mb-0">
-              {/* Subkategoriya nomi faqat bir nechta bo'lsa — bitta bo'lsa yashirin */}
               {sections.length > 1 && (
-                <h2 className="font-semibold text-sm mb-2 px-0.5">{loc(sc, "name", lang)}</h2>
+                <h2 className="font-semibold text-sm mb-2.5 px-0.5">{loc(sc, "name", lang)}</h2>
               )}
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-3 gap-2.5">
                 {sc.products.map((p) => (
                   <ProductCard key={p.id} product={p} />
                 ))}
