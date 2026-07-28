@@ -75,7 +75,7 @@ export default function OrderDetailPage() {
       <button onClick={() => nav("/orders")} className="text-brand mb-3">← {t.orders}</button>
 
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold">№ {order.number}</h1>
+        <h1 className="text-lg font-semibold">№ {order.number}</h1>
         <StatusBadge status={order.status} />
       </div>
 
@@ -86,7 +86,7 @@ export default function OrderDetailPage() {
               <CheckCircle2 size={25} />
             </span>
             <div className="min-w-0">
-              <div className="text-lg font-black text-emerald-800">
+              <div className="text-lg font-semibold text-emerald-800">
                 {lang === "uz" ? "Buyurtma yuborildi" : "Заказ отправлен"}
               </div>
               <p className="text-sm text-emerald-700 mt-0.5 leading-snug">
@@ -130,14 +130,14 @@ export default function OrderDetailPage() {
                   />
                 )}
                 <div
-                  className={`relative z-10 w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition ${
+                  className={`relative z-10 w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition ${
                     done || active ? "bg-brand text-white" : "bg-tg-card text-tg-hint"
                   } ${active ? "ring-4 ring-brand/20" : ""}`}
                 >
                   {done ? <Check size={16} /> : i + 1}
                 </div>
                 <span
-                  className={`text-[11px] mt-1.5 text-center leading-tight ${
+                  className={`text-xs mt-1.5 text-center leading-tight ${
                     i <= curStage ? "text-tg-text font-medium" : "text-tg-hint"
                   }`}
                 >
@@ -164,7 +164,7 @@ export default function OrderDetailPage() {
                 {qtyUnit(it.quantity, it.unit, lang)} × {money(it.price)} {t.sum}
               </div>
               {it.note && (
-                <div className="text-[11px] text-brand-dark bg-brand-light/50 rounded-lg px-2 py-1 mt-1 flex items-center gap-1">
+                <div className="text-xs text-brand-dark bg-brand-light/50 rounded-lg px-2 py-1 mt-1 flex items-center gap-1">
                   💬 {it.note}
                 </div>
               )}
@@ -177,7 +177,7 @@ export default function OrderDetailPage() {
           <span>{t.delivery}</span>
           <span>{order.delivery_fee === 0 ? t.free : `${money(order.delivery_fee)} ${t.sum}`}</span>
         </div>
-        <div className="flex justify-between font-bold">
+        <div className="flex justify-between font-semibold">
           <span>{t.total}</span>
           <span>{money(order.total)} {t.sum}</span>
         </div>
@@ -189,7 +189,7 @@ export default function OrderDetailPage() {
           {order.distance_km != null && (
             <div className="flex-1 card px-3 py-2.5 text-center">
               <div className="text-xs text-tg-hint">{lang === "uz" ? "Masofa" : "Расстояние"}</div>
-              <div className="font-bold text-sm mt-0.5">
+              <div className="font-medium text-sm mt-0.5">
                 {order.distance_km < 1
                   ? `${Math.round(order.distance_km * 1000)} m`
                   : `${order.distance_km.toFixed(1)} km`}
@@ -199,7 +199,7 @@ export default function OrderDetailPage() {
           {order.eta_minutes != null && (
             <div className="flex-1 card px-3 py-2.5 text-center">
               <div className="text-xs text-tg-hint">{lang === "uz" ? "Taxminiy vaqt" : "Время"}</div>
-              <div className="font-bold text-sm mt-0.5 text-brand">~{order.eta_minutes} {t.min}</div>
+              <div className="font-medium text-sm mt-0.5 text-brand">~{order.eta_minutes} {t.min}</div>
             </div>
           )}
         </div>
@@ -305,7 +305,7 @@ export default function OrderDetailPage() {
                 <div className="mx-auto mb-2 h-11 w-11 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center">
                   <CheckCircle2 size={24} />
                 </div>
-                <div className="text-xl font-black tracking-tight text-slate-900">{store?.name || "Barakali Bozor"}</div>
+                <div className="text-xl font-semibold tracking-tight text-slate-900">{store?.name || "Barakali Bozor"}</div>
                 {store?.address && <div className="text-xs text-slate-400 mt-1">📍 {store.address}</div>}
                 {store?.phones?.[0] && <div className="text-xs text-slate-400">📱 {store.phones[0]}</div>}
               </div>
@@ -340,7 +340,7 @@ export default function OrderDetailPage() {
                       <div className="text-xs text-slate-400 tabular-nums">
                         {qtyUnit(it.quantity, it.unit, lang)} × {money(it.price)} {t.sum}
                       </div>
-                      {it.note && <div className="text-[10px] text-brand-dark/80 mt-0.5">💬 {it.note}</div>}
+                      {it.note && <div className="text-xs text-brand-dark/80 mt-0.5">💬 {it.note}</div>}
                     </div>
                     <div className="font-semibold text-right text-slate-900 tabular-nums shrink-0">
                       {money(it.price * it.quantity)} {t.sum}
@@ -366,8 +366,8 @@ export default function OrderDetailPage() {
               </div>
 
               <div className="border-t-2 border-slate-900 mt-3 pt-3 flex justify-between items-baseline">
-                <span className="font-black text-base">{t.total}</span>
-                <span className="font-black text-xl tabular-nums">{money(order.total)} {t.sum}</span>
+                <span className="font-semibold text-base">{t.total}</span>
+                <span className="font-semibold text-xl tabular-nums">{money(order.total)} {t.sum}</span>
               </div>
 
               {/* Yetkazish manzili */}

@@ -96,7 +96,7 @@ export default function SearchPage() {
                         >
                           <Minus size={20} />
                         </button>
-                        <span className="min-w-[3rem] text-center text-[15px] font-extrabold text-slate-900">
+                        <span className="min-w-[3rem] text-center text-sm font-medium text-slate-900">
                           {qtyOf(p)} {p.unit ? unitLabel(p.unit, lang) : ""}
                         </span>
                         <button
@@ -111,7 +111,7 @@ export default function SearchPage() {
                   </div>
                 </div>
                 <div className="px-3 pt-6 pb-3">
-                  <span className="font-bold text-sm">
+                  <span className="font-medium text-sm">
                     {money(p.price)} {t.sum}
                   </span>
                   <h3 className="text-sm leading-tight line-clamp-1 mt-0.5">

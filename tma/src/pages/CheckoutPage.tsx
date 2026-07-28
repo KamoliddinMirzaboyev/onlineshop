@@ -165,31 +165,31 @@ export default function CheckoutPage() {
 
       <div className="p-4 space-y-5 bg-white">
         <div className="space-y-2">
-          <label className="text-[13px] text-slate-400 font-medium px-1">{t.phone}</label>
+          <label className="text-sm text-slate-400 font-medium px-1">{t.phone}</label>
           <input
             value={phone}
             onChange={(e) => setPhone(formatUzPhone(e.target.value))}
             inputMode="tel"
             placeholder="+998 88 888 88 88"
-            className="w-full rounded-[16px] bg-[#F4F5F7] text-[16px] text-slate-900 font-medium px-4 py-4 outline-none"
+            className="w-full rounded-[16px] bg-[#F4F5F7] text-base text-slate-900 font-normal px-4 py-4 outline-none"
           />
         </div>
 
         <div className="space-y-2">
-          <label className="text-[13px] text-slate-400 font-medium px-1">{t.comment}</label>
+          <label className="text-sm text-slate-400 font-medium px-1">{t.comment}</label>
           <input
             value={comment}
             onChange={(e) => setComment(e.target.value)}
-            className="w-full rounded-[16px] bg-[#F4F5F7] text-[16px] text-slate-900 font-medium px-4 py-4 outline-none"
+            className="w-full rounded-[16px] bg-[#F4F5F7] text-base text-slate-900 font-normal px-4 py-4 outline-none"
           />
         </div>
 
         <div className="mt-6 space-y-2 px-1">
-          <div className="flex justify-between text-[15px] text-slate-600">
+          <div className="flex justify-between text-sm text-slate-600">
             <span>{lang === "uz" ? "Mahsulotlar" : "Товары"}</span>
             <span>{money(itemsTotal)} {t.sum}</span>
           </div>
-          <div className="flex justify-between text-[15px] text-slate-600">
+          <div className="flex justify-between text-sm text-slate-600">
             <span>{lang === "uz" ? "Yetkazish" : "Доставка"}</span>
             <span>
               {deliveryFee === 0
@@ -198,13 +198,13 @@ export default function CheckoutPage() {
             </span>
           </div>
           {itemsTotal < freeFrom && (
-            <p className="text-[12px] text-slate-400">
+            <p className="text-xs text-slate-400">
               {lang === "uz"
                 ? `${money(freeFrom)} so‘mdan bepul yetkazish · ${money(perKm)} so‘m/km`
                 : `Бесплатная доставка от ${money(freeFrom)} сум · ${money(perKm)} сум/км`}
             </p>
           )}
-          <div className="flex justify-between items-center font-extrabold text-[20px] text-slate-900 pt-2">
+          <div className="flex justify-between items-center font-semibold text-lg text-slate-900 pt-2">
             <span>{lang === "uz" ? "Jami" : "Итого"}</span>
             <span>{money(grandTotal)} {t.sum}</span>
           </div>
@@ -212,7 +212,7 @@ export default function CheckoutPage() {
 
         {error && <p className="text-rose-500 text-sm font-medium px-1 mb-2">{error}</p>}
 
-        <button onClick={submit} disabled={submitting} className="w-full bg-brand text-white font-bold text-[17px] py-4 rounded-[16px] active:scale-[0.98] transition disabled:opacity-60 shadow-lg shadow-brand/30">
+        <button onClick={submit} disabled={submitting} className="w-full bg-brand text-white font-medium text-base py-4 rounded-[16px] active:scale-[0.98] transition disabled:opacity-60 shadow-lg shadow-brand/30">
           {submitting ? "…" : (lang === "uz" ? "Buyurtma berish" : "Заказать")}
         </button>
       </div>

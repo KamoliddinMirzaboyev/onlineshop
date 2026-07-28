@@ -89,11 +89,11 @@ export default function ProfilePage() {
       <PageHeader title={t.profile} />
 
       <div className="px-4 pt-6 pb-4 flex items-center gap-4">
-        <div className="h-16 w-16 shrink-0 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-lg">
+        <div className="h-16 w-16 shrink-0 rounded-full bg-slate-900 text-white flex items-center justify-center font-semibold text-base">
           {initials(user?.first_name)}
         </div>
         <div className="min-w-0">
-          <p className="font-bold text-lg leading-tight truncate">{user?.first_name ?? "—"}</p>
+          <p className="font-semibold text-base leading-tight truncate">{user?.first_name ?? "—"}</p>
           <p className="text-tg-hint text-sm mt-0.5">{user?.phone ?? ""}</p>
         </div>
       </div>
@@ -155,13 +155,13 @@ export default function ProfilePage() {
           <div className="flex items-center gap-1 rounded-full bg-tg-card p-1">
             <button
               onClick={() => setTheme("light")}
-              className={`px-3 py-1 rounded-full text-xs font-semibold transition ${theme === "light" ? "bg-brand text-white" : "text-tg-hint"}`}
+              className={`px-3 py-1 rounded-full text-xs font-medium transition ${theme === "light" ? "bg-brand text-white" : "text-tg-hint"}`}
             >
               {lang === "uz" ? "Yorug'" : "Свет."}
             </button>
             <button
               onClick={() => setTheme("dark")}
-              className={`px-3 py-1 rounded-full text-xs font-semibold transition ${theme === "dark" ? "bg-brand text-white" : "text-tg-hint"}`}
+              className={`px-3 py-1 rounded-full text-xs font-medium transition ${theme === "dark" ? "bg-brand text-white" : "text-tg-hint"}`}
             >
               {lang === "uz" ? "Tungi" : "Тёмн."}
             </button>
@@ -225,7 +225,7 @@ export default function ProfilePage() {
         <div className="fixed inset-0 z-50 bg-black/40 flex items-end" onClick={() => setShowOffer(false)}>
           <div className="w-full bg-tg-bg rounded-t-3xl p-5 max-h-[70vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-3">
-              <h2 className="font-bold text-lg">{lang === "uz" ? "Ommaviy oferta" : "Публичная оферта"}</h2>
+              <h2 className="font-semibold text-base">{lang === "uz" ? "Ommaviy oferta" : "Публичная оферта"}</h2>
               <button onClick={() => setShowOffer(false)} className="h-8 w-8 rounded-full bg-tg-card flex items-center justify-center">
                 <X size={16} />
               </button>

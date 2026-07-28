@@ -54,7 +54,7 @@ export default function OrdersPage() {
 
   return (
     <div className="p-4">
-      <h1 className="text-2xl font-bold mb-4">{t.orders}</h1>
+      <h1 className="text-lg font-semibold mb-4">{t.orders}</h1>
       <div className="space-y-3">
         {orders.map((o) => (
             <button
@@ -63,7 +63,7 @@ export default function OrdersPage() {
               className="card p-4 w-full text-left"
             >
               <div className="flex items-center justify-between">
-                <span className="font-semibold">№ {o.number}</span>
+                <span className="font-medium">№ {o.number}</span>
                 <StatusBadge status={o.status} />
               </div>
 
@@ -89,7 +89,7 @@ export default function OrdersPage() {
                 <span className="text-sm text-tg-hint">
                   {o.items.length} {t.products_n}
                 </span>
-                <span className="font-bold">
+                <span className="font-semibold">
                   {money(o.total)} {t.sum}
                 </span>
               </div>

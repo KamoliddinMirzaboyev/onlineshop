@@ -26,8 +26,8 @@ export default function BottomNav() {
           <span
             className={
               isActive
-                ? "truncate text-[11px] font-semibold leading-tight text-brand"
-                : "truncate text-[11px] font-medium leading-tight text-slate-400"
+                ? "truncate text-xs font-medium leading-tight text-brand"
+                : "truncate text-xs font-normal leading-tight text-slate-400"
             }
           >
             {label}

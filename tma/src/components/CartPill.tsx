@@ -26,11 +26,11 @@ export default function CartPill() {
         >
           <span className="relative shrink-0">
             <ShoppingBasket size={20} />
-            <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-white text-[10px] font-bold text-brand">
+            <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-white text-[10px] font-medium text-brand">
               {count}
             </span>
           </span>
-          <span className="font-bold text-sm whitespace-nowrap">
+          <span className="font-medium text-sm whitespace-nowrap">
             {money(cart.total())} {t.sum}
           </span>
         </motion.button>

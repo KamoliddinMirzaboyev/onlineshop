@@ -68,7 +68,7 @@ export default function CategoryPage() {
           <ChevronLeft size={22} />
         </button>
 
-        <h1 className="absolute bottom-4 left-4 right-4 text-white text-2xl font-bold drop-shadow-md">
+        <h1 className="absolute bottom-4 left-4 right-4 text-white text-lg font-semibold drop-shadow-md">
           {cat ? loc(cat, "name", lang) : t.categories}
         </h1>
       </div>
@@ -82,7 +82,7 @@ export default function CategoryPage() {
           }
           return sections.map((sc) => (
             <div key={sc.id} className="mb-6 last:mb-0">
-              <h2 className="font-bold text-lg mb-3">{loc(sc, "name", lang)}</h2>
+              <h2 className="font-semibold text-base mb-3">{loc(sc, "name", lang)}</h2>
               <div className="grid grid-cols-2 gap-3">
                 {sc.products.map((p) => (
                   <div key={p.id} className="card border border-black/5">
@@ -110,7 +110,7 @@ export default function CategoryPage() {
                             >
                               <Minus size={20} />
                             </button>
-                            <span className="min-w-[3rem] text-center text-[15px] font-extrabold text-slate-900">
+                            <span className="min-w-[3rem] text-center text-sm font-medium text-slate-900">
                               {qtyOf(p)} {p.unit ? unitLabel(p.unit, lang) : ""}
                             </span>
                             <button
@@ -125,7 +125,7 @@ export default function CategoryPage() {
                       </div>
                     </div>
                     <div className="px-3 pt-6 pb-3">
-                      <span className="font-bold text-sm">
+                      <span className="font-medium text-sm">
                         {money(p.price)} {t.sum}
                       </span>
                       <h3 className="text-sm leading-tight line-clamp-1 mt-0.5">

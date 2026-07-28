@@ -30,7 +30,7 @@ export default function LocationNeeded({ issue, onRetry }: Props) {
         <p className="text-tg-hint">{t.location_off}</p>
         <button
           onClick={onRetry}
-          className="bg-brand text-white font-semibold px-6 py-3 rounded-2xl active:scale-95 transition"
+          className="bg-brand text-white font-medium px-6 py-3 rounded-2xl active:scale-95 transition"
         >
           {t.check_again}
         </button>
@@ -45,7 +45,7 @@ export default function LocationNeeded({ issue, onRetry }: Props) {
         <p className="text-tg-hint">{t.location_denied}</p>
         <button
           onClick={openTelegramLocationSettings}
-          className="bg-brand text-white font-semibold px-6 py-3 rounded-2xl active:scale-95 transition"
+          className="bg-brand text-white font-medium px-6 py-3 rounded-2xl active:scale-95 transition"
         >
           {t.enable_location}
         </button>
@@ -59,7 +59,7 @@ export default function LocationNeeded({ issue, onRetry }: Props) {
       <p className="text-tg-hint">{t.location_needed}</p>
       <button
         onClick={onRetry}
-        className="bg-brand text-white font-semibold px-6 py-3 rounded-2xl active:scale-95 transition"
+        className="bg-brand text-white font-medium px-6 py-3 rounded-2xl active:scale-95 transition"
       >
         {t.grant_location}
       </button>

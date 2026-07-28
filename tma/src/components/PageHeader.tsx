@@ -25,7 +25,7 @@ export default function PageHeader({ title, subtitle, back }: Props) {
           <ChevronLeft size={20} />
         </button>
       )}
-      <h1 className="flex-1 text-center text-xl font-extrabold tracking-tight">
+      <h1 className="flex-1 text-center text-lg font-semibold tracking-tight">
         {title}
         {subtitle && <span className="ml-2 text-sm font-normal opacity-85">{subtitle}</span>}
       </h1>

@@ -67,7 +67,7 @@ export default function HomePage() {
         ) : (
           sections.map((section, si) => (
             <div key={section.key} className="mb-6 last:mb-0">
-              {section.title && <h2 className="text-xl font-extrabold px-1 mb-4 text-slate-800">{section.title}</h2>}
+              {section.title && <h2 className="text-base font-semibold px-1 mb-3 text-slate-800">{section.title}</h2>}
               <div className="grid grid-cols-5 gap-3">
                 {section.cats.map((c, ci) => {
                   const isLastAndAlone = ci === section.cats.length - 1 && ci % 2 === 0;
@@ -92,7 +92,7 @@ export default function HomePage() {
                       onClick={() => open(c)}
                       className={`relative h-[160px] rounded-[24px] overflow-hidden text-left p-4 flex flex-col active:scale-[0.97] transition-transform ${spanClass} ${PALETTES[si % PALETTES.length]}`}
                     >
-                      <h3 className={`font-bold text-slate-900 leading-tight z-10 ${isLastAndAlone ? "text-[20px] w-1/2" : "text-[16px] pr-2"}`}>
+                      <h3 className={`font-medium text-slate-900 leading-tight z-10 ${isLastAndAlone ? "text-base w-1/2" : "text-sm pr-2"}`}>
                         {loc(c, "name", lang)}
                       </h3>
                       {c.image_url ? (

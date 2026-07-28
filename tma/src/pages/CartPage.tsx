@@ -56,7 +56,7 @@ export default function CartPage() {
                 1{product.unit ? unitLabel(product.unit, lang) : ""}
               </p>
               <div className="flex items-center justify-between gap-2 mt-1.5">
-                <span className="font-extrabold text-[17px] text-slate-900">{money(product.price * quantity)}</span>
+                <span className="font-semibold text-base text-slate-900">{money(product.price * quantity)}</span>
                 <div className="flex items-center gap-1 rounded-full bg-slate-100 px-1 py-1">
                   <button
                     onClick={() => cart.setQty(product.id, quantity - 1)}
@@ -64,7 +64,7 @@ export default function CartPage() {
                   >
                     <Minus size={16} />
                   </button>
-                  <span className="min-w-[2.5rem] text-center text-[15px] font-medium text-slate-900">
+                  <span className="min-w-[2.5rem] text-center text-sm font-medium text-slate-900">
                     {quantity} {product.unit ? unitLabel(product.unit, lang) : ""}
                   </span>
                   <button
@@ -87,19 +87,19 @@ export default function CartPage() {
               cart.clear();
               haptic("light");
             }}
-            className="text-[13px] font-bold text-rose-500 bg-rose-50 px-4 py-1.5 rounded-full active:scale-95 transition"
+            className="text-sm font-medium text-rose-500 bg-rose-50 px-4 py-1.5 rounded-full active:scale-95 transition"
           >
             {t.clear_cart}
           </button>
         </div>
         <div className="px-4 pb-4 pt-1 flex items-center justify-between gap-4">
           <div className="flex flex-col">
-            <p className="text-[14px] text-slate-500 font-medium leading-none mb-1.5">{t.products_n}</p>
-            <p className="font-extrabold text-[24px] leading-none text-slate-900">{money(cart.total())}</p>
+            <p className="text-sm text-slate-500 font-medium leading-none mb-1.5">{t.products_n}</p>
+            <p className="font-semibold text-xl leading-none text-slate-900">{money(cart.total())}</p>
           </div>
           <button
             onClick={() => nav("/checkout")}
-            className="flex items-center gap-2 bg-brand text-white font-semibold rounded-[20px] px-6 py-4 active:scale-95 transition shadow-md shadow-brand/30"
+            className="flex items-center gap-2 bg-brand text-white text-sm font-medium rounded-[20px] px-6 py-4 active:scale-95 transition shadow-md shadow-brand/30"
           >
             {t.place_order}
             <span aria-hidden className="text-lg leading-none">→</span>

@@ -24,7 +24,7 @@ export default class ErrorBoundary extends Component<Props, State> {
       return (
         <div className="h-full p-10 flex flex-col items-center justify-center text-center text-tg-hint">
           <div className="text-4xl mb-3">⚠️</div>
-          <p className="font-semibold text-tg-text">Xatolik / Ошибка</p>
+          <p className="font-medium text-tg-text">Xatolik / Ошибка</p>
           <button
             onClick={() => window.location.reload()}
             className="btn-brand mt-4 px-6"
