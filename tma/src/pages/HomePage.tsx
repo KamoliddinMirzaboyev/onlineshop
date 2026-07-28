@@ -97,7 +97,7 @@ export default function HomePage() {
                       style={{ backgroundColor: bg }}
                       className={`relative h-[160px] rounded-[24px] overflow-hidden text-left p-4 flex flex-col active:scale-[0.97] transition-transform ${spanClass}`}
                     >
-                      <h3 className={`font-medium text-slate-900 leading-tight z-10 ${isLastAndAlone ? "text-base w-1/2" : "text-sm pr-2"}`}>
+                      <h3 className={`font-semibold text-slate-900 leading-snug z-10 ${isLastAndAlone ? "text-xl w-1/2" : "text-base pr-2"}`}>
                         {loc(c, "name", lang)}
                       </h3>
                       {c.image_url ? (
