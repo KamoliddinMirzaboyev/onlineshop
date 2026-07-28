@@ -1,3 +1,4 @@
+# Heavy / non-web — do not upload to Vercel
 **/node_modules
 **/.git
 **/venv
@@ -10,14 +11,16 @@
 **/windows
 **/linux
 backend
-admin
-businessman
-courier
 kuryer
 mijoz_app
-superadmin
 docs
 backups
 .claude
 ~/
 *.kts
+*.apk
+*.sql
+*.dump
+postgres-data
+uploads
+.worktrees
