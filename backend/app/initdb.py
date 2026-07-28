@@ -29,6 +29,11 @@ _CATEGORY_COLUMNS = (
     "ALTER TABLE categories ADD COLUMN IF NOT EXISTS parent_id INTEGER REFERENCES categories(id) ON DELETE CASCADE",
     "ALTER TABLE categories ADD COLUMN IF NOT EXISTS group_id INTEGER REFERENCES category_groups(id) ON DELETE SET NULL",
     "ALTER TABLE categories ADD COLUMN IF NOT EXISTS bg_color VARCHAR(16)",
+    "ALTER TABLE categories ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE",
+)
+
+_CATEGORY_GROUP_COLUMNS = (
+    "ALTER TABLE category_groups ADD COLUMN IF NOT EXISTS bg_color VARCHAR(16)",
 )
 
 # order_items.cost — sotuv vaqtidagi tannarx snapshot'i (foyda hisobi uchun).
@@ -128,6 +133,7 @@ def main(engine=engine) -> None:
         for stmt in (
             *_PRODUCT_COLUMNS,
             *_CATEGORY_COLUMNS,
+            *_CATEGORY_GROUP_COLUMNS,
             *_ORDER_ITEM_COLUMNS,
             *_ORDER_COLUMNS,
             *_ZONE_COLUMNS,

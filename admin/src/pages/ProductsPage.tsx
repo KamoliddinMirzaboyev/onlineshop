@@ -138,6 +138,7 @@ export default function ProductsPage() {
         restaurant_id: storeId,
         name_uz: editGroup.name_uz,
         name_ru: editGroup.name_ru || editGroup.name_uz,
+        bg_color: editGroup.bg_color ?? DEFAULT_CATEGORY_COLOR,
         sort_order: editGroup.sort_order ?? groups.length,
       };
       if (editGroup.id) await put(`/admin/category-groups/${editGroup.id}`, body);
@@ -183,7 +184,8 @@ export default function ProductsPage() {
         name_uz: editCat.name_uz,
         name_ru: editCat.name_ru || editCat.name_uz,
         image_url: editCat.image_url ?? null,
-        bg_color: editCat.bg_color ?? DEFAULT_CATEGORY_COLOR,
+        bg_color: editCat.bg_color ?? null,
+        is_active: editCat.is_active ?? true,
         sort_order: editCat.sort_order ?? topCategories.length,
       };
       if (editCat.id) await put(`/admin/categories/${editCat.id}`, body);
@@ -199,6 +201,30 @@ export default function ProductsPage() {
     }
   };
 
+  const toggleCatActive = async (c: Category) => {
+    if (!storeId || saving) return;
+    const next = !(c.is_active ?? true);
+    setSaving(true);
+    try {
+      await put(`/admin/categories/${c.id}`, {
+        parent_id: c.parent_id ?? null,
+        group_id: c.group_id ?? null,
+        name_uz: c.name_uz,
+        name_ru: c.name_ru,
+        image_url: c.image_url ?? null,
+        bg_color: c.bg_color ?? null,
+        is_active: next,
+        sort_order: c.sort_order,
+      });
+      setCategories((list) => list.map((x) => (x.id === c.id ? { ...x, is_active: next } : x)));
+      toast.success(next ? "Faollashtirildi" : "Nofaollashtirildi");
+    } catch {
+      toast.error("O'zgartirib bo'lmadi");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const saveSubcat = async () => {
     if (!editSubcat || !storeId || !editSubcat.name_uz?.trim() || !editSubcat.parent_id || saving) return;
     setSaving(true);
@@ -209,6 +235,7 @@ export default function ProductsPage() {
         name_uz: editSubcat.name_uz,
         name_ru: editSubcat.name_ru || editSubcat.name_uz,
         image_url: null,
+        is_active: editSubcat.is_active ?? true,
         sort_order: editSubcat.sort_order ?? subcategories.length,
       };
       if (editSubcat.id) await put(`/admin/categories/${editSubcat.id}`, body);
@@ -439,16 +466,35 @@ export default function ProductsPage() {
                   <th className="th">Nomi (uz)</th>
                   <th className="th">Название (ru)</th>
                   <th className="th">Mahsulotlar</th>
+                  <th className="th">Holat</th>
                   <th className="th"></th>
                 </tr>
               </thead>
               <tbody>
-                {subcategories.map((c) => (
-                  <tr key={c.id} className="hover:bg-slate-50/60">
+                {subcategories.map((c) => {
+                  const active = c.is_active ?? true;
+                  return (
+                  <tr key={c.id} className={`hover:bg-slate-50/60 ${active ? "" : "opacity-60"}`}>
                     <td className="td text-slate-500">{categories.find((x) => x.id === c.parent_id)?.name_uz ?? "—"}</td>
                     <td className="td font-medium text-slate-900">{c.name_uz}</td>
                     <td className="td">{c.name_ru}</td>
                     <td className="td">{products.filter((p) => p.category_id === c.id).length}</td>
+                    <td className="td">
+                      <button
+                        type="button"
+                        disabled={saving}
+                        onClick={() => void toggleCatActive(c)}
+                        className={`inline-flex items-center gap-2 rounded-full px-2.5 py-1 text-xs font-medium transition disabled:opacity-50 ${
+                          active ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"
+                        }`}
+                        title={active ? "Nofaollashtirish" : "Faollashtirish"}
+                      >
+                        <span className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${active ? "bg-brand" : "bg-slate-300"}`}>
+                          <span className={`inline-block h-4 w-4 rounded-full bg-white shadow transition-transform ${active ? "translate-x-4" : "translate-x-0.5"}`} />
+                        </span>
+                        {active ? "Faol" : "Nofaol"}
+                      </button>
+                    </td>
                     <td className="td text-right">
                       <div className="inline-flex items-center gap-1">
                         <button className="icon-btn" title="Tahrirlash" onClick={() => setEditSubcat(c)}><Pencil size={16} /></button>
@@ -456,9 +502,10 @@ export default function ProductsPage() {
                       </div>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
                 {subcategories.length === 0 && (
-                  <tr><td colSpan={5} className="td text-center text-slate-400 py-10">
+                  <tr><td colSpan={6} className="td text-center text-slate-400 py-10">
                     {topCategories.length === 0 ? "Avval kategoriya qo'shing" : "Subkategoriya yo'q"}
                   </td></tr>
                 )}
@@ -473,7 +520,7 @@ export default function ProductsPage() {
       {tab === "groups" && (
         <>
           <div className="flex justify-end mb-4">
-            <button className="btn" onClick={() => setEditGroup({})}><Plus size={18} /> Title qo'shish</button>
+            <button className="btn" onClick={() => setEditGroup({ bg_color: DEFAULT_CATEGORY_COLOR })}><Plus size={18} /> Title qo'shish</button>
           </div>
 
           {err ? <ErrorRetry onRetry={reload} /> : loading ? <TableSkeleton cols={3} /> : (
@@ -483,6 +530,7 @@ export default function ProductsPage() {
                 <tr className="bg-slate-50">
                   <th className="th">Nomi (uz)</th>
                   <th className="th">Название (ru)</th>
+                  <th className="th">Rang</th>
                   <th className="th">Kategoriyalar</th>
                   <th className="th"></th>
                 </tr>
@@ -492,6 +540,13 @@ export default function ProductsPage() {
                   <tr key={g.id} className="hover:bg-slate-50/60">
                     <td className="td font-medium text-slate-900">{g.name_uz}</td>
                     <td className="td">{g.name_ru}</td>
+                    <td className="td">
+                      <span
+                        className="inline-block h-7 w-10 rounded-lg border border-slate-200"
+                        style={{ backgroundColor: g.bg_color || DEFAULT_CATEGORY_COLOR }}
+                        title={g.bg_color || DEFAULT_CATEGORY_COLOR}
+                      />
+                    </td>
                     <td className="td">{categories.filter((c) => c.group_id === g.id).length}</td>
                     <td className="td text-right">
                       <div className="inline-flex items-center gap-1">
@@ -502,7 +557,7 @@ export default function ProductsPage() {
                   </tr>
                 ))}
                 {groups.length === 0 && (
-                  <tr><td colSpan={4} className="td text-center text-slate-400 py-10">
+                  <tr><td colSpan={5} className="td text-center text-slate-400 py-10">
                     Title yo'q — bosh sahifada kategoriyalarni sarlavha ostida guruhlash uchun qo'shing
                   </td></tr>
                 )}
@@ -517,7 +572,7 @@ export default function ProductsPage() {
       {tab === "categories" && (
         <>
           <div className="flex justify-end mb-4">
-            <button className="btn" onClick={() => setEditCat({ bg_color: DEFAULT_CATEGORY_COLOR })}><Plus size={18} /> Kategoriya qo'shish</button>
+            <button className="btn" onClick={() => setEditCat({})}><Plus size={18} /> Kategoriya qo'shish</button>
           </div>
 
           {err ? <ErrorRetry onRetry={reload} /> : loading ? <TableSkeleton cols={3} /> : (
@@ -529,23 +584,43 @@ export default function ProductsPage() {
                   <th className="th">Название (ru)</th>
                   <th className="th">Title</th>
                   <th className="th">Subkategoriyalar</th>
+                  <th className="th">Holat</th>
                   <th className="th"></th>
                 </tr>
               </thead>
               <tbody>
-                {topCategories.map((top) => (
-                  <tr key={top.id} className="hover:bg-slate-50/60">
+                {topCategories.map((top) => {
+                  const active = top.is_active ?? true;
+                  const grp = groups.find((g) => g.id === top.group_id);
+                  return (
+                  <tr key={top.id} className={`hover:bg-slate-50/60 ${active ? "" : "opacity-60"}`}>
                     <td className="td font-medium text-slate-900">
                       <div className="flex items-center gap-3">
                         {top.image_url
                           ? <img src={top.image_url} alt="" className="h-9 w-12 rounded-lg object-cover bg-slate-100" />
-                          : <span className="h-9 w-12 rounded-lg bg-slate-100" />}
+                          : <span className="h-9 w-12 rounded-lg bg-slate-100" style={grp?.bg_color ? { backgroundColor: grp.bg_color } : undefined} />}
                         {top.name_uz}
                       </div>
                     </td>
                     <td className="td">{top.name_ru}</td>
-                    <td className="td text-slate-500">{groups.find((g) => g.id === top.group_id)?.name_uz ?? "—"}</td>
+                    <td className="td text-slate-500">{grp?.name_uz ?? "—"}</td>
                     <td className="td">{categories.filter((c) => c.parent_id === top.id).length}</td>
+                    <td className="td">
+                      <button
+                        type="button"
+                        disabled={saving}
+                        onClick={() => void toggleCatActive(top)}
+                        className={`inline-flex items-center gap-2 rounded-full px-2.5 py-1 text-xs font-medium transition disabled:opacity-50 ${
+                          active ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"
+                        }`}
+                        title={active ? "Nofaollashtirish" : "Faollashtirish"}
+                      >
+                        <span className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${active ? "bg-brand" : "bg-slate-300"}`}>
+                          <span className={`inline-block h-4 w-4 rounded-full bg-white shadow transition-transform ${active ? "translate-x-4" : "translate-x-0.5"}`} />
+                        </span>
+                        {active ? "Faol" : "Nofaol"}
+                      </button>
+                    </td>
                     <td className="td text-right">
                       <div className="inline-flex items-center gap-1">
                         <button className="icon-btn" title="Tahrirlash" onClick={() => setEditCat(top)}><Pencil size={16} /></button>
@@ -553,9 +628,10 @@ export default function ProductsPage() {
                       </div>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
                 {topCategories.length === 0 && (
-                  <tr><td colSpan={5} className="td text-center text-slate-400 py-10">Kategoriya yo'q — "Qo'shish" bilan qo'shing</td></tr>
+                  <tr><td colSpan={6} className="td text-center text-slate-400 py-10">Kategoriya yo'q — "Qo'shish" bilan qo'shing</td></tr>
                 )}
               </tbody>
             </table>
@@ -799,12 +875,8 @@ export default function ProductsPage() {
                     <option key={g.id} value={g.id}>{g.name_uz}</option>
                   ))}
                 </select>
-                <p className="text-xs text-slate-400 mt-1">Bosh sahifada bu kategoriya shu sarlavha ostida ko'rsatiladi.</p>
+                <p className="text-xs text-slate-400 mt-1">Bosh sahifada bu kategoriya shu sarlavha ostida ko'rsatiladi. Rang Title dan olinadi.</p>
               </div>
-              <ColorPicker
-                value={editCat.bg_color}
-                onChange={(hex) => setEditCat({ ...editCat, bg_color: hex })}
-              />
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1.5">Kategoriya rasmi</label>
                 <ImageUpload
@@ -814,6 +886,26 @@ export default function ProductsPage() {
                   onChange={(url) => setEditCat({ ...editCat, image_url: url })}
                 />
               </div>
+              <label className="flex items-center gap-3 cursor-pointer select-none rounded-xl border border-slate-100 bg-slate-50/70 px-4 py-3">
+                <div className="relative">
+                  <input
+                    type="checkbox"
+                    className="sr-only peer"
+                    checked={editCat.is_active ?? true}
+                    onChange={(e) => setEditCat({ ...editCat, is_active: e.target.checked })}
+                  />
+                  <div className="w-11 h-6 bg-slate-200 peer-checked:bg-brand rounded-full transition-colors" />
+                  <div className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform peer-checked:translate-x-5" />
+                </div>
+                <div>
+                  <span className="text-sm font-medium text-slate-800">
+                    {(editCat.is_active ?? true) ? "Faol" : "Nofaol"}
+                  </span>
+                  <p className="text-xs text-slate-400">
+                    Nofaol kategoriya mijoz ilovasida ko&apos;rinmaydi
+                  </p>
+                </div>
+              </label>
             </div>
             <div className="px-7 py-4 border-t border-slate-100 flex gap-3 justify-end bg-slate-50/60 rounded-b-2xl">
               <button className="btn-ghost" onClick={() => setEditCat(null)} disabled={saving}><CircleX size={16} /> Bekor</button>
@@ -855,6 +947,26 @@ export default function ProductsPage() {
                     onChange={(e) => setEditSubcat({ ...editSubcat, name_ru: e.target.value })} />
                 </div>
               </div>
+              <label className="flex items-center gap-3 cursor-pointer select-none rounded-xl border border-slate-100 bg-slate-50/70 px-4 py-3">
+                <div className="relative">
+                  <input
+                    type="checkbox"
+                    className="sr-only peer"
+                    checked={editSubcat.is_active ?? true}
+                    onChange={(e) => setEditSubcat({ ...editSubcat, is_active: e.target.checked })}
+                  />
+                  <div className="w-11 h-6 bg-slate-200 peer-checked:bg-brand rounded-full transition-colors" />
+                  <div className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform peer-checked:translate-x-5" />
+                </div>
+                <div>
+                  <span className="text-sm font-medium text-slate-800">
+                    {(editSubcat.is_active ?? true) ? "Faol" : "Nofaol"}
+                  </span>
+                  <p className="text-xs text-slate-400">
+                    Nofaol subkategoriya mijoz ilovasida ko&apos;rinmaydi
+                  </p>
+                </div>
+              </label>
             </div>
             <div className="px-7 py-4 border-t border-slate-100 flex gap-3 justify-end bg-slate-50/60 rounded-b-2xl">
               <button className="btn-ghost" onClick={() => setEditSubcat(null)} disabled={saving}><CircleX size={16} /> Bekor</button>
@@ -886,6 +998,13 @@ export default function ProductsPage() {
                     onChange={(e) => setEditGroup({ ...editGroup, name_ru: e.target.value })} />
                 </div>
               </div>
+              <ColorPicker
+                value={editGroup.bg_color}
+                onChange={(hex) => setEditGroup({ ...editGroup, bg_color: hex })}
+              />
+              <p className="text-xs text-slate-400 -mt-2">
+                Shu title ga bog&apos;langan barcha kategoriyalar bosh sahifada shu rangda chiqadi.
+              </p>
             </div>
             <div className="px-7 py-4 border-t border-slate-100 flex gap-3 justify-end bg-slate-50/60 rounded-b-2xl">
               <button className="btn-ghost" onClick={() => setEditGroup(null)} disabled={saving}><CircleX size={16} /> Bekor</button>

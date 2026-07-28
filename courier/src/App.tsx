@@ -6,7 +6,6 @@ import AnimatedPage from "./components/AnimatedPage";
 import Layout from "./components/Layout";
 import Splash from "./components/Splash";
 import DashboardPage from "./pages/DashboardPage";
-import EarningsPage from "./pages/EarningsPage";
 import HistoryPage from "./pages/HistoryPage";
 import LoginPage from "./pages/LoginPage";
 import OrdersPage from "./pages/OrdersPage";
@@ -78,7 +77,6 @@ export default function App() {
           <Route path="/" element={<DashboardPage />} />
           <Route path="/orders" element={<OrdersPage />} />
           <Route path="/history" element={<HistoryPage />} />
-          <Route path="/earnings" element={<EarningsPage />} />
           <Route path="/profile" element={<ProfilePage />} />
         </Route>
         <Route

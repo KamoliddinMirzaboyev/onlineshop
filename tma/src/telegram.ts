@@ -13,12 +13,9 @@ let cachedInitData = "";
  * single-source read renders the user context empty for some of them.
  */
 function readInitData(): string {
-  // 1) SDK-provided value — present for most launch types.
   const fromSdk = tg?.initData;
   if (fromSdk) return fromSdk;
 
-  // 2) SDK's own cache of the raw launch params — survives fragment cleanup
-  //    and client-side navigation.
   try {
     const cached = sessionStorage.getItem("__telegram__initParams");
     if (cached) {
@@ -26,33 +23,53 @@ function readInitData(): string {
       if (data) return data;
     }
   } catch {
-    // sessionStorage may be blocked (private mode) — ignore.
+    /* ignore */
   }
 
-  // 3) Raw URL fragment / query — last resort before the router rewrites it.
   const raw = window.location.hash.slice(1) || window.location.search.slice(1);
   return new URLSearchParams(raw).get("tgWebAppData") ?? "";
 }
 
+/** LocationManager init bir marta — keyin isAccessGranted ishonchli bo'ladi. */
+let locationManagerReady: Promise<boolean> | null = null;
+
+export function ensureLocationManager(): Promise<boolean> {
+  const lm = tg?.LocationManager;
+  if (!lm) return Promise.resolve(false);
+  if (isTelegramDesktopLike()) return Promise.resolve(false);
+  if (lm.isInited) return Promise.resolve(true);
+  if (locationManagerReady) return locationManagerReady;
+
+  locationManagerReady = new Promise<boolean>((resolve) => {
+    const t = window.setTimeout(() => resolve(lm.isInited), 2000);
+    try {
+      lm.init(() => {
+        window.clearTimeout(t);
+        resolve(true);
+      });
+    } catch {
+      window.clearTimeout(t);
+      resolve(false);
+    }
+  });
+  return locationManagerReady;
+}
+
 export function initTelegram() {
-  // Capture first, synchronously, before anything touches window.location.
   cachedInitData = readInitData();
   if (!tg) return;
   tg.ready();
   tg.expand();
-  // Brand yashil — Telegram chrome (header / background) ham brandga mos.
   try {
     tg.setHeaderColor?.("#16A34A");
     tg.setBackgroundColor?.("#ffffff");
   } catch {
-    // eski klientlar methodni qo'llab-quvvatlamasligi mumkin
+    /* eski klient */
   }
-  // Mavzu (light/dark) endi Telegram klientidan emas — store/theme.ts orqali
-  // ilovaning o'z holatidan boshqariladi (standart: light).
+  // Joylashuv ruxsatini ilova ochilishi bilan tayyorlash (keyin getLocation tez).
+  void ensureLocationManager();
 }
 
-// initData string for backend HMAC auth. Empty in plain browser dev.
-// Prefer the value captured at startup; re-read live if init hasn't run yet.
 export function getInitData(): string {
   return cachedInitData || readInitData();
 }
@@ -66,21 +83,10 @@ export function haptic(type: "light" | "medium" | "heavy" = "light") {
   tg?.HapticFeedback?.impactOccurred(type);
 }
 
-// Telegram'ning o'z joylashuv menejeri (Bot API 8.0+, eski klientlarda yo'q).
-// Uch xil muvaffaqiyatsizlik sababini ajratamiz, chunki har biriga UI'da
-// boshqacha javob kerak:
-//  - "device_off": qurilmada GPS/joylashuv xizmati umuman o'chiq — buni hech
-//    qanday veb/Telegram API orqali kod ichidan yoqib bo'lmaydi, faqat
-//    qurilma sozlamalaridan (shu sabab openSettings() chaqiramiz).
-//  - "denied": foydalanuvchi ilgari ruxsatni rad etgan — Telegram endi
-//    o'zi qayta so'ramaydi, yana faqat sozlamalar orqali.
-//  - "not_requested"/hali so'ralmagan holatda getLocation() Telegram'ning
-//    o'z ICHKI (ilovadan chiqmaydigan) ruxsat oynasini ko'rsatadi — eng яхши holat.
 export type TelegramLocationResult =
   | { status: "ok"; lat: number; lng: number }
   | { status: "unsupported" | "device_off" | "denied" | "error" };
 
-/** Desktop/Web Telegram — LocationManager ishonchsiz yoki GPS yo'q. */
 export function isTelegramDesktopLike(): boolean {
   const p = (tg?.platform ?? "").toLowerCase();
   return (
@@ -89,48 +95,78 @@ export function isTelegramDesktopLike(): boolean {
     p === "web" ||
     p === "weba" ||
     p === "unigram" ||
-    // platform bo'sh bo'lsa ham, oddiy brauzer (window.Telegram yo'q emas lekin
-    // desktop WebView bo'lishi mumkin) — LocationManager'ga tayanmaymiz.
     (!p && typeof navigator !== "undefined" && !/Android|iPhone|iPad|iPod/i.test(navigator.userAgent))
   );
 }
 
-export function requestTelegramLocation(): Promise<TelegramLocationResult> {
+export function isTelegramLocationGranted(): boolean {
   const lm = tg?.LocationManager;
-  if (!lm) return Promise.resolve({ status: "unsupported" });
+  return !!(lm?.isAccessGranted);
+}
 
-  // Noutbuk / Telegram Desktop: LocationManager ko'pincha device_off yoki
-  // callback bermaydi — brauzer geolocation'ga tezroq o'tish uchun skip.
-  if (isTelegramDesktopLike()) {
-    return Promise.resolve({ status: "unsupported" });
+/**
+ * Telegram joylashuvi.
+ * - Ruxsat yo'q → getLocation() bir marta so'raydi (Telegram prompt)
+ * - Ruxsat bor → qayta prompt yo'q, faqat koordinata
+ * - Rad etilgan → denied (openSettings kerak)
+ */
+export async function requestTelegramLocation(): Promise<TelegramLocationResult> {
+  const lm = tg?.LocationManager;
+  if (!lm || isTelegramDesktopLike()) {
+    return { status: "unsupported" };
   }
 
-  const attempt = new Promise<TelegramLocationResult>((resolve) => {
-    // Har safar init() chaqiramiz (isInited bo'lsa ham) — isLocationAvailable
-    // faqat init() ishga tushganda yangilanadi. Callback chaqirilmay qolish
-    // xavfiga pastdagi timeout javob beradi.
-    lm.init(() => {
-      if (!lm.isLocationAvailable) {
-        resolve({ status: "device_off" });
-        return;
-      }
-      if (lm.isAccessRequested && !lm.isAccessGranted) {
-        resolve({ status: "denied" });
-        return;
-      }
-      lm.getLocation((loc) =>
-        resolve(loc ? { status: "ok", lat: loc.latitude, lng: loc.longitude } : { status: "error" })
-      );
-    });
-  });
+  await ensureLocationManager();
 
-  // https://github.com/Telegram-Mini-Apps/issues/issues/77
-  return Promise.race([
-    attempt,
-    new Promise<TelegramLocationResult>((resolve) =>
-      setTimeout(() => resolve({ status: "error" }), 3500)
-    ),
-  ]);
+  // Aniq rad — getLocation qayta dialog ochmaydi.
+  if (lm.isAccessRequested && !lm.isAccessGranted) {
+    return { status: "denied" };
+  }
+
+  // Ruxsat bor, GPS o'chiq — getLocation befoyda/sekin bo'lishi mumkin.
+  if (lm.isAccessGranted && !lm.isLocationAvailable) {
+    return { status: "device_off" };
+  }
+
+  const timeoutMs = lm.isAccessGranted ? 2500 : 8000;
+
+  return new Promise<TelegramLocationResult>((resolve) => {
+    let done = false;
+    const finish = (r: TelegramLocationResult) => {
+      if (done) return;
+      done = true;
+      resolve(r);
+    };
+
+    const timer = window.setTimeout(() => {
+      // Ruxsat berilgan lekin timeout → GPS sekin/o'chiq
+      if (lm.isAccessGranted) finish({ status: "device_off" });
+      else finish({ status: "error" });
+    }, timeoutMs);
+
+    try {
+      // getLocation: ruxsat yo'q bo'lsa Telegram prompt; bor bo'lsa jim o'qiydi.
+      lm.getLocation((loc) => {
+        window.clearTimeout(timer);
+        if (loc) {
+          finish({ status: "ok", lat: loc.latitude, lng: loc.longitude });
+          return;
+        }
+        if (lm.isAccessGranted) {
+          finish({ status: "device_off" });
+          return;
+        }
+        if (lm.isAccessRequested && !lm.isAccessGranted) {
+          finish({ status: "denied" });
+          return;
+        }
+        finish({ status: "error" });
+      });
+    } catch {
+      window.clearTimeout(timer);
+      finish({ status: "error" });
+    }
+  });
 }
 
 export function openTelegramLocationSettings() {

@@ -11,7 +11,7 @@ import { useStore } from "../hooks/useStore";
 import { loc, useI18n } from "../i18n";
 import { haptic } from "../telegram";
 
-// bg_color yo'q bo'lsa — yumshoq fallback pastel.
+// Title rangi yo'q bo'lsa — yumshoq fallback pastel.
 const FALLBACK_COLORS = [
   "#E1F3D8",
   "#DCFCE7",
@@ -20,6 +20,27 @@ const FALLBACK_COLORS = [
   "#FCE7F3",
   "#EDE9FE",
 ];
+
+function resolveBg(hex: string | null | undefined, fallbackIndex: number): string {
+  if (hex && /^#[0-9A-Fa-f]{6}$/.test(hex)) return hex;
+  return FALLBACK_COLORS[fallbackIndex % FALLBACK_COLORS.length];
+}
+
+/** Kartochka o'lchamiga qarab rasm — katta, pastki-o'ng, to'ldiradi. */
+function imageClass(kind: "wide" | "narrow" | "full"): string {
+  const base =
+    "absolute z-0 pointer-events-none select-none object-contain object-right-bottom drop-shadow-sm";
+  if (kind === "narrow") {
+    // Kichik card: rasm deyarli butun pastki yarmni egallaydi
+    return `${base} bottom-0 right-0 h-[88%] w-[125%] max-w-none -mr-3 -mb-2`;
+  }
+  if (kind === "full") {
+    // To'liq qator: o'ng tomonda katta
+    return `${base} bottom-0 right-0 h-[92%] w-[62%] max-w-none -mr-1 -mb-1`;
+  }
+  // Keng (col-span-3)
+  return `${base} bottom-0 right-0 h-[90%] w-[108%] max-w-none -mr-2 -mb-1`;
+}
 
 export default function HomePage() {
   const { t, lang } = useI18n();
@@ -31,19 +52,19 @@ export default function HomePage() {
     nav(`/category/${c.id}`);
   };
 
-  // Kategoriyalarni Title (group_id) bo'yicha bo'laklarga ajratamiz. Title'i
-  // yo'q kategoriyalar sarlavhasiz, ro'yxat oxirida ko'rsatiladi.
   const groups = store?.category_groups ?? [];
   const categories = store?.categories ?? [];
   const sections = [
     ...groups.map((g) => ({
       key: `g${g.id}`,
       title: loc(g, "name", lang),
+      bg_color: g.bg_color ?? null,
       cats: categories.filter((c) => c.group_id === g.id),
     })),
     {
       key: "ungrouped",
       title: null as string | null,
+      bg_color: null as string | null,
       cats: categories.filter((c) => !groups.some((g) => g.id === c.group_id)),
     },
   ].filter((s) => s.cats.length > 0);
@@ -65,29 +86,30 @@ export default function HomePage() {
           <p className="text-center text-tg-hint py-16">{t.no_categories}</p>
         ) : (
           sections.map((section, si) => (
-            <div key={section.key} className="mb-6 last:mb-0">
-              {section.title && <h2 className="text-base font-semibold px-1 mb-3 text-slate-800">{section.title}</h2>}
-              <div className="grid grid-cols-5 gap-3">
+            <div key={section.key} className="mb-5 last:mb-0">
+              {section.title && (
+                <h2 className="text-base font-semibold px-1 mb-3 text-slate-800">{section.title}</h2>
+              )}
+              <div className="grid grid-cols-5 gap-2.5">
                 {section.cats.map((c, ci) => {
                   const isLastAndAlone = ci === section.cats.length - 1 && ci % 2 === 0;
-                  // Birinchi 4 rasm — viewport ichida, lazy emas (LCP).
                   const aboveFold = si === 0 && ci < 4;
 
                   let spanClass = "col-span-5";
+                  let kind: "wide" | "narrow" | "full" = "full";
                   if (!isLastAndAlone) {
                     const isEvenRow = Math.floor(ci / 2) % 2 === 0;
                     const isLeft = ci % 2 === 0;
                     if (isEvenRow) {
                       spanClass = isLeft ? "col-span-3" : "col-span-2";
+                      kind = isLeft ? "wide" : "narrow";
                     } else {
                       spanClass = isLeft ? "col-span-2" : "col-span-3";
+                      kind = isLeft ? "narrow" : "wide";
                     }
                   }
 
-                  const bg =
-                    c.bg_color && /^#[0-9A-Fa-f]{6}$/.test(c.bg_color)
-                      ? c.bg_color
-                      : FALLBACK_COLORS[(si + ci) % FALLBACK_COLORS.length];
+                  const bg = resolveBg(section.bg_color ?? c.bg_color, si * 7 + ci);
 
                   return (
                     <button
@@ -95,23 +117,33 @@ export default function HomePage() {
                       type="button"
                       onClick={() => open(c)}
                       style={{ backgroundColor: bg }}
-                      className={`relative h-[200px] rounded-[24px] overflow-hidden text-left p-4 flex flex-col active:scale-[0.97] transition-transform ${spanClass}`}
+                      className={`relative h-[200px] sm:h-[220px] rounded-[22px] overflow-hidden text-left active:scale-[0.97] transition-transform ${spanClass}`}
                     >
+                      {/* Sarlavha — yuqori chap, rasm ustida o'qiladi */}
                       <h3
-                        className={`relative z-10 font-bold text-slate-900 leading-snug drop-shadow-sm ${
-                          isLastAndAlone ? "text-2xl max-w-[55%]" : "text-lg pr-1 max-w-[70%]"
+                        className={`absolute top-3 left-3 z-10 font-bold text-slate-900 leading-tight ${
+                          kind === "full"
+                            ? "text-[22px] max-w-[46%]"
+                            : kind === "narrow"
+                              ? "text-[15px] max-w-[92%] pr-1"
+                              : "text-[18px] max-w-[52%]"
                         }`}
+                        style={{ textShadow: "0 1px 0 rgba(255,255,255,0.35)" }}
                       >
                         {loc(c, "name", lang)}
                       </h3>
+
                       {c.image_url ? (
                         <OptimizedImage
                           src={c.image_url}
                           priority={aboveFold}
-                          className="absolute bottom-0 right-0 w-[92%] h-[78%] object-contain object-right-bottom z-0 pointer-events-none"
+                          className={imageClass(kind)}
                         />
                       ) : (
-                        <ChevronRight size={22} className="absolute bottom-4 right-4 text-slate-500/50" />
+                        <ChevronRight
+                          size={22}
+                          className="absolute bottom-4 right-4 text-slate-500/40"
+                        />
                       )}
                     </button>
                   );

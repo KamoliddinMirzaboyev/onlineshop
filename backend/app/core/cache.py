@@ -22,3 +22,17 @@ def cache_set_json(key: str, value: Any, ttl: int) -> None:
         redis_client.set(key, json.dumps(value), ex=ttl)
     except Exception:
         pass
+
+
+def cache_delete(*keys: str) -> None:
+    if not keys:
+        return
+    try:
+        redis_client.delete(*keys)
+    except Exception:
+        pass
+
+
+def invalidate_restaurant_catalog(restaurant_id: int) -> None:
+    """Do'kon katalog keshini tashlash (kategoriya/mahsulot o'zgarishi)."""
+    cache_delete(f"catalog:restaurant:{restaurant_id}", "catalog:restaurants:all")

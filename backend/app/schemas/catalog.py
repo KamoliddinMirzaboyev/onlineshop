@@ -30,6 +30,7 @@ class CategoryOut(BaseModel):
     name_ru: str
     image_url: str | None = None
     bg_color: str | None = None  # pastel hex, masalan #E1F3D8
+    is_active: bool = True
     sort_order: int
 
     class Config:
@@ -41,6 +42,7 @@ class CategoryGroupOut(BaseModel):
     id: int
     name_uz: str
     name_ru: str
+    bg_color: str | None = None  # pastel hex — guruhdagi barcha kartochkalar
     sort_order: int
 
     class Config:
@@ -125,12 +127,14 @@ class CategoryIn(BaseModel):
     name_ru: str
     image_url: str | None = None
     bg_color: str | None = None
+    is_active: bool = True
     sort_order: int = 0
 
 
 class CategoryGroupIn(BaseModel):
     name_uz: str
     name_ru: str
+    bg_color: str | None = None
     sort_order: int = 0
 
 

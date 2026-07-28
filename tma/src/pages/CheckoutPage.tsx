@@ -1,18 +1,15 @@
+import { MapPin } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { api, getCoords } from "../api/client";
+import { api, cacheAddressLabel, getCoords, peekAddressLabel, peekCoords } from "../api/client";
 import type { Restaurant } from "../api/types";
 import PageHeader from "../components/PageHeader";
 import { useI18n } from "../i18n";
 import { formatUzPhone, money } from "../lib/format";
-import { reverseGeocode } from "../lib/geocode";
+import { reverseGeocodeParts } from "../lib/geocode";
 import { useAuth } from "../store/auth";
 import { useCart } from "../store/cart";
-import {
-  formatAddressLine,
-  isAddressComplete,
-  useCheckoutDraft,
-} from "../store/checkoutDraft";
+import { isAddressComplete, useCheckoutDraft } from "../store/checkoutDraft";
 import { haptic } from "../telegram";
 
 const DEFAULT_FREE_FROM = 50_000;
@@ -58,37 +55,6 @@ function estimateDeliveryFee(
   return Math.ceil(distanceKm) * rate;
 }
 
-function Field({
-  label,
-  value,
-  onChange,
-  placeholder,
-  required,
-  className = "",
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  placeholder?: string;
-  required?: boolean;
-  className?: string;
-}) {
-  return (
-    <div className={`space-y-1.5 ${className}`}>
-      <label className="text-sm text-slate-500 font-medium px-1">
-        {label}
-        {required && <span className="text-rose-500 ml-0.5">*</span>}
-      </label>
-      <input
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        className="w-full rounded-[16px] bg-[#F4F5F7] text-base text-slate-900 font-normal px-4 py-3.5 outline-none focus:ring-2 focus:ring-brand/25"
-      />
-    </div>
-  );
-}
-
 export default function CheckoutPage() {
   const { t, lang } = useI18n();
   const nav = useNavigate();
@@ -99,12 +65,13 @@ export default function CheckoutPage() {
     phone,
     comment,
     loc,
-    geoHint,
-    addressParts,
+    addressLine,
+    locating,
     setPhone,
     setComment,
     setLocation,
-    setAddressPart,
+    setAddressLine,
+    setLocating,
     reset: resetDraft,
   } = useCheckoutDraft();
   const [submitting, setSubmitting] = useState(false);
@@ -116,19 +83,47 @@ export default function CheckoutPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.phone]);
 
-  // GPS — faqat masofa/yordamchi; aniq manzilni foydalanuvchi o'zi yozadi.
-  const fetchLocation = () =>
-    getCoords().then((coords) => {
+  /**
+   * Manzil: avval kesh (ruxsat qayta so'ralmaydi), keyin jim yangilash.
+   * force faqat "Qayta aniqlash" — baribir Telegram ruxsati qayta ochilmaydi.
+   */
+  const fetchLocation = async (force = false) => {
+    if (useCheckoutDraft.getState().locating) return null;
+    setLocating(true);
+    try {
+      // 0) Saqlangan manzil matni — darhol ko'rsatish
+      if (!force) {
+        const cachedLabel = peekAddressLabel();
+        if (cachedLabel && !useCheckoutDraft.getState().addressLine) {
+          setAddressLine(cachedLabel);
+        }
+      }
+
+      // 1) Allaqachon bor kesh — ruxsat YO'Q
+      let coords = !force ? peekCoords() : null;
+      if (!coords) {
+        coords = await getCoords(force);
+      }
       if (!coords) return null;
-      return reverseGeocode(coords.lat, coords.lng).then((a) => {
-        const hint = a ?? `📍 ${coords.lat.toFixed(5)}, ${coords.lng.toFixed(5)}`;
-        setLocation(coords.lat, coords.lng, hint);
-        return { ...coords, address: hint };
-      });
-    });
+      setLocation(coords.lat, coords.lng);
+
+      const geo = await reverseGeocodeParts(coords.lat, coords.lng);
+      const line = geo?.label || `${coords.lat.toFixed(5)}, ${coords.lng.toFixed(5)}`;
+      setAddressLine(line);
+      cacheAddressLabel(line);
+      return coords;
+    } finally {
+      setLocating(false);
+    }
+  };
 
   useEffect(() => {
-    if (!loc) void fetchLocation();
+    // Keshdagi manzil/coords bo'lsa darhol; ruxsat qayta so'ralmaydi.
+    const cached = peekAddressLabel();
+    if (cached && !addressLine.trim()) setAddressLine(cached);
+    const c = peekCoords();
+    if (c && !loc) setLocation(c.lat, c.lng);
+    if (!addressLine.trim() || !cached) void fetchLocation(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -151,7 +146,6 @@ export default function CheckoutPage() {
   }, [itemsTotal, loc, store, freeFrom, perKm]);
 
   const grandTotal = itemsTotal + deliveryFee;
-  const addressLine = formatAddressLine(addressParts, geoHint);
 
   const submit = async () => {
     if (cart.restaurantId == null) {
@@ -162,16 +156,22 @@ export default function CheckoutPage() {
       setError(lang === "uz" ? "Telefon raqamini to'liq kiriting" : "Введите номер телефона полностью");
       return;
     }
-    if (!isAddressComplete(addressParts)) {
+
+    let deliveryLoc = loc;
+    let line = addressLine.trim();
+
+    if (!isAddressComplete(line) || !deliveryLoc) {
+      // force=false — qayta ruxsat dialogi ochilmasin
+      const coords = await fetchLocation(false);
+      if (coords) deliveryLoc = coords;
+      line = useCheckoutDraft.getState().addressLine.trim() || line;
+    }
+
+    if (!isAddressComplete(line)) {
       setError(t.address_required);
       return;
     }
 
-    let deliveryLoc = loc;
-    if (!deliveryLoc) {
-      deliveryLoc = await fetchLocation();
-    }
-    // Manzil matni majburiy; GPS bo'lmasa ham buyurtma ketadi (0,0 o'rniga null).
     setSubmitting(true);
     setError(null);
     try {
@@ -181,18 +181,11 @@ export default function CheckoutPage() {
           product_id: l.product.id,
           quantity: l.quantity,
         })),
-        address_line: addressLine,
+        address_line: line,
         lat: deliveryLoc?.lat ?? undefined,
         lng: deliveryLoc?.lng ?? undefined,
         phone,
-        comment: [
-          comment.trim(),
-          addressParts.entrance.trim() && `Podyezd: ${addressParts.entrance.trim()}`,
-          addressParts.floor.trim() && `Qavat: ${addressParts.floor.trim()}`,
-          addressParts.apartment.trim() && `Xonadon: ${addressParts.apartment.trim()}`,
-        ]
-          .filter(Boolean)
-          .join(" · ") || undefined,
+        comment: comment.trim() || undefined,
         payment_method: "cash",
       });
       haptic("medium");
@@ -225,67 +218,41 @@ export default function CheckoutPage() {
           />
         </div>
 
-        {/* Aniq yetkazish manzili */}
-        <div className="space-y-3 rounded-2xl border border-slate-100 bg-slate-50/50 p-3">
-          <p className="text-sm font-semibold text-slate-800 px-1">{t.address}</p>
-          <p className="text-xs text-slate-400 px-1 -mt-1">
-            {lang === "uz"
-              ? "Mahalla, ko'cha va uy raqamini aniq yozing — kuryer topishi uchun."
-              : "Укажите махаллю, улицу и номер дома точно — для курьера."}
-          </p>
+        {/* Manzil — faqat avtomatik aniqlangan, foydalanuvchi tasdiqlaydi */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between px-1">
+            <label className="text-sm text-slate-400 font-medium">{t.address}</label>
+            <button
+              type="button"
+              disabled={locating}
+              onClick={() => void fetchLocation(true)}
+              className="text-xs font-medium text-brand disabled:opacity-50"
+            >
+              {locating ? t.address_locating : t.address_refresh}
+            </button>
+          </div>
 
-          {geoHint && (
-            <div className="rounded-xl bg-white border border-slate-100 px-3 py-2.5">
-              <p className="text-[11px] text-slate-400 mb-0.5">{t.address_geo_hint}</p>
-              <p className="text-sm text-slate-600 leading-snug">{geoHint}</p>
-            </div>
+          <div className="rounded-[16px] bg-[#F4F5F7] px-4 py-4">
+            {locating && !addressLine ? (
+              <p className="text-base text-slate-400 animate-pulse">{t.address_locating}</p>
+            ) : addressLine ? (
+              <div className="flex gap-3 items-start">
+                <MapPin size={20} className="text-brand shrink-0 mt-0.5" />
+                <div className="min-w-0">
+                  <p className="text-[11px] text-slate-400 mb-1">{t.address_auto}</p>
+                  <p className="text-base text-slate-900 font-medium leading-snug">{addressLine}</p>
+                </div>
+              </div>
+            ) : (
+              <p className="text-base text-slate-400">{t.address_required}</p>
+            )}
+          </div>
+
+          {addressLine && (
+            <p className="text-xs text-amber-700/80 px-1 leading-snug">
+              {t.address_confirm}
+            </p>
           )}
-
-          <Field
-            label={t.address_street}
-            value={addressParts.street}
-            onChange={(v) => setAddressPart("street", v)}
-            placeholder={t.address_street_ph}
-            required
-          />
-
-          <div className="grid grid-cols-2 gap-3">
-            <Field
-              label={t.address_house}
-              value={addressParts.house}
-              onChange={(v) => setAddressPart("house", v)}
-              placeholder={t.address_house_ph}
-              required
-            />
-            <Field
-              label={t.address_apt}
-              value={addressParts.apartment}
-              onChange={(v) => setAddressPart("apartment", v)}
-              placeholder={t.address_apt_ph}
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <Field
-              label={t.address_entrance}
-              value={addressParts.entrance}
-              onChange={(v) => setAddressPart("entrance", v)}
-              placeholder={t.address_entrance_ph}
-            />
-            <Field
-              label={t.address_floor}
-              value={addressParts.floor}
-              onChange={(v) => setAddressPart("floor", v)}
-              placeholder={t.address_floor_ph}
-            />
-          </div>
-
-          <Field
-            label={t.address_landmark}
-            value={addressParts.landmark}
-            onChange={(v) => setAddressPart("landmark", v)}
-            placeholder={t.address_landmark_ph}
-          />
         </div>
 
         <div className="space-y-2">
@@ -329,7 +296,7 @@ export default function CheckoutPage() {
         <button
           type="button"
           onClick={() => void submit()}
-          disabled={submitting}
+          disabled={submitting || locating}
           className="w-full bg-brand text-white font-medium text-base py-4 rounded-[16px] active:scale-[0.98] transition disabled:opacity-60 shadow-lg shadow-brand/30"
         >
           {submitting ? "…" : (lang === "uz" ? "Buyurtma berish" : "Заказать")}
