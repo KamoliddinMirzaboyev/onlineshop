@@ -8,11 +8,11 @@ interface Props {
 }
 
 /** Barcha asosiy sahifalar (Bosh sahifa, Savat, Profil) uchun umumiy —
- * pastki burchaklari yumaloqlangan to'q sariq banner. */
+ * pastki burchaklari yumaloqlangan brand yashil banner. */
 export default function PageHeader({ title, subtitle, back }: Props) {
   const nav = useNavigate();
   return (
-    <div className="sticky top-0 z-20 bg-[#F97316] text-white rounded-b-2xl shadow-sm px-4 py-4 flex items-center gap-3">
+    <div className="sticky top-0 z-20 bg-brand text-white rounded-b-2xl shadow-sm px-4 py-4 flex items-center gap-3">
       {back && (
         <button
           onClick={() => nav(-1)}

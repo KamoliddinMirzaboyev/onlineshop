@@ -15,7 +15,7 @@ export default function BottomNav() {
       className="flex flex-col items-center justify-center flex-1 py-1 text-[11px] font-medium"
     >
       {({ isActive }) => (
-        <div className={`flex flex-col items-center justify-center w-16 py-1.5 rounded-2xl transition ${isActive ? 'bg-[#FFF0E5] text-[#F97316]' : 'text-slate-500'}`}>
+        <div className={`flex flex-col items-center justify-center w-16 py-1.5 rounded-2xl transition ${isActive ? "bg-brand-light/60 text-brand" : "text-slate-500"}`}>
           <Icon size={22} className="mb-0.5" />
           <span className="truncate">{label}</span>
         </div>

@@ -212,7 +212,7 @@ export default function CheckoutPage() {
 
         {error && <p className="text-rose-500 text-sm font-medium px-1 mb-2">{error}</p>}
 
-        <button onClick={submit} disabled={submitting} className="w-full bg-[#FF6B00] text-white font-bold text-[17px] py-4 rounded-[16px] active:scale-[0.98] transition disabled:opacity-60 shadow-[0_4px_12px_rgba(255,107,0,0.3)]">
+        <button onClick={submit} disabled={submitting} className="w-full bg-brand text-white font-bold text-[17px] py-4 rounded-[16px] active:scale-[0.98] transition disabled:opacity-60 shadow-lg shadow-brand/30">
           {submitting ? "…" : (lang === "uz" ? "Buyurtma berish" : "Заказать")}
         </button>
       </div>

@@ -2,7 +2,7 @@ import { useI18n } from "../i18n";
 import type { OrderStatus } from "../api/types";
 
 const colors: Record<OrderStatus, string> = {
-  pending: "bg-amber-100 text-amber-700",
+  pending: "bg-brand-light/70 text-brand-dark",
   confirmed: "bg-blue-100 text-blue-700",
   preparing: "bg-indigo-100 text-indigo-700",
   ready: "bg-cyan-100 text-cyan-700",

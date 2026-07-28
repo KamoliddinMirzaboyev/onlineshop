@@ -99,7 +99,7 @@ export default function CartPage() {
           </div>
           <button
             onClick={() => nav("/checkout")}
-            className="flex items-center gap-2 bg-[#121822] text-white font-semibold rounded-[20px] px-6 py-4 active:scale-95 transition"
+            className="flex items-center gap-2 bg-brand text-white font-semibold rounded-[20px] px-6 py-4 active:scale-95 transition shadow-md shadow-brand/30"
           >
             {t.place_order}
             <span aria-hidden className="text-lg leading-none">→</span>

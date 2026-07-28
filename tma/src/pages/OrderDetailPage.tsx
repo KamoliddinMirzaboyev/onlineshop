@@ -164,7 +164,7 @@ export default function OrderDetailPage() {
                 {qtyUnit(it.quantity, it.unit, lang)} × {money(it.price)} {t.sum}
               </div>
               {it.note && (
-                <div className="text-[11px] text-amber-700 bg-amber-50 rounded-lg px-2 py-1 mt-1 flex items-center gap-1">
+                <div className="text-[11px] text-brand-dark bg-brand-light/50 rounded-lg px-2 py-1 mt-1 flex items-center gap-1">
                   💬 {it.note}
                 </div>
               )}
@@ -340,7 +340,7 @@ export default function OrderDetailPage() {
                       <div className="text-xs text-slate-400 tabular-nums">
                         {qtyUnit(it.quantity, it.unit, lang)} × {money(it.price)} {t.sum}
                       </div>
-                      {it.note && <div className="text-[10px] text-amber-700 mt-0.5">💬 {it.note}</div>}
+                      {it.note && <div className="text-[10px] text-brand-dark/80 mt-0.5">💬 {it.note}</div>}
                     </div>
                     <div className="font-semibold text-right text-slate-900 tabular-nums shrink-0">
                       {money(it.price * it.quantity)} {t.sum}

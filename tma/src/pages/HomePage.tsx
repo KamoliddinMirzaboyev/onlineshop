@@ -12,13 +12,14 @@ import { loc, useI18n } from "../i18n";
 import { haptic } from "../telegram";
 
 // Kartochka foni bo'sh bo'lganda — Title guruhi bo'yicha barqaror pastel rang.
+// Kartochka foni — brand yashil oilasida (orange/sariq yo'q).
 const PALETTES = [
-  "bg-[#E1F3D8]", // Green for Meva va sabzavotlar
-  "bg-[#CDE3FC]", // Blue for Sut mahsulotlari
-  "bg-[#FBE9D0]",
-  "bg-[#F7DEE6]",
+  "bg-[#E1F3D8]",
+  "bg-[#DCFCE7]",
+  "bg-[#BBF7D0]",
+  "bg-[#CDE3FC]",
   "bg-[#E6E0FB]",
-  "bg-[#FDF0C4]",
+  "bg-[#F7DEE6]",
 ];
 
 export default function HomePage() {

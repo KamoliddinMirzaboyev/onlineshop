@@ -40,6 +40,13 @@ export function initTelegram() {
   if (!tg) return;
   tg.ready();
   tg.expand();
+  // Brand yashil — Telegram chrome (header / background) ham brandga mos.
+  try {
+    tg.setHeaderColor?.("#16A34A");
+    tg.setBackgroundColor?.("#ffffff");
+  } catch {
+    // eski klientlar methodni qo'llab-quvvatlamasligi mumkin
+  }
   // Mavzu (light/dark) endi Telegram klientidan emas — store/theme.ts orqali
   // ilovaning o'z holatidan boshqariladi (standart: light).
 }
