@@ -95,19 +95,23 @@ export default function HomePage() {
                       type="button"
                       onClick={() => open(c)}
                       style={{ backgroundColor: bg }}
-                      className={`relative h-[160px] rounded-[24px] overflow-hidden text-left p-4 flex flex-col active:scale-[0.97] transition-transform ${spanClass}`}
+                      className={`relative h-[200px] rounded-[24px] overflow-hidden text-left p-4 flex flex-col active:scale-[0.97] transition-transform ${spanClass}`}
                     >
-                      <h3 className={`font-semibold text-slate-900 leading-snug z-10 ${isLastAndAlone ? "text-xl w-1/2" : "text-base pr-2"}`}>
+                      <h3
+                        className={`relative z-10 font-bold text-slate-900 leading-snug drop-shadow-sm ${
+                          isLastAndAlone ? "text-2xl max-w-[55%]" : "text-lg pr-1 max-w-[70%]"
+                        }`}
+                      >
                         {loc(c, "name", lang)}
                       </h3>
                       {c.image_url ? (
                         <OptimizedImage
                           src={c.image_url}
                           priority={aboveFold}
-                          className="absolute inset-0 w-full h-full object-contain z-0"
+                          className="absolute bottom-0 right-0 w-[92%] h-[78%] object-contain object-right-bottom z-0 pointer-events-none"
                         />
                       ) : (
-                        <ChevronRight size={18} className="absolute bottom-4 right-4 text-slate-500/50" />
+                        <ChevronRight size={22} className="absolute bottom-4 right-4 text-slate-500/50" />
                       )}
                     </button>
                   );
