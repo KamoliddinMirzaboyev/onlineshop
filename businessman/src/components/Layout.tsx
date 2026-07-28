@@ -37,7 +37,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen">
       <header className="sticky top-0 z-30 flex items-center gap-3 h-14 px-4 bg-white border-b border-slate-200 md:ml-64">
         <button className="icon-btn md:hidden" onClick={() => setOpen(true)} aria-label="Menu"><Menu size={22} /></button>
-        <img src="/logo-64.png" alt="" className="h-8 w-8 object-contain md:hidden" />
+        <img src="/logo.png" alt="Barakali Bozor" className="h-9 w-9 object-contain md:hidden shrink-0" />
         <span className="font-semibold tracking-tight md:hidden">Tadbirkor</span>
         <div className="ml-auto">
           {stores.length > 0 && (
@@ -65,10 +65,13 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           open ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <div className="flex items-center gap-2 px-5 h-16 border-b border-slate-100">
-          <img src="/logo-64.png" alt="" className="h-9 w-9 object-contain" />
-          <span className="text-lg font-semibold tracking-tight">Tadbirkor</span>
-          <button className="icon-btn ml-auto md:hidden" onClick={() => setOpen(false)} aria-label="Yopish"><X size={20} /></button>
+        <div className="flex items-center gap-2.5 px-5 h-16 border-b border-slate-100">
+          <img src="/logo.png" alt="Barakali Bozor" className="h-10 w-10 object-contain shrink-0" />
+          <div className="min-w-0 leading-tight">
+            <div className="text-sm font-semibold tracking-tight truncate">Barakali Bozor</div>
+            <div className="text-xs text-slate-500">Tadbirkor</div>
+          </div>
+          <button className="icon-btn ml-auto md:hidden shrink-0" onClick={() => setOpen(false)} aria-label="Yopish"><X size={20} /></button>
         </div>
 
         <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
