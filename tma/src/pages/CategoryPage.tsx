@@ -38,7 +38,7 @@ export default function CategoryPage() {
               {sections.length > 1 && (
                 <h2 className="font-semibold text-sm mb-2.5 px-0.5">{loc(sc, "name", lang)}</h2>
               )}
-              <div className="grid grid-cols-3 gap-2.5">
+              <div className="grid grid-cols-3 gap-2.5 items-stretch">
                 {sc.products.map((p) => (
                   <ProductCard key={p.id} product={p} />
                 ))}

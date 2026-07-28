@@ -16,7 +16,11 @@ TEXTS = {
         ),
         "open_app": "🍽 Ilovani ochish",
         "start_shopping": "🛒 Xaridni boshlash",
-        "start_shopping_prompt": "Xarid qilishni boshlash uchun tugmani bosing 👇",
+        "start_shopping_prompt": (
+            "Xarid qilishni boshlash uchun tugmani bosing 👇\n\n"
+            "📍 Joylashuvingiz (lokatsiya) yoqiqligiga ishonch hosil qiling — "
+            "yaqin do'kon va yetkazish shu orqali aniqlanadi."
+        ),
         "menu": "📋 Menyu",
         "orders": "🧾 Buyurtmalarim",
         "lang": "🌐 Til / Язык",
@@ -63,7 +67,11 @@ TEXTS = {
         ),
         "open_app": "🍽 Открыть приложение",
         "start_shopping": "🛒 Начать покупки",
-        "start_shopping_prompt": "Нажмите кнопку, чтобы начать покупки 👇",
+        "start_shopping_prompt": (
+            "Нажмите кнопку, чтобы начать покупки 👇\n\n"
+            "📍 Убедитесь, что геолокация (локация) включена — "
+            "ближайший магазин и доставка определяются по ней."
+        ),
         "menu": "📋 Меню",
         "orders": "🧾 Мои заказы",
         "lang": "🌐 Til / Язык",

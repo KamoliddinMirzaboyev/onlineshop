@@ -1,4 +1,4 @@
-import { Check, ChevronRight, FileText, Headphones, Moon, Sun, Trash2, X } from "lucide-react";
+import { Check, ChevronRight, FileText, Headphones, Trash2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import type { Address } from "../api/types";
@@ -7,7 +7,6 @@ import { formatUzPhone } from "../lib/format";
 import { offerText, SUPPORT_HANDLE, SUPPORT_URL } from "../lib/offer";
 import { useI18n, type Lang } from "../i18n";
 import { useAuth } from "../store/auth";
-import { useTheme } from "../store/theme";
 
 function initials(name: string | null | undefined) {
   if (!name) return "?";
@@ -41,7 +40,6 @@ type EditField = "name" | "phone" | null;
 
 export default function ProfilePage() {
   const { t, lang, setLang } = useI18n();
-  const { theme, setTheme } = useTheme();
   const user = useAuth((s) => s.user);
   const setUser = useAuth((s) => s.setUser);
   const [addresses, setAddresses] = useState<Address[]>([]);
@@ -148,26 +146,6 @@ export default function ProfilePage() {
           value={lang === "uz" ? "O'zbekcha" : "Русский"}
           onClick={() => setLang((["uz", "ru"] as Lang[])[(["uz", "ru"] as Lang[]).indexOf(lang) === 0 ? 1 : 0])}
         />
-        <div className="flex items-center justify-between px-4 py-3.5">
-          <span className="flex items-center gap-2">
-            {theme === "dark" ? <Moon size={17} /> : <Sun size={17} />}
-            {lang === "uz" ? "Mavzu" : "Тема"}
-          </span>
-          <div className="flex items-center gap-1 rounded-full bg-tg-card p-1">
-            <button
-              onClick={() => setTheme("light")}
-              className={`px-3 py-1 rounded-full text-xs font-medium transition ${theme === "light" ? "bg-brand text-white" : "text-tg-hint"}`}
-            >
-              {lang === "uz" ? "Yorug'" : "Свет."}
-            </button>
-            <button
-              onClick={() => setTheme("dark")}
-              className={`px-3 py-1 rounded-full text-xs font-medium transition ${theme === "dark" ? "bg-brand text-white" : "text-tg-hint"}`}
-            >
-              {lang === "uz" ? "Tungi" : "Тёмн."}
-            </button>
-          </div>
-        </div>
       </div>
 
       {showAddrForm && (

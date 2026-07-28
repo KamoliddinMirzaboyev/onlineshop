@@ -26,20 +26,37 @@ function resolveBg(hex: string | null | undefined, fallbackIndex: number): strin
   return FALLBACK_COLORS[fallbackIndex % FALLBACK_COLORS.length];
 }
 
-/** Kartochka o'lchamiga qarab rasm — katta, pastki-o'ng, to'ldiradi. */
-function imageClass(kind: "wide" | "narrow" | "full"): string {
-  const base =
-    "absolute z-0 pointer-events-none select-none object-contain object-right-bottom drop-shadow-sm";
-  if (kind === "narrow") {
-    // Kichik card: rasm deyarli butun pastki yarmni egallaydi
-    return `${base} bottom-0 right-0 h-[88%] w-[125%] max-w-none -mr-3 -mb-2`;
-  }
-  if (kind === "full") {
-    // To'liq qator: o'ng tomonda katta
-    return `${base} bottom-0 right-0 h-[92%] w-[62%] max-w-none -mr-1 -mb-1`;
-  }
-  // Keng (col-span-3)
-  return `${base} bottom-0 right-0 h-[90%] w-[108%] max-w-none -mr-2 -mb-1`;
+/**
+ * Rasm pastki zona — o'rtacha o'lcham (kichik burchak emas, haddan tashqari katta emas).
+ */
+function CategoryImage({
+  src,
+  kind,
+  priority,
+}: {
+  src: string;
+  kind: "wide" | "narrow" | "full";
+  priority: boolean;
+}) {
+  const zone =
+    kind === "narrow"
+      ? "absolute inset-x-0 bottom-0 top-[28%] overflow-hidden pointer-events-none"
+      : kind === "full"
+        ? "absolute inset-x-0 bottom-0 top-[22%] overflow-hidden pointer-events-none"
+        : "absolute inset-x-0 bottom-0 top-[24%] overflow-hidden pointer-events-none";
+
+  const img =
+    kind === "narrow"
+      ? "absolute bottom-0 right-0 h-[96%] w-auto min-w-[100%] max-w-none object-contain object-right-bottom origin-bottom-right scale-[1.12] translate-x-[3%] translate-y-[2%]"
+      : kind === "full"
+        ? "absolute bottom-0 right-0 h-[98%] w-auto min-w-[52%] max-w-[62%] object-contain object-right-bottom origin-bottom-right scale-100"
+        : "absolute bottom-0 right-0 h-[98%] w-auto min-w-[88%] max-w-none object-contain object-right-bottom origin-bottom-right scale-[1.06] translate-x-[2%] translate-y-[1%]";
+
+  return (
+    <div className={zone}>
+      <OptimizedImage src={src} priority={priority} className={img} />
+    </div>
+  );
 }
 
 export default function HomePage() {
@@ -119,26 +136,17 @@ export default function HomePage() {
                       style={{ backgroundColor: bg }}
                       className={`relative h-[200px] sm:h-[220px] rounded-[22px] overflow-hidden text-left active:scale-[0.97] transition-transform ${spanClass}`}
                     >
-                      {/* Sarlavha — yuqori chap, rasm ustida o'qiladi */}
                       <h3
-                        className={`absolute top-3 left-3 z-10 font-bold text-slate-900 leading-tight ${
-                          kind === "full"
-                            ? "text-[22px] max-w-[46%]"
-                            : kind === "narrow"
-                              ? "text-[15px] max-w-[92%] pr-1"
-                              : "text-[18px] max-w-[52%]"
+                        className={`absolute top-3 left-3 z-10 font-semibold text-[18px] leading-snug text-slate-900 ${
+                          kind === "narrow" ? "max-w-[92%] pr-1" : "max-w-[55%]"
                         }`}
-                        style={{ textShadow: "0 1px 0 rgba(255,255,255,0.35)" }}
+                        style={{ textShadow: "0 1px 0 rgba(255,255,255,0.4)" }}
                       >
                         {loc(c, "name", lang)}
                       </h3>
 
                       {c.image_url ? (
-                        <OptimizedImage
-                          src={c.image_url}
-                          priority={aboveFold}
-                          className={imageClass(kind)}
-                        />
+                        <CategoryImage src={c.image_url} kind={kind} priority={aboveFold} />
                       ) : (
                         <ChevronRight
                           size={22}
