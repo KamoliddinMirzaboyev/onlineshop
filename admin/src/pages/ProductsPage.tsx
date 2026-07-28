@@ -304,13 +304,13 @@ export default function ProductsPage() {
           onClick={() => setTab("subcategories")}
         ><Tags size={16} /> Subkategoriyalar</button>
         <button
-          className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition ${tab === "groups" ? "bg-brand text-white shadow-sm" : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"}`}
-          onClick={() => setTab("groups")}
-        ><Heading size={16} /> Title</button>
-        <button
           className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition ${tab === "categories" ? "bg-brand text-white shadow-sm" : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"}`}
           onClick={() => setTab("categories")}
         ><FolderTree size={16} /> Kategoriyalar</button>
+        <button
+          className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition ${tab === "groups" ? "bg-brand text-white shadow-sm" : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"}`}
+          onClick={() => setTab("groups")}
+        ><Heading size={16} /> Title</button>
       </div>
 
       {/* ── PRODUCTS ─────────────────────────────────────── */}
