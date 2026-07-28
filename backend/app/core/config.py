@@ -8,7 +8,7 @@ class Settings(BaseSettings):
 
     # Telegram
     bot_token: str = "changeme"
-    bot_username: str = "allfoodsuzbot"
+    bot_username: str = "barakalibozorobot"
     tma_url: str = "https://barakali-bozor.uz"
     # Qo'shimcha prod origin'lar (CORS). Bo'sh bo'lsa faqat tma_url ishlatiladi.
     admin_url: str = ""
