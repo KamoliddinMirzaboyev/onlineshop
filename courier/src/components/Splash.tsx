@@ -1,4 +1,3 @@
-import { Bike } from "lucide-react";
 import { motion } from "motion/react";
 
 /**
@@ -15,12 +14,11 @@ export default function Splash() {
       exit={{ opacity: 0, transition: { duration: 0.45, ease: "easeInOut" } }}
     >
       <div className="relative flex items-center justify-center">
-        {/* Pulsing rings */}
         {[0, 1].map((i) => (
           <motion.span
             key={i}
             className="absolute rounded-3xl border-2 border-white/40"
-            style={{ width: 96, height: 96 }}
+            style={{ width: 112, height: 112 }}
             initial={{ scale: 1, opacity: 0.5 }}
             animate={{ scale: 1.8, opacity: 0 }}
             transition={{
@@ -32,24 +30,24 @@ export default function Splash() {
           />
         ))}
 
-        {/* Logo */}
         <motion.div
-          className="h-24 w-24 rounded-3xl bg-white flex items-center justify-center shadow-2xl"
-          initial={{ scale: 0.5, opacity: 0, rotate: -12 }}
+          className="h-28 w-28 flex items-center justify-center"
+          initial={{ scale: 0.5, opacity: 0, rotate: -8 }}
           animate={{ scale: 1, opacity: 1, rotate: 0 }}
           transition={{ type: "spring", stiffness: 260, damping: 18 }}
         >
-          <motion.div
-            animate={{ x: [-3, 3, -3] }}
+          <motion.img
+            src="/logo.png"
+            alt="Barakali Bozor"
+            className="h-24 w-24 object-contain drop-shadow-2xl"
+            animate={{ x: [-2, 2, -2] }}
             transition={{ duration: 1.2, repeat: Infinity, ease: "easeInOut" }}
-          >
-            <Bike size={46} className="text-brand" />
-          </motion.div>
+          />
         </motion.div>
       </div>
 
       <motion.h1
-        className="mt-6 text-2xl font-bold tracking-tight text-white"
+        className="mt-6 text-xl font-semibold tracking-tight text-white"
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.25, duration: 0.4 }}
@@ -65,7 +63,6 @@ export default function Splash() {
         Kuryer paneli
       </motion.p>
 
-      {/* Loading dots */}
       <div className="absolute bottom-16 flex gap-1.5">
         {[0, 1, 2].map((i) => (
           <motion.span

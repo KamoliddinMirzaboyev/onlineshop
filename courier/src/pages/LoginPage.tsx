@@ -1,4 +1,4 @@
-import { Bike, Lock, User } from "lucide-react";
+import { Lock, User } from "lucide-react";
 import PasswordInput from "../components/PasswordInput";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -41,10 +41,8 @@ export default function LoginPage() {
     <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4">
       <div className="w-full max-w-sm">
         <div className="flex flex-col items-center mb-8">
-          <div className="h-16 w-16 rounded-2xl bg-brand flex items-center justify-center shadow-lg shadow-brand/30 mb-3">
-            <Bike size={32} className="text-white" />
-          </div>
-          <h1 className="text-2xl font-bold tracking-tight">Barakali Bozor</h1>
+          <img src="/logo.png" alt="Barakali Bozor" className="h-16 w-16 object-contain mb-3 drop-shadow-md" />
+          <h1 className="text-2xl font-semibold tracking-tight">Barakali Bozor</h1>
           <p className="text-slate-500 text-sm mt-1">Kuryer paneli</p>
         </div>
 

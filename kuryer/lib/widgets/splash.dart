@@ -74,26 +74,25 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
                           );
                         },
                       ),
-                    // Logo pop
+                    // Logo pop — transparent brand mark
                     ScaleTransition(
                       scale: CurvedAnimation(parent: _logo, curve: Curves.elasticOut),
-                      child: Container(
-                        width: 96,
-                        height: 96,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(24),
-                          boxShadow: const [
-                            BoxShadow(color: Color(0x33000000), blurRadius: 24, offset: Offset(0, 12)),
-                          ],
+                      child: AnimatedBuilder(
+                        animation: _wobble,
+                        builder: (context, child) => Transform.translate(
+                          offset: Offset((_wobble.value - 0.5) * 6, 0),
+                          child: child,
                         ),
-                        child: AnimatedBuilder(
-                          animation: _wobble,
-                          builder: (context, child) => Transform.translate(
-                            offset: Offset((_wobble.value - 0.5) * 6, 0),
-                            child: child,
+                        child: Image.asset(
+                          'assets/icon/logo.png',
+                          width: 96,
+                          height: 96,
+                          fit: BoxFit.contain,
+                          errorBuilder: (_, __, ___) => const Icon(
+                            Icons.pedal_bike,
+                            size: 46,
+                            color: Colors.white,
                           ),
-                          child: const Icon(Icons.pedal_bike, size: 46, color: AppColors.brand),
                         ),
                       ),
                     ),

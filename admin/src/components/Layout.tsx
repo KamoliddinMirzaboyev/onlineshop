@@ -1,6 +1,6 @@
 import {
   Bike, BarChart3, LayoutDashboard, LogOut, MapPinned, Megaphone, Menu, ReceiptText,
-  Settings, ShoppingBasket, Store, Truck, Users, Warehouse, X,
+  Settings, ShoppingBasket, Truck, Users, Warehouse, X,
 } from "lucide-react";
 import { useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
@@ -34,8 +34,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       {/* Navbar — mobile top bar + desktop header (offset past the fixed sidebar) */}
       <header className="sticky top-0 z-30 flex items-center gap-3 h-14 px-4 bg-white border-b border-slate-200 md:ml-64">
         <button className="icon-btn md:hidden" onClick={() => setOpen(true)} aria-label="Menu"><Menu size={22} /></button>
-        <span className="grid place-items-center h-8 w-8 rounded-lg bg-brand text-white md:hidden"><Store size={18} /></span>
-        <span className="font-bold tracking-tight md:hidden">Barakali Bozor</span>
+        <img src="/logo-64.png" alt="" className="h-8 w-8 object-contain md:hidden" />
+        <span className="font-semibold tracking-tight md:hidden">Barakali Bozor</span>
         <span className="ml-auto">
           <NotificationBell />
         </span>
@@ -53,10 +53,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         }`}
       >
         <div className="flex items-center gap-2 px-5 h-16 border-b border-slate-100">
-          <span className="grid place-items-center h-9 w-9 rounded-lg bg-brand text-white">
-            <Store size={20} />
-          </span>
-          <span className="text-lg font-bold tracking-tight">Barakali Bozor</span>
+          <img src="/logo-64.png" alt="" className="h-9 w-9 object-contain" />
+          <span className="text-lg font-semibold tracking-tight">Barakali Bozor</span>
           <button className="icon-btn ml-auto md:hidden" onClick={() => setOpen(false)} aria-label="Yopish"><X size={20} /></button>
         </div>
 

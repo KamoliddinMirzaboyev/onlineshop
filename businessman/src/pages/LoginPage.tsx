@@ -1,4 +1,4 @@
-import { LogIn, Store } from "lucide-react";
+import { LogIn } from "lucide-react";
 import PasswordInput from "../components/PasswordInput";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -29,11 +29,9 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-slate-100 p-4">
       <form onSubmit={submit} className="card p-8 w-full max-w-sm space-y-5">
         <div className="flex flex-col items-center gap-3">
-          <span className="grid place-items-center h-14 w-14 rounded-2xl bg-brand text-white shadow-sm">
-            <Store size={28} />
-          </span>
+          <img src="/logo.png" alt="Barakali Bozor" className="h-16 w-16 object-contain" />
           <div className="text-center">
-            <h1 className="text-xl font-bold tracking-tight">Barakali Bozor — Tadbirkor</h1>
+            <h1 className="text-xl font-semibold tracking-tight">Barakali Bozor — Tadbirkor</h1>
             <p className="text-sm text-slate-500">Tadbirkor paneliga kirish</p>
           </div>
         </div>

@@ -30,10 +30,11 @@
         pointer-events: none;
       }
       #splash img {
-        width: 88px;
-        height: 88px;
-        border-radius: 22px;
-        box-shadow: 0 10px 30px rgba(22, 163, 74, 0.25);
+        width: 96px;
+        height: 96px;
+        object-fit: contain;
+        background: transparent;
+        filter: drop-shadow(0 8px 20px rgba(22, 163, 74, 0.25));
       }
       #splash .af-name {
         font: 600 17px/1 system-ui, -apple-system, sans-serif;
@@ -58,7 +59,7 @@
   <body>
     <div id="root"></div>
     <div id="splash">
-      <img src="/pwa-192.png" alt="Barakali Bozor" />
+      <img src="/logo.png" alt="Barakali Bozor" />
       <div class="af-name">Barakali Bozor — Admin</div>
       <div class="af-spin"></div>
     </div>
