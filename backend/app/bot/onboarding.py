@@ -60,7 +60,7 @@ async def cmd_start(message: Message, state: FSMContext) -> None:
     )
     if getattr(user, "is_blocked", False):
         await state.clear()
-        await message.answer("⛔️ Akkauntingiz bloklangan. @allfoods_support")
+        await message.answer(t(user.language if getattr(user, "language", None) else "uz", "blocked"))
         return
     if repo.is_onboarded(user):
         await state.clear()

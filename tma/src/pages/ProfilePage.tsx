@@ -4,6 +4,7 @@ import { api } from "../api/client";
 import type { Address } from "../api/types";
 import PageHeader from "../components/PageHeader";
 import { formatUzPhone } from "../lib/format";
+import { offerText, SUPPORT_HANDLE, SUPPORT_URL } from "../lib/offer";
 import { useI18n, type Lang } from "../i18n";
 import { useAuth } from "../store/auth";
 import { useTheme } from "../store/theme";
@@ -192,18 +193,22 @@ export default function ProfilePage() {
       )}
 
       <div className="mx-4 mt-4 card divide-y divide-black/5">
-        {supportPhone ? (
+        <a
+          href={SUPPORT_URL}
+          target="_blank"
+          rel="noreferrer"
+          className="w-full flex items-center gap-3 px-4 py-3.5 text-left"
+        >
+          <Headphones size={17} className="text-tg-hint" />
+          {lang === "uz" ? "Qo'llab-quvvatlash" : "Поддержка"}
+          <span className="ml-auto text-brand text-sm font-medium">{SUPPORT_HANDLE}</span>
+        </a>
+        {supportPhone && (
           <a href={`tel:${supportPhone}`} className="w-full flex items-center gap-3 px-4 py-3.5 text-left">
             <Headphones size={17} className="text-tg-hint" />
-            {lang === "uz" ? "Qo'llab-quvvatlash" : "Поддержка"}
+            {lang === "uz" ? "Qo'ng'iroq" : "Звонок"}
             <span className="ml-auto text-tg-hint text-sm">{supportPhone}</span>
           </a>
-        ) : (
-          <div className="w-full flex items-center gap-3 px-4 py-3.5 text-tg-hint">
-            <Headphones size={17} />
-            {lang === "uz" ? "Qo'llab-quvvatlash" : "Поддержка"}
-            <span className="ml-auto text-sm">{lang === "uz" ? "Tez orada" : "Скоро"}</span>
-          </div>
         )}
         <button onClick={() => setShowOffer(true)} className="w-full flex items-center gap-3 px-4 py-3.5 text-left">
           <FileText size={17} className="text-tg-hint" />
@@ -230,10 +235,8 @@ export default function ProfilePage() {
                 <X size={16} />
               </button>
             </div>
-            <p className="text-sm text-tg-hint leading-relaxed">
-              {lang === "uz"
-                ? "Ommaviy oferta matni tez orada shu yerda joylashtiriladi."
-                : "Текст публичной оферты будет размещён здесь в ближайшее время."}
+            <p className="text-sm text-tg-text leading-relaxed whitespace-pre-wrap">
+              {offerText(lang)}
             </p>
           </div>
         </div>

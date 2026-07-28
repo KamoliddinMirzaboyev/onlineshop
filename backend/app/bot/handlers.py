@@ -17,18 +17,12 @@ def main_menu(lang: str) -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text=t(lang, "open_app"))],
-            [
-                # Profil — to'g'ridan-to'g'ri ilovaning /profile sahifasini ochadi.
-                KeyboardButton(
-                    text=t(lang, "profile"),
-                    web_app=WebAppInfo(url=f"{settings.tma_url}/profile"),
-                ),
-                KeyboardButton(text=t(lang, "orders")),
-            ],
+            [KeyboardButton(text=t(lang, "orders"))],
             [
                 KeyboardButton(text=t(lang, "lang")),
                 KeyboardButton(text=t(lang, "help")),
             ],
+            [KeyboardButton(text=t(lang, "offer"))],
         ],
         resize_keyboard=True,
     )
@@ -77,10 +71,30 @@ async def on_lang_btn(message: Message) -> None:
     await message.answer(t("uz", "lang_choose"), reply_markup=lang_kb())
 
 
+# Eski klaviaturadagi «Profilim» tugmasi — olib tashlangan; menyuni yangilaymiz.
+_OLD_PROFILE = {"👤 Profilim", "👤 Мой профиль"}
+
+
+@router.message(F.text.in_(_OLD_PROFILE))
+async def on_old_profile_btn(message: Message) -> None:
+    user = repo.get_or_create_user(message.from_user.id, message.from_user.first_name, message.from_user.username)
+    await message.answer(
+        t(user.language, "start", name=user.first_name or ""),
+        reply_markup=main_menu(user.language),
+    )
+
+
 @router.message(F.text.in_(_btn_texts("help")))
 async def on_help_btn(message: Message) -> None:
     user = repo.get_or_create_user(message.from_user.id, message.from_user.first_name, message.from_user.username)
-    await message.answer(t(user.language, "help_text"))
+    await message.answer(t(user.language, "help_text"), parse_mode="HTML")
+
+
+@router.message(F.text.in_(_btn_texts("offer")))
+async def on_offer_btn(message: Message) -> None:
+    user = repo.get_or_create_user(message.from_user.id, message.from_user.first_name, message.from_user.username)
+    # Oferta uzun — HTML parse_mode bilan yuboriladi.
+    await message.answer(t(user.language, "offer_text"), parse_mode="HTML")
 
 
 @router.message(F.text.in_(_btn_texts("open_app")))
