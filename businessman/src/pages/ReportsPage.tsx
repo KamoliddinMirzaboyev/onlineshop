@@ -292,42 +292,12 @@ export default function ReportsPage() {
             
             <div className="h-8 w-px bg-slate-200 mx-1"></div>
             
-            <div className="relative" onMouseLeave={() => setExportOpen(false)}>
-              <div className="flex items-stretch rounded-xl shadow-sm border border-brand bg-brand text-white text-sm font-semibold transition-all hover:shadow-md">
-                <button 
-                  onClick={exportExcel}
-                  className="flex items-center gap-2 pl-4 pr-3 py-2 hover:bg-white/10 transition-colors rounded-l-xl"
-                >
-                  <Download size={16} /> Yuklab olish
-                </button>
-                <div className="w-px bg-white/20 my-2" />
-                <button 
-                  onClick={() => setExportOpen(!exportOpen)} 
-                  className="px-2 hover:bg-white/10 transition-colors rounded-r-xl"
-                >
-                  <ChevronDown size={16} className={`transition-transform ${exportOpen ? "rotate-180" : ""}`} />
-                </button>
-              </div>
-              
-              {exportOpen && (
-                <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-xl shadow-lg border border-slate-100 p-1.5 z-50">
-                  <button
-                    onClick={() => { exportExcel(); setExportOpen(false); }}
-                    className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-brand rounded-lg transition-colors"
-                  >
-                    <FileSpreadsheet size={16} className="text-emerald-500" />
-                    Excel (.xlsx)
-                  </button>
-                  <button
-                    onClick={() => { exportPDF(); setExportOpen(false); }}
-                    className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-brand rounded-lg transition-colors"
-                  >
-                    <FileText size={16} className="text-rose-500" />
-                    PDF (.pdf)
-                  </button>
-                </div>
-              )}
-            </div>
+            <button 
+              onClick={exportExcel}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl shadow-sm border border-brand bg-brand text-white text-sm font-semibold transition-all hover:shadow-md hover:bg-brand/90"
+            >
+              <Download size={16} /> Yuklab olish
+            </button>
           </div>
         </div>
       </div>
