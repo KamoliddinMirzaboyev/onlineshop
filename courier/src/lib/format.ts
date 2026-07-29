@@ -69,3 +69,10 @@ export const distanceLabel = (km?: number | null) => {
 /** ETA: "~25 daqiqa". */
 export const etaLabel = (minutes?: number | null) =>
   minutes ? `~${minutes} daqiqa` : null;
+
+/** Ko'p manzilli marshrut (Yandex Maps uchun) - barcha faol buyurtmalarni birga ko'rish. */
+export const multiRouteUrl = (coords: { lat: number; lng: number }[]) => {
+  if (!coords || coords.length === 0) return null;
+  const path = coords.map((c) => `${c.lat},${c.lng}`).join("~");
+  return `https://yandex.uz/maps/?rtext=~${path}`;
+};

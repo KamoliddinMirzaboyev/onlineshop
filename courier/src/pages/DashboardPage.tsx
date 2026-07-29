@@ -1,4 +1,4 @@
-import { Bell, Bike, CheckCircle2, Clock, MapPin, Wallet, XCircle } from "lucide-react";
+import { Bell, Bike, CheckCircle2, Clock, MapPin, Wallet, XCircle, Navigation } from "lucide-react";
 import { motion } from "motion/react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -9,11 +9,11 @@ import { useToast } from "../components/Toast";
 import { useResource } from "../lib/cache";
 import { listContainer, listItem, tap } from "../lib/motion";
 import { isAcceptableOrderStatus } from "../lib/orderActions";
-import { formatDateTime, formatDay, money, statusLabel, statusPill } from "../lib/format";
+import { formatDateTime, formatDay, money, statusLabel, statusPill, multiRouteUrl } from "../lib/format";
 import { useAuth, useOrderAlerts } from "../store";
 import type { CourierStats, Order } from "../types";
 
-const POLL_INTERVAL_MS = 30000;
+const POLL_INTERVAL_MS = 60000;
 
 export default function DashboardPage() {
   const nav = useNavigate();
@@ -34,7 +34,7 @@ export default function DashboardPage() {
   } = useResource<Order[]>(
     "courier_orders",
     () => get<Order[]>("/courier/orders"),
-    { pollMs: 12000, errorText: "Buyurtmalarni yuklab bo'lmadi. Internetni tekshiring." }
+    { pollMs: 60000, errorText: "Buyurtmalarni yuklab bo'lmadi. Internetni tekshiring." }
   );
   const { data: recent } = useResource<Order[]>(
     "courier_recent",
@@ -164,9 +164,29 @@ export default function DashboardPage() {
           {/* Faol buyurtmalarim */}
           {myActiveOrders.length > 0 && (
             <motion.div variants={listItem}>
-              <div className="flex items-center gap-2 mb-3 mt-1">
-                <Bike size={18} className="text-brand" />
-                <h2 className="font-bold text-lg">Mening faol buyurtmalarim</h2>
+              <div className="flex items-center justify-between gap-2 mb-3 mt-1">
+                <div className="flex items-center gap-2">
+                  <Bike size={18} className="text-brand" />
+                  <h2 className="font-bold text-lg">Mening faol buyurtmalarim</h2>
+                </div>
+                {myActiveOrders.length > 1 && multiRouteUrl(
+                  myActiveOrders
+                    .filter((o) => o.lat != null && o.lng != null)
+                    .map((o) => ({ lat: o.lat!, lng: o.lng! }))
+                ) && (
+                  <a
+                    href={multiRouteUrl(
+                      myActiveOrders
+                        .filter((o) => o.lat != null && o.lng != null)
+                        .map((o) => ({ lat: o.lat!, lng: o.lng! }))
+                    ) as string}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-brand/10 text-brand rounded-lg text-sm font-medium"
+                  >
+                    <Navigation size={14} /> Xarita
+                  </a>
+                )}
               </div>
               <div className="space-y-3">
                 {myActiveOrders.map((o) => (
