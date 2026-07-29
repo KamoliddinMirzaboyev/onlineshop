@@ -118,10 +118,7 @@ def render_receipt(order: Order) -> bytes:
 
     # logotipni chizish
     try:
-        logo_path = Path(__file__).resolve()
-        while logo_path.name and logo_path.name != "backend":
-            logo_path = logo_path.parent
-        logo_path = logo_path.parent / "bblogo.png"
+        logo_path = _FONT_DIR.parent / "bblogo.png"
         if logo_path.exists():
             logo = Image.open(logo_path).convert("RGBA")
             lw, lh = logo.size
