@@ -1,4 +1,4 @@
-import { AtSign, Camera, Globe, KeyRound, PlayCircle, Plus, Save, Send, Trash2, Bell, BellOff, BellRing } from "lucide-react";
+import { AtSign, Camera, Globe, KeyRound, PlayCircle, Plus, Save, Send, Trash2, Bell, BellRing } from "lucide-react";
 import PasswordInput from "../components/PasswordInput";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -181,7 +181,7 @@ export default function SettingsPage() {
                 disabled={pushBusy} 
                 className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-2 ${pushEnabled ? 'bg-emerald-500' : 'bg-slate-300'}`}
              >
-                <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${perm === "granted" ? 'translate-x-5' : 'translate-x-0'}`} />
+                <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${pushEnabled ? 'translate-x-5' : 'translate-x-0'}`} />
              </button>
           </div>
         )}
