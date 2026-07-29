@@ -1,11 +1,9 @@
-import { BarChart3, Star, Download, Table as FileSpreadsheet } from "lucide-react";
+import { BarChart3, Star, Download } from "lucide-react";
 import { useEffect, useState } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { get } from "../api";
 import { ErrorRetry, StatCardsSkeleton } from "../components/Skeleton";
 import type { ReportsOut } from "../types";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx-js-style";
 
 const money = (n?: number | null) => (n || 0).toLocaleString("ru-RU").replace(/,/g, " ");

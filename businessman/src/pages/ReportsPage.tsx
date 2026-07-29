@@ -1,12 +1,10 @@
-import { BarChart3, Coins, PieChart, ReceiptText, Star, TrendingUp, Wallet, Download, ChevronDown, FileSpreadsheet, FileText } from "lucide-react";
+import { BarChart3, Coins, PieChart, ReceiptText, Star, TrendingUp, Wallet, Download } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { get } from "../api";
 import { ErrorRetry, StatCardsSkeleton } from "../components/Skeleton";
 import type { BusinessReports, StoreBreakdown } from "../types";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx-js-style";
 
 const money = (n?: number | null) => (n || 0).toLocaleString("ru-RU").replace(/,/g, " ");
@@ -85,65 +83,12 @@ export default function ReportsPage() {
   const [data, setData] = useState<BusinessReports | null>(null);
   const [period, setPeriod] = useState<Period>("daily");
   const [err, setErr] = useState(false);
-  const [exportOpen, setExportOpen] = useState(false);
-
   const load = () => {
     setErr(false);
     get<BusinessReports>(`/business/reports?period=${period}`).then(setData).catch(() => setErr(true));
   };
 
   useEffect(() => { load(); }, [period]);
-
-  const exportPDF = () => {
-    if (!data) return;
-    const doc = new jsPDF();
-    
-    doc.setFontSize(22);
-    doc.setTextColor(15, 23, 42);
-    doc.text("Barakali Bozor - Hisobot", 14, 22);
-    
-    doc.setFontSize(11);
-    doc.setTextColor(100, 116, 139);
-    doc.text(`Sana: ${new Date().toLocaleDateString("ru-RU")}`, 14, 30);
-    doc.text(`Davr: ${TABS.find(t => t.key === period)?.label}`, 14, 36);
-
-    autoTable(doc, {
-      head: [["Sana / Davr", "Buyurtmalar soni", "Tushum (so'm)", "Foyda (so'm)"]],
-      body: [...data.series].reverse().map(r => [
-        fmtLabel(r.period, period),
-        r.orders.toString(),
-        money(r.revenue),
-        money(r.profit)
-      ]),
-      startY: 45,
-      headStyles: { fillColor: [16, 185, 129] },
-      styles: { fontSize: 10, cellPadding: 4 }
-    });
-    
-    autoTable(doc, {
-      head: [["Do'kon", "Buyurtmalar", "Tushum (so'm)", "Harajat (so'm)", "Foyda (so'm)"]],
-      body: data.stores.map((s) => [s.name, s.orders.toString(), money(s.revenue), money(s.cost), money(s.profit)]),
-      startY: (doc as any).lastAutoTable.finalY + 10,
-      headStyles: { fillColor: [59, 130, 246] },
-      styles: { fontSize: 10, cellPadding: 4 }
-    });
-
-    autoTable(doc, {
-      head: [["No", "Mahsulot nomi", "Sotilgan miqdor", "Umumiy Tushum (so'm)", "Umumiy Foyda (so'm)"]],
-      body: data.top_products.map((t, i) => [
-        (i + 1).toString(),
-        t.name_uz,
-        t.quantity.toString(),
-        money(t.revenue),
-        money(t.profit)
-      ]),
-      startY: (doc as any).lastAutoTable.finalY + 10,
-      headStyles: { fillColor: [245, 158, 11] },
-      styles: { fontSize: 10, cellPadding: 4 }
-    });
-    
-    doc.save(`Hisobot_${period}_${new Date().toLocaleDateString("ru-RU")}.pdf`);
-  };
 
   const exportExcel = () => {
     if (!data) return;
