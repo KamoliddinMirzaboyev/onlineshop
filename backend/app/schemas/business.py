@@ -2,7 +2,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
-from app.schemas.admin import PeriodPoint, TopProduct
+from app.schemas.admin import PeriodPoint, TopProduct, ReportTotals
 
 
 class BusinessOut(BaseModel):
@@ -101,10 +101,8 @@ class BusinessStatsOut(BaseModel):
 
 
 class BusinessReportsOut(BaseModel):
-    # Vaqt qatorlari — biznesning barcha do'konlari bo'ylab jamlangan.
-    daily: list[PeriodPoint] = []
-    weekly: list[PeriodPoint] = []
-    monthly: list[PeriodPoint] = []
+    totals: ReportTotals
+    series: list[PeriodPoint] = []
     top_products: list[TopProduct] = []
     stores: list[StoreBreakdown] = []   # so'nggi 30 kun, do'kon kesimi
 

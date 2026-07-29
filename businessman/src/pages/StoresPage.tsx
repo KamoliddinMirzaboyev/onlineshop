@@ -11,7 +11,7 @@ import type {
   StoreWithStaffInput, TopProduct,
 } from "../types";
 
-const money = (n: number) => n.toLocaleString("ru-RU").replace(/,/g, " ");
+const money = (n?: number | null) => (n || 0).toLocaleString("ru-RU").replace(/,/g, " ");
 
 // Tahrirlash formasi — do'kon sozlamalari (yaratishda ishlatilmaydi).
 const emptyEdit: StoreInput = {

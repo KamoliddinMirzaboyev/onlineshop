@@ -100,6 +100,12 @@ class Order(Base):
         return self.assigned_courier.name if self.assigned_courier else None
 
     @property
+    def customer_name(self) -> str | None:
+        if self.user:
+            return f"{self.user.first_name or ''} {self.user.last_name or ''}".strip() or self.user.username
+        return None
+
+    @property
     def assigned_courier_phone(self) -> str | None:
         return self.assigned_courier.phone if self.assigned_courier else None
 

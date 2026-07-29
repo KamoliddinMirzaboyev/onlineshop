@@ -1,5 +1,5 @@
-import { Bell, CheckCircle2, PackageCheck, Sparkles } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { Bell, CheckCircle2, PackageCheck, Sparkles, X } from "lucide-react";
+import { useEffect, useState } from "react";
 import { get } from "../api";
 import type { NotificationEvent } from "../types";
 
@@ -17,14 +17,16 @@ const LABEL: Record<NotificationEvent["type"], string> = {
   delivered: "Yetkazildi",
 };
 
-function timeAgo(iso: string): string {
-  const diffMs = Date.now() - new Date(iso).getTime();
-  const min = Math.floor(diffMs / 60000);
-  if (min < 1) return "hozir";
-  if (min < 60) return `${min} daq oldin`;
-  const hr = Math.floor(min / 60);
-  if (hr < 24) return `${hr} soat oldin`;
-  return `${Math.floor(hr / 24)} kun oldin`;
+// Vaqtni hh:mm shaklida qaytaradi
+function formatTime(iso: string): string {
+  const d = new Date(iso);
+  return d.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+}
+
+// Sanani DD.MM.YYYY shaklida qaytaradi
+function formatDate(iso: string): string {
+  const d = new Date(iso);
+  return d.toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
 export default function NotificationBell() {
@@ -33,13 +35,12 @@ export default function NotificationBell() {
   const [lastSeen, setLastSeen] = useState(
     () => localStorage.getItem(SEEN_KEY) ?? new Date().toISOString(),
   );
-  const boxRef = useRef<HTMLDivElement>(null);
 
   const load = async () => {
     try {
       setEvents(await get<NotificationEvent[]>("/admin/notifications"));
     } catch {
-      // silent — bell just won't update this poll cycle
+      // silent
     }
   };
 
@@ -49,28 +50,32 @@ export default function NotificationBell() {
     return () => clearInterval(id);
   }, []);
 
-  useEffect(() => {
-    if (!open) return;
-    const onClick = (e: MouseEvent) => {
-      if (boxRef.current && !boxRef.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", onClick);
-    return () => document.removeEventListener("mousedown", onClick);
-  }, [open]);
-
   const unseen = events.filter((e) => e.at > lastSeen).length;
 
   const toggle = () => {
-    setOpen((o) => !o);
     if (!open && events.length) {
       const newest = events[0].at;
       setLastSeen(newest);
       localStorage.setItem(SEEN_KEY, newest);
     }
+    setOpen(!open);
   };
 
+  const markAllRead = () => {
+    setLastSeen(new Date().toISOString());
+    localStorage.setItem(SEEN_KEY, new Date().toISOString());
+  };
+
+  // Bildirishnomalarni sanaga ko'ra guruhlash
+  const groupedEvents = events.reduce((acc, event) => {
+    const dateStr = formatDate(event.at);
+    if (!acc[dateStr]) acc[dateStr] = [];
+    acc[dateStr].push(event);
+    return acc;
+  }, {} as Record<string, NotificationEvent[]>);
+
   return (
-    <div className="relative" ref={boxRef}>
+    <>
       <button
         className="icon-btn relative"
         onClick={toggle}
@@ -84,33 +89,71 @@ export default function NotificationBell() {
         )}
       </button>
 
-      {open && (
-        <div className="absolute right-0 mt-2 w-80 max-h-96 overflow-auto card p-2 z-50 shadow-lg">
-          {events.length === 0 && (
-            <p className="text-sm text-slate-400 text-center py-6">Hozircha faoliyat yo'q</p>
-          )}
-          {events.map((e, i) => {
-            const Icon = ICON[e.type];
-            return (
-              <div
-                key={`${e.order_id}-${e.type}-${i}`}
-                className="flex items-start gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-50"
-              >
-                <span className="grid place-items-center h-8 w-8 rounded-lg bg-brand/10 text-brand shrink-0">
-                  <Icon size={16} />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <div className="text-sm font-medium text-slate-800">
-                    {LABEL[e.type]} · № {e.order_number}
-                  </div>
-                  <div className="text-xs text-slate-500 truncate">{e.address_line}</div>
-                </div>
-                <span className="text-xs text-slate-400 shrink-0">{timeAgo(e.at)}</span>
-              </div>
-            );
-          })}
+      {/* OVERLAY */}
+      <div 
+        className={`fixed inset-0 bg-slate-900/20 backdrop-blur-sm z-50 transition-opacity duration-300 ${open ? "opacity-100" : "opacity-0 pointer-events-none"}`} 
+        onClick={() => setOpen(false)} 
+      />
+
+      {/* DRAWER */}
+      <div className={`fixed top-0 right-0 h-full w-full sm:w-[400px] bg-white shadow-2xl z-[60] flex flex-col transform transition-transform duration-300 ease-in-out ${open ? "translate-x-0" : "translate-x-full"}`}>
+        
+        {/* HEADER */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-white">
+          <h2 className="text-xl font-bold text-slate-800">Bildirishnomalar</h2>
+          <div className="flex items-center gap-2">
+            <button onClick={markAllRead} className="text-sm font-medium text-brand hover:text-brand/80 transition-colors">
+              Barchasini o'qish
+            </button>
+            <button onClick={() => setOpen(false)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 transition-colors">
+              <X size={20} />
+            </button>
+          </div>
         </div>
-      )}
-    </div>
+
+        {/* CONTENT */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-8 bg-white">
+          {events.length === 0 ? (
+            <div className="text-center text-slate-400 py-10 mt-10">
+              <Bell size={32} className="mx-auto mb-4 opacity-20" />
+              Hozircha faoliyat yo'q
+            </div>
+          ) : (
+            Object.entries(groupedEvents).map(([date, dateEvents]) => (
+              <div key={date}>
+                <div className="text-xs font-semibold text-slate-400 mb-4">{date}</div>
+                <div className="space-y-5">
+                  {dateEvents.map((e, i) => {
+                    const Icon = ICON[e.type];
+                    const isNew = e.at > lastSeen;
+                    return (
+                      <div key={`${e.order_id}-${e.type}-${i}`} className="flex items-start gap-4">
+                        <div className="relative">
+                          <span className={`grid place-items-center h-10 w-10 rounded-full shrink-0 ${isNew ? "bg-brand/10 text-brand" : "bg-slate-100 text-slate-500"}`}>
+                            <Icon size={18} />
+                          </span>
+                          {isNew && <span className="absolute -top-1 -right-1 h-3 w-3 bg-rose-500 border-2 border-white rounded-full"></span>}
+                        </div>
+                        <div className="flex-1 min-w-0 pt-0.5">
+                          <div className="flex items-start justify-between gap-2">
+                            <h3 className={`text-sm font-medium truncate ${isNew ? "text-slate-900" : "text-slate-700"}`}>
+                              {LABEL[e.type]}
+                            </h3>
+                            <span className="text-xs text-slate-400 shrink-0 mt-0.5">{formatTime(e.at)}</span>
+                          </div>
+                          <p className="text-sm text-slate-500 mt-0.5 leading-relaxed truncate">
+                            #{e.order_id} raqamli buyurtma holati yangilandi
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </>
   );
 }

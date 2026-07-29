@@ -50,3 +50,10 @@ export async function enablePush(): Promise<NotificationPermission> {
   await post("/admin/push/subscribe", sub.toJSON());
   return "granted";
 }
+
+export async function disablePush(): Promise<void> {
+  if (!pushSupported()) return;
+  const reg = await serviceWorkerReady();
+  const sub = await reg.pushManager.getSubscription();
+  if (sub) await sub.unsubscribe();
+}

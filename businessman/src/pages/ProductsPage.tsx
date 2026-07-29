@@ -11,7 +11,7 @@ import { useStore } from "../store";
 import type { Category, CategoryGroup, Product } from "../types";
 
 type Tab = "products" | "subcategories" | "groups" | "categories";
-const money = (n: number) => n.toLocaleString("ru-RU").replace(/,/g, " ");
+const money = (n?: number | null) => (n || 0).toLocaleString("ru-RU").replace(/,/g, " ");
 
 const UNITS = [
   { value: "dona",   label: "Dona (шт)" },
@@ -40,6 +40,7 @@ function parseNum(s: string) {
 export default function ProductsPage() {
   const storeId = useStore((s) => s.selectedStoreId);
   const stores = useStore((s) => s.stores);
+  const setSelectedStore = useStore((s) => s.setSelectedStore);
   const isAll = storeId === "all";
   const storeName = (rid: number) => stores.find((s) => s.id === rid)?.name ?? "—";
   const [tab, setTab] = useState<Tab>("products");
@@ -356,26 +357,48 @@ export default function ProductsPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold tracking-tight mb-1">Mahsulotlar</h1>
-      <p className="text-slate-500 mb-5">Mahsulotlar va kategoriyalarni boshqarish.</p>
+      <div className="sticky top-14 z-20 -mt-4 md:-mt-8 -mx-4 px-4 md:-mx-8 md:px-8 pt-4 md:pt-8 pb-3 bg-[#f8fafc] md:bg-[#f8fafc]/95 md:backdrop-blur-md border-b border-slate-200 shadow-sm mb-6">
+        <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 mb-5">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight mb-1">Mahsulotlar</h1>
+            <p className="text-slate-500">Mahsulotlar va kategoriyalarni boshqarish.</p>
+          </div>
+          
+          {stores.length > 1 && (
+            <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl p-1 shadow-sm">
+              <span className="text-sm text-slate-500 font-medium px-3 hidden sm:inline-block">Qaysi do'kon:</span>
+              <select
+                className="input py-1.5 text-sm font-semibold text-brand border-none bg-white shadow-sm w-[200px]"
+                value={storeId ?? ""}
+                onChange={(e) => setSelectedStore(e.target.value === "all" ? "all" : Number(e.target.value))}
+              >
+                <option value="all">Barcha do'konlar</option>
+                {stores.map((s) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
 
-      <div className="flex gap-2 mb-5 flex-wrap">
-        <button
-          className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition ${tab === "products" ? "bg-brand text-white shadow-sm" : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"}`}
-          onClick={() => setTab("products")}
-        ><ShoppingBasket size={16} /> Mahsulotlar</button>
-        <button
-          className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition ${tab === "subcategories" ? "bg-brand text-white shadow-sm" : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"}`}
-          onClick={() => setTab("subcategories")}
-        ><Tags size={16} /> Subkategoriyalar</button>
-        <button
-          className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition ${tab === "categories" ? "bg-brand text-white shadow-sm" : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"}`}
-          onClick={() => setTab("categories")}
-        ><FolderTree size={16} /> Kategoriyalar</button>
-        <button
-          className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition ${tab === "groups" ? "bg-brand text-white shadow-sm" : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"}`}
-          onClick={() => setTab("groups")}
-        ><Heading size={16} /> Title</button>
+        <div className="flex gap-2.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <button
+            className={`whitespace-nowrap inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold transition-all duration-200 flex-shrink-0 ${tab === "products" ? "bg-brand text-white shadow-md shadow-brand/25" : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900"}`}
+            onClick={() => setTab("products")}
+          ><ShoppingBasket size={16} /> Mahsulotlar</button>
+          <button
+            className={`whitespace-nowrap inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold transition-all duration-200 flex-shrink-0 ${tab === "subcategories" ? "bg-brand text-white shadow-md shadow-brand/25" : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900"}`}
+            onClick={() => setTab("subcategories")}
+          ><Tags size={16} /> Subkategoriyalar</button>
+          <button
+            className={`whitespace-nowrap inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold transition-all duration-200 flex-shrink-0 ${tab === "categories" ? "bg-brand text-white shadow-md shadow-brand/25" : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900"}`}
+            onClick={() => setTab("categories")}
+          ><FolderTree size={16} /> Kategoriyalar</button>
+          <button
+            className={`whitespace-nowrap inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold transition-all duration-200 flex-shrink-0 ${tab === "groups" ? "bg-brand text-white shadow-md shadow-brand/25" : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900"}`}
+            onClick={() => setTab("groups")}
+          ><Heading size={16} /> Title</button>
+        </div>
       </div>
 
       {/* ── PRODUCTS ─────────────────────────────────────── */}

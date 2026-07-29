@@ -8,7 +8,7 @@ import { get } from "../api";
 import { ErrorRetry, StatCardsSkeleton } from "../components/Skeleton";
 import type { DashboardStats } from "../types";
 
-const money = (n: number) => n.toLocaleString("ru-RU").replace(/,/g, " ");
+const money = (n?: number | null) => (n || 0).toLocaleString("ru-RU").replace(/,/g, " ");
 
 function Stat({
   label, value, icon: Icon, tint,

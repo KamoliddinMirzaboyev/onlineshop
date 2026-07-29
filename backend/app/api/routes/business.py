@@ -151,6 +151,7 @@ def business_stats(
 
 @router.get("/reports", response_model=BusinessReportsOut)
 def business_reports(
+    period: str = "daily",
     business: Business = Depends(get_current_business),
     db: Session = Depends(get_db),
 ):
@@ -181,10 +182,23 @@ def business_reports(
             top_product_name=top[0].name_uz if top else None,
         ))
 
+    if period == "daily":
+        start = today
+        trunc = "hour"
+    elif period == "weekly":
+        start = today - timedelta(days=7)
+        trunc = "day"
+    elif period == "monthly":
+        start = today - timedelta(days=30)
+        trunc = "day"
+    else:
+        start = today - timedelta(days=30)
+        trunc = "day"
+
+    o, r, p = _agg(db, ids, start)
     return BusinessReportsOut(
-        daily=_series(db, ids, "day", today - timedelta(days=30)),
-        weekly=_series(db, ids, "week", today - timedelta(weeks=12)),
-        monthly=_series(db, ids, "month", today - timedelta(days=365)),
-        top_products=_top_products(db, ids, limit=20),
+        totals={"orders": o, "revenue": r, "profit": p},
+        series=_series(db, ids, trunc, start),
+        top_products=_top_products(db, ids, start=start, limit=20),
         stores=breakdown,
     )

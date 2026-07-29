@@ -83,6 +83,7 @@ export interface Order {
   address_line: string;
   lat?: number | null;
   lng?: number | null;
+  customer_name?: string | null;
   phone?: string | null;
   comment?: string | null;
   assigned_courier_id?: number | null;
@@ -140,10 +141,15 @@ export interface PeriodPoint {
   profit: number;
 }
 
+export interface ReportTotals {
+  orders: number;
+  revenue: number;
+  profit: number;
+}
+
 export interface ReportsOut {
-  daily: PeriodPoint[];
-  weekly: PeriodPoint[];
-  monthly: PeriodPoint[];
+  totals: ReportTotals;
+  series: PeriodPoint[];
   top_products: TopProduct[];
 }
 

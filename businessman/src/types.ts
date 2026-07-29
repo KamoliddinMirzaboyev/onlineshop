@@ -215,9 +215,12 @@ export interface TopProduct {
 
 // GET /business/reports — chart'lar uchun.
 export interface BusinessReports {
-  daily: PeriodPoint[];
-  weekly: PeriodPoint[];
-  monthly: PeriodPoint[];
+  totals: {
+    orders: number;
+    revenue: number;
+    profit: number;
+  };
+  series: PeriodPoint[];
   top_products: TopProduct[];
   stores: StoreBreakdown[];   // so'nggi 30 kun, do'kon kesimi
 }

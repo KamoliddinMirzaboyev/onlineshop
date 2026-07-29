@@ -6,7 +6,7 @@ import { ErrorRetry, StatCardsSkeleton } from "../components/Skeleton";
 import TrendChart from "../components/TrendChart";
 import type { BusinessReports, StoreBreakdown } from "../types";
 
-const money = (n: number) => n.toLocaleString("ru-RU").replace(/,/g, " ");
+const money = (n?: number | null) => (n || 0).toLocaleString("ru-RU").replace(/,/g, " ");
 
 function Stat({
   label, value, icon: Icon, tint,
@@ -115,7 +115,7 @@ export default function DashboardPage() {
         {/* ── Savdo dinamikasi ────────────────────────────── */}
         <div className="card p-4 sm:p-6">
           <div className="flex items-center gap-2 mb-4 font-semibold"><BarChart3 size={18} /> Savdo dinamikasi (30 kun)</div>
-          <TrendChart points={data.daily} />
+          <TrendChart points={data.series} />
         </div>
 
         {/* ── Eng ko'p sotilgan mahsulotlar (biznes bo'ylab) ─ */}
