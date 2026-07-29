@@ -1,15 +1,17 @@
-import { BarChart3, Coins, PieChart, ReceiptText, Star, TrendingUp, Wallet, Download, ChevronDown, FileSpreadsheet, FileText } from "lucide-react";
+import os
+
+content = """import { BarChart3, Coins, PieChart, ReceiptText, Star, TrendingUp, Wallet, Download, ChevronDown, FileSpreadsheet, FileText } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { get } from "../api";
 import { ErrorRetry, StatCardsSkeleton } from "../components/Skeleton";
-import type { BusinessReports, StoreBreakdown } from "../types";
+import type { BusinessReports, PeriodPoint, StoreBreakdown } from "../types";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx-js-style";
 
-const money = (n?: number | null) => (n || 0).toLocaleString("ru-RU").replace(/,/g, " ");
+const money = (n: number) => n.toLocaleString("ru-RU").replace(/,/g, " ");
 
 type Period = "daily" | "weekly" | "monthly";
 const TABS: { key: Period; label: string }[] = [
@@ -159,74 +161,68 @@ export default function ReportsPage() {
     aoa.push([]);
     
     sectionRows.add(aoa.length);
-    aoa.push(["", "UMUMIY KO'RSATKICHLAR"]);
+    aoa.push(["UMUMIY KO'RSATKICHLAR"]);
     headerRows.add(aoa.length);
-    aoa.push(["", "Ko'rsatkich", "Qiymat"]);
-    aoa.push(["", "Jami Buyurtmalar", `${money(data.totals.orders)} ta`]);
-    aoa.push(["", "Jami Tushum", `${money(data.totals.revenue)} so'm`]);
-    aoa.push(["", "Jami Foyda", `${money(data.totals.profit)} so'm`]);
+    aoa.push(["Ko'rsatkich", "Qiymat"]);
+    aoa.push(["Jami Buyurtmalar", `${money(data.totals.orders)} ta`]);
+    aoa.push(["Jami Tushum", `${money(data.totals.revenue)} so'm`]);
+    aoa.push(["Jami Foyda", `${money(data.totals.profit)} so'm`]);
     aoa.push([]);
     aoa.push([]);
     
     sectionRows.add(aoa.length);
-    aoa.push(["", "SAVDO DINAMIKASI"]);
+    aoa.push(["SAVDO DINAMIKASI"]);
     headerRows.add(aoa.length);
-    aoa.push(["", "Sana / Davr", "Buyurtmalar soni", "Tushum (so'm)", "Foyda (so'm)"]);
+    aoa.push(["Sana / Davr", "Buyurtmalar soni", "Tushum (so'm)", "Foyda (so'm)"]);
     [...data.series].reverse().forEach(r => {
-      aoa.push(["", fmtLabel(r.period, period), r.orders, money(r.revenue), money(r.profit)]);
+      aoa.push([fmtLabel(r.period, period), r.orders, money(r.revenue), money(r.profit)]);
     });
     aoa.push([]);
     aoa.push([]);
     
     sectionRows.add(aoa.length);
-    aoa.push(["", "DO'KONLAR KESIMIDA"]);
+    aoa.push(["DO'KONLAR KESIMIDA"]);
     headerRows.add(aoa.length);
-    aoa.push(["", "Do'kon", "Buyurtma", "Tushum (so'm)", "Harajat (so'm)", "Foyda (so'm)"]);
+    aoa.push(["Do'kon", "Buyurtma", "Tushum (so'm)", "Harajat (so'm)", "Foyda (so'm)"]);
     data.stores.forEach((s) => {
-      aoa.push(["", s.name, s.orders, money(s.revenue), money(s.cost), money(s.profit)]);
+      aoa.push([s.name, s.orders, money(s.revenue), money(s.cost), money(s.profit)]);
     });
     aoa.push([]);
     aoa.push([]);
     
     sectionRows.add(aoa.length);
-    aoa.push(["", "TOP SOTILGAN MAHSULOTLAR REYTINGI"]);
+    aoa.push(["TOP SOTILGAN MAHSULOTLAR REYTINGI"]);
     headerRows.add(aoa.length);
-    aoa.push(["", "№", "Mahsulot nomi", "Sotilgan miqdor", "Umumiy Tushum (so'm)", "Umumiy Foyda (so'm)"]);
+    aoa.push(["№", "Mahsulot nomi", "Sotilgan miqdor", "Umumiy Tushum (so'm)", "Umumiy Foyda (so'm)"]);
     data.top_products.forEach((t, i) => {
-      aoa.push(["", i + 1, t.name_uz, t.quantity, money(t.revenue), money(t.profit)]);
+      aoa.push([i + 1, t.name_uz, t.quantity, money(t.revenue), money(t.profit)]);
     });
     
     const ws = XLSX.utils.aoa_to_sheet(aoa);
-    ws['!cols'] = [{ width: 4 }, { width: 25 }, { width: 35 }, { width: 18 }, { width: 25 }, { width: 25 }];
+    ws['!cols'] = [{ width: 25 }, { width: 35 }, { width: 18 }, { width: 25 }, { width: 25 }];
     
-    // Merge title
-    ws['!merges'] = [
-      { s: { r: 0, c: 0 }, e: { r: 0, c: 5 } },
-    ];
-
     for (let r = 0; r < aoa.length; r++) {
       for (let c = 0; c < aoa[r].length; c++) {
         const cell = ws[XLSX.utils.encode_cell({ r, c })];
         if (!cell) continue;
         
-        cell.s = { font: { sz: 11, color: { rgb: "334155" } }, alignment: { vertical: "center", horizontal: "center" } };
+        cell.s = { font: { sz: 11, color: { rgb: "334155" } } };
         
         if (r === 0) {
           cell.s.font = { sz: 16, bold: true, color: { rgb: "0F172A" } };
         } else if (r === 1 || r === 2) {
           cell.s.font = { sz: 11, italic: true, color: { rgb: "64748B" } };
-          cell.s.alignment = { horizontal: "left" };
         } else if (sectionRows.has(r)) {
-          cell.s.font = { sz: 13, bold: true, color: { rgb: "0F172A" } };
-          cell.s.alignment = { horizontal: "left" };
+          cell.s.font = { sz: 12, bold: true, color: { rgb: "0F172A" } };
         } else if (headerRows.has(r)) {
-          cell.s.font = { sz: 12, bold: true, color: { rgb: "FFFFFF" } };
-          cell.s.fill = { fgColor: { rgb: "059669" } }; // emerald-600
+          cell.s.font = { sz: 11, bold: true, color: { rgb: "FFFFFF" } };
+          cell.s.fill = { fgColor: { rgb: "10B981" } };
+          cell.s.alignment = { vertical: "center", horizontal: "center" };
           cell.s.border = {
-            top: { style: "thin", color: { rgb: "047857" } },
-            bottom: { style: "thin", color: { rgb: "047857" } },
-            left: { style: "thin", color: { rgb: "047857" } },
-            right: { style: "thin", color: { rgb: "047857" } }
+            top: { style: "thin", color: { rgb: "E2E8F0" } },
+            bottom: { style: "thin", color: { rgb: "E2E8F0" } },
+            left: { style: "thin", color: { rgb: "E2E8F0" } },
+            right: { style: "thin", color: { rgb: "E2E8F0" } }
           };
         } else {
           cell.s.border = {
@@ -235,8 +231,8 @@ export default function ReportsPage() {
             left: { style: "thin", color: { rgb: "E2E8F0" } },
             right: { style: "thin", color: { rgb: "E2E8F0" } }
           };
-          if (c > 1 && r > 5) {
-             cell.s.alignment = { horizontal: "center" };
+          if (c > 0 && r > 5) {
+             cell.s.alignment = { horizontal: "right" };
           }
         }
       }
@@ -244,7 +240,7 @@ export default function ReportsPage() {
     
     XLSX.utils.book_append_sheet(wb, ws, "Hisobot");
     XLSX.writeFile(wb, `Hisobot_${period}_${new Date().toLocaleDateString("ru-RU")}.xlsx`);
-  }
+  };
 
   if (!data) {
     return (
@@ -374,7 +370,7 @@ export default function ReportsPage() {
                 <Tooltip 
                   cursor={{ fill: '#f1f5f9', opacity: 0.4 }}
                   contentStyle={{ borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                  formatter={(val: any, name: any) => [
+                  formatter={(val: number, name: string) => [
                     name === "Buyurtmalar" ? val : `${money(val)} so'm`,
                     name
                   ]}
@@ -469,3 +465,7 @@ export default function ReportsPage() {
     </div>
   );
 }
+"""
+with open("src/pages/ReportsPage.tsx", "w") as f:
+    f.write(content)
+

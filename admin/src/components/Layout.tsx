@@ -5,7 +5,7 @@ import {
 import { useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../store";
-import PushButton from "./PushButton";
+
 import NotificationBell from "./NotificationBell";
 
 // `roles` undefined → visible to every allowed (non-courier) admin.
@@ -85,7 +85,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         </nav>
 
         <div className="p-4 border-t border-slate-100">
-          <PushButton />
+
           <div className="flex items-center gap-3 mb-3 mt-1">
             <span className="grid place-items-center h-9 w-9 rounded-full bg-brand/10 text-brand font-semibold uppercase">
               {admin?.username?.[0] ?? "A"}

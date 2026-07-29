@@ -74,10 +74,15 @@ class PeriodPoint(BaseModel):
     profit: int
 
 
+class ReportTotals(BaseModel):
+    orders: int
+    revenue: int
+    profit: int
+
+
 class ReportsOut(BaseModel):
-    daily: list[PeriodPoint] = []
-    weekly: list[PeriodPoint] = []
-    monthly: list[PeriodPoint] = []
+    totals: ReportTotals
+    series: list[PeriodPoint] = []
     top_products: list[TopProduct] = []
 
 

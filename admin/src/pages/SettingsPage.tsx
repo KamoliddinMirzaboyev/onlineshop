@@ -1,4 +1,4 @@
-import { AtSign, Camera, Globe, KeyRound, PlayCircle, Plus, Save, Send, Trash2 } from "lucide-react";
+import { AtSign, Camera, Globe, KeyRound, PlayCircle, Plus, Save, Send, Trash2, Bell, BellOff, BellRing } from "lucide-react";
 import PasswordInput from "../components/PasswordInput";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -7,6 +7,7 @@ import ImageUpload from "../components/ImageUpload";
 import { ErrorRetry } from "../components/Skeleton";
 import { useAuth } from "../store";
 import type { Restaurant } from "../types";
+import { enablePush, disablePush, pushSupported } from "../push";
 
 // Qo'llab-quvvatlanadigan ijtimoiy tarmoqlar (key backendda socials obyekti kaliti).
 const SOCIALS: { key: string; label: string; icon: typeof Globe; placeholder: string }[] = [
@@ -22,6 +23,34 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  const [pushEnabled, setPushEnabled] = useState(false);
+  useEffect(() => {
+    if (!pushSupported()) return;
+    navigator.serviceWorker.ready.then(reg => reg.pushManager.getSubscription()).then(sub => setPushEnabled(!!sub));
+  }, []);
+  const [pushBusy, setPushBusy] = useState(false);
+
+  const togglePush = async () => {
+    if (!pushSupported() || pushBusy) return;
+    setPushBusy(true);
+    try {
+      if (pushEnabled) {
+         await disablePush();
+         const reg = await navigator.serviceWorker.ready;
+         const sub = await reg.pushManager.getSubscription();
+         if (sub) await sub.unsubscribe();
+         setPushEnabled(false);
+      } else {
+         const p = await enablePush();
+         if (p === "granted") setPushEnabled(true);
+      }
+    } catch {
+      toast.error("Amalni bajarib bo'lmadi");
+    } finally {
+      setPushBusy(false);
+    }
+  };
 
   const [oldPw, setOldPw] = useState("");
   const [newPw, setNewPw] = useState("");
@@ -133,9 +162,30 @@ export default function SettingsPage() {
   if (err) return <ErrorRetry onRetry={load} />;
 
   return (
-    <div className="max-w-3xl">
-      <h1 className="text-2xl font-bold tracking-tight mb-1">Do'kon sozlamalari</h1>
-      <p className="text-slate-500 mb-5">Do'kon nomi, logosi, manzili va aloqa ma'lumotlari.</p>
+    <div className="w-full max-w-6xl">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight mb-1">Do'kon sozlamalari</h1>
+          <p className="text-slate-500">Do'kon nomi, logosi, manzili va aloqa ma'lumotlari.</p>
+        </div>
+        {pushSupported() && (
+          <div className="card px-4 py-3 flex flex-row items-center justify-between md:justify-start gap-6 bg-white shadow-sm border border-slate-100 min-w-64">
+             <div className="flex items-center gap-3 text-slate-700">
+               {pushEnabled ? <BellRing size={20} className="text-emerald-500" /> : <Bell size={20} className="text-amber-500" />}
+               <div className="text-sm font-semibold">
+                 {pushEnabled ? "Bildirishnomalar yoniq" : "Bildirishnomani yoqish"}
+               </div>
+             </div>
+             <button 
+                onClick={togglePush} 
+                disabled={pushBusy} 
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-2 ${pushEnabled ? 'bg-emerald-500' : 'bg-slate-300'}`}
+             >
+                <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${perm === "granted" ? 'translate-x-5' : 'translate-x-0'}`} />
+             </button>
+          </div>
+        )}
+      </div>
 
       {loading ? (
         <div className="card p-6 text-slate-400">Yuklanmoqda…</div>

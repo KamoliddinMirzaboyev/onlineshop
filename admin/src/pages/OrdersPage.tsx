@@ -30,7 +30,7 @@ const PILL: Record<OrderStatus, string> = {
   cancelled: "bg-rose-100 text-rose-700",
 };
 
-const money = (n: number) => n.toLocaleString("ru-RU").replace(/,/g, " ");
+const money = (n?: number | null) => (n || 0).toLocaleString("ru-RU").replace(/,/g, " ");
 
 // Yangi/faol buyurtmalar tepada; yakunlanganlar pastda.
 const RANK: Record<OrderStatus, number> = {
@@ -97,6 +97,7 @@ const printReceipt = (o: Order) => {
         <div class="divider"></div>
         <div><b>Buyurtma №:</b> ${o.number}</div>
         <div><b>Sana:</b> ${dateStr}</div>
+        ${o.customer_name ? `<div><b>Mijoz:</b> ${o.customer_name}</div>` : ""}
         <div><b>Mijoz tel:</b> ${o.phone || "-"}</div>
         <div><b>Manzil:</b> ${o.address_line}</div>
         ${o.comment ? `<div><b>Izoh:</b> ${o.comment}</div>` : ""}
@@ -204,10 +205,11 @@ export default function OrdersPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold tracking-tight mb-1">Buyurtmalar</h1>
-      <p className="text-slate-500 mb-5">Kuzatuv rejimi — kuryer buyurtmani o'zi qabul qiladi</p>
+      <div className="sticky top-14 z-20 -mt-4 md:-mt-8 -mx-4 px-4 md:-mx-8 md:px-8 pt-4 md:pt-8 pb-3 bg-[#f8fafc] md:bg-[#f8fafc]/95 md:backdrop-blur-md border-b border-slate-200 shadow-sm mb-6">
+        <h1 className="text-2xl font-bold tracking-tight mb-1">Buyurtmalar</h1>
+        <p className="text-slate-500 mb-4">Kuzatuv rejimi — kuryer buyurtmani o'zi qabul qiladi</p>
 
-      <div className="sticky top-14 z-20 -mx-4 px-4 md:-mx-8 md:px-8 py-3 bg-white/90 backdrop-blur-md border-b border-slate-100 mb-6 flex gap-2.5 overflow-x-auto shadow-sm [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="flex gap-2.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {FILTER_TABS.map((tab) => (
           <button
             key={tab.value}
@@ -220,7 +222,8 @@ export default function OrdersPage() {
           >
             {tab.label}
           </button>
-        ))}
+          ))}
+        </div>
       </div>
 
       {loading ? <OrderListSkeleton /> : err && orders.length === 0 ? <ErrorRetry onRetry={load} /> : (

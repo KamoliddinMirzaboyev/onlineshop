@@ -26,7 +26,7 @@ const PILL: Record<OrderStatus, string> = {
   cancelled: "bg-rose-100 text-rose-700",
 };
 
-const money = (n: number) => n.toLocaleString("ru-RU").replace(/,/g, " ");
+const money = (n?: number | null) => (n || 0).toLocaleString("ru-RU").replace(/,/g, " ");
 
 export default function OrdersPage() {
   const selectedStoreId = useStore((s) => s.selectedStoreId);
@@ -105,16 +105,35 @@ export default function OrdersPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold tracking-tight mb-1">Buyurtmalar</h1>
-      <p className="text-slate-500 mb-5">Kuzatuv rejimi — kuryer buyurtmani o'zi qabul qiladi</p>
+      <div className="sticky top-14 z-20 -mt-4 md:-mt-8 -mx-4 px-4 md:-mx-8 md:px-8 pt-4 md:pt-8 pb-3 bg-[#f8fafc] md:bg-[#f8fafc]/95 md:backdrop-blur-md border-b border-slate-200 shadow-sm mb-6">
+        <h1 className="text-2xl font-bold tracking-tight mb-1">Buyurtmalar</h1>
+        <p className="text-slate-500 mb-4">Kuzatuv rejimi — kuryer buyurtmani o'zi qabul qiladi</p>
 
-      <div className="flex gap-2 mb-5 flex-wrap">
-        <button className={`px-3 py-1.5 rounded-full text-sm font-medium transition ${filter === "" ? "bg-brand text-white shadow-sm" : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"}`}
-          onClick={() => setFilter("")}>Hammasi</button>
-        {STATUSES.map((s) => (
-          <button key={s} className={`px-3 py-1.5 rounded-full text-sm font-medium transition ${filter === s ? "bg-brand text-white shadow-sm" : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"}`}
-            onClick={() => setFilter(s)}>{LABEL[s]}</button>
-        ))}
+        <div className="flex gap-2.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <button
+            className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-semibold transition-all duration-200 flex-shrink-0 ${
+              filter === ""
+                ? "bg-brand text-white shadow-md shadow-brand/25"
+                : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900 hover:border-slate-300"
+            }`}
+            onClick={() => setFilter("")}
+          >
+            Hammasi
+          </button>
+          {STATUSES.map((s) => (
+            <button
+              key={s}
+              className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-semibold transition-all duration-200 flex-shrink-0 ${
+                filter === s
+                  ? "bg-brand text-white shadow-md shadow-brand/25"
+                  : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900 hover:border-slate-300"
+              }`}
+              onClick={() => setFilter(s)}
+            >
+              {LABEL[s]}
+            </button>
+          ))}
+        </div>
       </div>
 
       {loading ? <TableSkeleton cols={4} /> : err && orders.length === 0 ? <ErrorRetry onRetry={load} /> : (

@@ -14,6 +14,7 @@ export default defineConfig({
       includeAssets: ["apple-touch-icon.png"],
       injectManifest: {
         globPatterns: ["**/*.{js,css,html,svg,png,woff2}"],
+        maximumFileSizeToCacheInBytes: 5000000,
       },
       // Dev'da SW o'chirilgan: eski keshlangan bundle/API javoblari yangi
       // kodni "CORS xatosi"day ko'rsatib xato diagnostika qildirar edi.

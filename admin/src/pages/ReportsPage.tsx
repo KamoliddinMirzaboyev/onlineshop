@@ -1,10 +1,14 @@
-import { BarChart3, Star } from "lucide-react";
+import { BarChart3, Star, Download, FileText, Table as TableIcon, ChevronDown, FileSpreadsheet } from "lucide-react";
 import { useEffect, useState } from "react";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { get } from "../api";
 import { ErrorRetry, StatCardsSkeleton } from "../components/Skeleton";
-import type { PeriodPoint, ReportsOut } from "../types";
+import type { ReportsOut } from "../types";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import * as XLSX from "xlsx-js-style";
 
-const money = (n: number) => n.toLocaleString("ru-RU").replace(/,/g, " ");
+const money = (n?: number | null) => (n || 0).toLocaleString("ru-RU").replace(/,/g, " ");
 
 type Period = "daily" | "weekly" | "monthly";
 const TABS: { key: Period; label: string }[] = [
@@ -15,6 +19,7 @@ const TABS: { key: Period; label: string }[] = [
 
 function fmtLabel(iso: string, period: Period) {
   const d = new Date(iso);
+  if (period === "daily") return d.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
   if (period === "monthly") return d.toLocaleDateString("ru-RU", { month: "short", year: "2-digit" });
   return d.toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit" });
 }
@@ -23,147 +28,403 @@ export default function ReportsPage() {
   const [data, setData] = useState<ReportsOut | null>(null);
   const [period, setPeriod] = useState<Period>("daily");
   const [err, setErr] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [exportOpen, setExportOpen] = useState(false);
 
   const load = () => {
     setErr(false);
-    get<ReportsOut>("/admin/reports").then(setData).catch(() => setErr(true));
+    setLoading(true);
+    get<any>(`/admin/reports?period=${period}`)
+      .then((d) => {
+        if (!d.totals && d.daily) {
+          // Fallback for older backend format
+          const rows = d[period] || d.daily;
+          const o = rows.reduce((s: number, r: any) => s + r.orders, 0);
+          const rev = rows.reduce((s: number, r: any) => s + r.revenue, 0);
+          const p = rows.reduce((s: number, r: any) => s + r.profit, 0);
+          setData({
+            totals: { orders: o, revenue: rev, profit: p },
+            series: rows,
+            top_products: d.top_products || []
+          });
+        } else {
+          setData(d);
+        }
+        setErr(false);
+      })
+      .catch(() => setErr(true))
+      .finally(() => setLoading(false));
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [period]);
 
-  if (!data) {
-    return (
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight mb-1">Hisobot</h1>
-        <p className="text-slate-500 mb-6">Savdo, foyda va mahsulot reytinglari</p>
-        {err ? <ErrorRetry onRetry={load} /> : <StatCardsSkeleton count={3} />}
-      </div>
-    );
+  const exportPDF = () => {
+    if (!data) return;
+    const doc = new jsPDF();
+    
+    doc.setFontSize(22);
+    doc.setTextColor(15, 23, 42); // slate-900
+    doc.text("Barakali Bozor - Hisobot", 14, 20);
+    
+    doc.setFontSize(11);
+    doc.setTextColor(100, 116, 139); // slate-500
+    doc.text(`Sana: ${new Date().toLocaleDateString("ru-RU")}`, 14, 30);
+    doc.text(`Davr: ${TABS.find(t => t.key === period)?.label}`, 14, 36);
+    
+    doc.setFontSize(14);
+    doc.setTextColor(15, 23, 42);
+    doc.text("Umumiy ko'rsatkichlar", 14, 48);
+    
+    doc.setFontSize(12);
+    doc.text(`- Jami Buyurtmalar: ${money(data.totals.orders)} ta`, 14, 58);
+    doc.text(`- Jami Tushum:      ${money(data.totals.revenue)} so'm`, 14, 66);
+    doc.text(`- Jami Foyda:       ${money(data.totals.profit)} so'm`, 14, 74);
+    
+    let yPos = 86;
+    
+    doc.setFontSize(14);
+    doc.text("Savdo Dinamikasi", 14, yPos);
+    
+    autoTable(doc, {
+      startY: yPos + 5,
+      head: [["Sana / Davr", "Buyurtmalar", "Tushum (so'm)", "Foyda (so'm)"]],
+      body: [...data.series].reverse().map(r => [
+        fmtLabel(r.period, period),
+        r.orders.toString(),
+        money(r.revenue),
+        money(r.profit)
+      ]),
+      headStyles: { fillColor: [16, 185, 129] }, // emerald-500
+      styles: { fontSize: 10, cellPadding: 4 }
+    });
+    
+    yPos = (doc as any).lastAutoTable.finalY + 15;
+    
+    doc.setFontSize(14);
+    doc.text("Top Sotilgan Mahsulotlar Reytingi", 14, yPos);
+    
+    autoTable(doc, {
+      startY: yPos + 5,
+      head: [["#", "Mahsulot nomi", "Sotildi", "Tushum (so'm)", "Foyda (so'm)"]],
+      body: data.top_products.map((t, i) => [
+        (i + 1).toString(),
+        t.name_uz,
+        t.quantity.toString(),
+        money(t.revenue),
+        money(t.profit)
+      ]),
+      headStyles: { fillColor: [59, 130, 246] }, // blue-500
+      styles: { fontSize: 10, cellPadding: 4 }
+    });
+    
+    doc.save(`Hisobot_${period}_${new Date().toLocaleDateString("ru-RU")}.pdf`);
+  };
+
+  const exportExcel = () => {
+    if (!data) return;
+    const wb = XLSX.utils.book_new();
+    
+    const aoa: any[][] = [];
+    const sectionRows = new Set<number>();
+    const headerRows = new Set<number>();
+    
+    aoa.push([`Barakali Bozor - Hisobot`]);
+    aoa.push([`Sana: ${new Date().toLocaleDateString("ru-RU")}`]);
+    aoa.push([`Davr: ${TABS.find(t => t.key === period)?.label}`]);
+    aoa.push([]);
+    
+    sectionRows.add(aoa.length);
+    aoa.push(["", "UMUMIY KO'RSATKICHLAR"]);
+    headerRows.add(aoa.length);
+    aoa.push(["", "Ko'rsatkich", "Qiymat"]);
+    aoa.push(["", "Jami Buyurtmalar", `${money(data.totals.orders)} ta`]);
+    aoa.push(["", "Jami Tushum", `${money(data.totals.revenue)} so'm`]);
+    aoa.push(["", "Jami Foyda", `${money(data.totals.profit)} so'm`]);
+    aoa.push([]);
+    aoa.push([]);
+    
+    sectionRows.add(aoa.length);
+    aoa.push(["", "SAVDO DINAMIKASI"]);
+    headerRows.add(aoa.length);
+    aoa.push(["", "Sana / Davr", "Buyurtmalar soni", "Tushum (so'm)", "Foyda (so'm)"]);
+    [...data.series].reverse().forEach(r => {
+      aoa.push(["", fmtLabel(r.period, period), r.orders, money(r.revenue), money(r.profit)]);
+    });
+    aoa.push([]);
+    aoa.push([]);
+    
+    sectionRows.add(aoa.length);
+    aoa.push(["", "TOP SOTILGAN MAHSULOTLAR REYTINGI"]);
+    headerRows.add(aoa.length);
+    aoa.push(["", "№", "Mahsulot nomi", "Sotilgan miqdor", "Umumiy Tushum (so'm)", "Umumiy Foyda (so'm)"]);
+    data.top_products.forEach((t, i) => {
+      aoa.push(["", i + 1, t.name_uz, t.quantity, money(t.revenue), money(t.profit)]);
+    });
+    
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    ws['!cols'] = [{ width: 4 }, { width: 25 }, { width: 35 }, { width: 18 }, { width: 25 }, { width: 25 }];
+    
+    // Merge title
+    ws['!merges'] = [
+      { s: { r: 0, c: 0 }, e: { r: 0, c: 5 } },
+    ];
+
+    for (let r = 0; r < aoa.length; r++) {
+      for (let c = 0; c < aoa[r].length; c++) {
+        const cell = ws[XLSX.utils.encode_cell({ r, c })];
+        if (!cell) continue;
+        
+        cell.s = { font: { sz: 11, color: { rgb: "334155" } }, alignment: { vertical: "center", horizontal: "center" } };
+        
+        if (r === 0) {
+          cell.s.font = { sz: 16, bold: true, color: { rgb: "0F172A" } };
+        } else if (r === 1 || r === 2) {
+          cell.s.font = { sz: 11, italic: true, color: { rgb: "64748B" } };
+          cell.s.alignment = { horizontal: "left" };
+        } else if (sectionRows.has(r)) {
+          cell.s.font = { sz: 13, bold: true, color: { rgb: "0F172A" } };
+          cell.s.alignment = { horizontal: "left" };
+        } else if (headerRows.has(r)) {
+          cell.s.font = { sz: 12, bold: true, color: { rgb: "FFFFFF" } };
+          cell.s.fill = { fgColor: { rgb: "059669" } }; // emerald-600
+          cell.s.border = {
+            top: { style: "thin", color: { rgb: "047857" } },
+            bottom: { style: "thin", color: { rgb: "047857" } },
+            left: { style: "thin", color: { rgb: "047857" } },
+            right: { style: "thin", color: { rgb: "047857" } }
+          };
+        } else {
+          cell.s.border = {
+            top: { style: "thin", color: { rgb: "E2E8F0" } },
+            bottom: { style: "thin", color: { rgb: "E2E8F0" } },
+            left: { style: "thin", color: { rgb: "E2E8F0" } },
+            right: { style: "thin", color: { rgb: "E2E8F0" } }
+          };
+          if (c > 1 && r > 5) {
+             cell.s.alignment = { horizontal: "center" };
+          }
+        }
+      }
+    }
+    
+    XLSX.utils.book_append_sheet(wb, ws, "Hisobot");
+    XLSX.writeFile(wb, `Hisobot_${period}_${new Date().toLocaleDateString("ru-RU")}.xlsx`);
   }
 
-  const rows: PeriodPoint[] = data[period];
-  const totRevenue = rows.reduce((s, r) => s + r.revenue, 0);
-  const totProfit = rows.reduce((s, r) => s + r.profit, 0);
-  const totOrders = rows.reduce((s, r) => s + r.orders, 0);
-  const maxRevenue = Math.max(1, ...rows.map((r) => r.revenue));
-  const maxQty = Math.max(1, ...data.top_products.map((t) => t.quantity));
+  const exportCSV = () => {
+    if (!data) return;
+    const wb = XLSX.utils.book_new();
+    const wsSeries = XLSX.utils.json_to_sheet([...data.series].reverse().map(r => ({
+      "Sana / Davr": fmtLabel(r.period, period),
+      "Buyurtmalar soni": r.orders,
+      "Tushum (so'm)": r.revenue,
+      "Foyda (so'm)": r.profit
+    })));
+    XLSX.utils.book_append_sheet(wb, wsSeries, "Savdo Dinamikasi");
+    XLSX.writeFile(wb, `Hisobot_${period}_${new Date().toLocaleDateString("ru-RU")}.csv`, { bookType: "csv" });
+  };
 
   return (
     <div>
-      <h1 className="text-2xl font-bold tracking-tight mb-1">Hisobot</h1>
-      <p className="text-slate-500 mb-6">Savdo, foyda va mahsulot reytinglari</p>
-
-      <div className="flex gap-2 mb-5">
-        {TABS.map((t) => (
-          <button key={t.key}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition ${period === t.key ? "bg-brand text-white shadow-sm" : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"}`}
-            onClick={() => setPeriod(t.key)}>{t.label}</button>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-3 gap-4 mb-6">
-        <div className="card p-5">
-          <div className="text-sm text-slate-500">Buyurtmalar</div>
-          <div className="text-2xl font-bold mt-1">{money(totOrders)}</div>
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight mb-1">Hisobot</h1>
+          <p className="text-slate-500">Savdo, foyda va mahsulot reytinglari</p>
         </div>
-        <div className="card p-5">
-          <div className="text-sm text-slate-500">Tushum</div>
-          <div className="text-2xl font-bold mt-1">{money(totRevenue)} <span className="text-sm text-slate-400">so'm</span></div>
-        </div>
-        <div className="card p-5">
-          <div className="text-sm text-slate-500">Foyda</div>
-          <div className="text-2xl font-bold mt-1 text-emerald-600">{money(totProfit)} <span className="text-sm text-slate-400">so'm</span></div>
-        </div>
-      </div>
-
-      {/* ── Bar chart ─────────────────────────────────────── */}
-      <div className="card p-6 mb-6">
-        <div className="flex items-center gap-2 mb-4 font-semibold"><BarChart3 size={18} /> Savdo dinamikasi</div>
-        {rows.length === 0 ? (
-          <div className="text-center text-slate-400 py-10">Ma'lumot yo'q</div>
-        ) : (
-          <div className="flex items-end gap-1.5 h-48 overflow-x-auto">
-            {rows.map((r) => (
-              <div key={r.period} className="flex-1 min-w-[14px] flex flex-col items-center justify-end group h-full">
-                <div className="relative w-full flex flex-col items-center justify-end h-full">
-                  <div className="hidden group-hover:block absolute -top-1 -translate-y-full bg-slate-900 text-white text-[10px] rounded px-2 py-1 whitespace-nowrap z-10">
-                    {money(r.revenue)} • foyda {money(r.profit)}
-                  </div>
-                  <div className="w-full bg-brand/80 rounded-t" style={{ height: `${(r.revenue / maxRevenue) * 100}%` }} />
-                </div>
-                <span className="text-[9px] text-slate-400 mt-1 rotate-0 whitespace-nowrap">{fmtLabel(r.period, period)}</span>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* ── Period table ──────────────────────────────────── */}
-      <div className="card overflow-hidden mb-6">
-        <table className="w-full">
-          <thead>
-            <tr className="bg-slate-50">
-              <th className="th">Davr</th>
-              <th className="th">Buyurtma</th>
-              <th className="th">Tushum</th>
-              <th className="th">Foyda</th>
-            </tr>
-          </thead>
-          <tbody>
-            {[...rows].reverse().map((r) => (
-              <tr key={r.period} className="hover:bg-slate-50/60">
-                <td className="td font-medium">{fmtLabel(r.period, period)}</td>
-                <td className="td">{r.orders}</td>
-                <td className="td">{money(r.revenue)} so'm</td>
-                <td className="td text-emerald-600 font-medium">{money(r.profit)} so'm</td>
-              </tr>
-            ))}
-            {rows.length === 0 && <tr><td colSpan={4} className="td text-center text-slate-400 py-8">Ma'lumot yo'q</td></tr>}
-          </tbody>
-        </table>
-      </div>
-
-      {/* ── Top products ──────────────────────────────────── */}
-      <div className="card overflow-hidden">
-        <div className="flex items-center gap-2 px-4 py-3 font-semibold border-b border-slate-100"><Star size={18} className="text-amber-500" /> Sotilgan mahsulotlar reytingi</div>
-        <table className="w-full">
-          <thead>
-            <tr className="bg-slate-50">
-              <th className="th">#</th>
-              <th className="th">Mahsulot</th>
-              <th className="th">Sotildi</th>
-              <th className="th">Tushum</th>
-              <th className="th">Foyda</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.top_products.map((t, i) => (
-              <tr key={t.product_id} className="hover:bg-slate-50/60">
-                <td className="td text-slate-400 font-semibold">{i + 1}</td>
-                <td className="td font-medium text-slate-900">
+        
+        <div className="flex items-center gap-2">
+          {TABS.map((t) => (
+            <button key={t.key}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition ${period === t.key ? "bg-brand text-white shadow-sm" : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"}`}
+              onClick={() => setPeriod(t.key)}>{t.label}</button>
+          ))}
+          
+          <div className="h-8 w-px bg-slate-200 mx-2"></div>
+          
+          <div className="relative" onMouseLeave={() => setExportOpen(false)}>
+            <div className="flex items-stretch rounded-lg shadow-sm border border-brand bg-brand text-white text-sm font-semibold transition-all hover:shadow-md">
+              <button 
+                onClick={exportExcel}
+                disabled={!data || loading} 
+                className="flex items-center gap-2 pl-4 pr-3 py-2 hover:bg-white/10 transition-colors disabled:opacity-50 rounded-l-lg"
+              >
+                <Download size={16} /> Yuklab olish
+              </button>
+              <div className="w-px bg-white/20 my-2" />
+              <button 
+                onClick={() => setExportOpen(!exportOpen)} 
+                disabled={!data || loading} 
+                className="px-2.5 py-2 hover:bg-white/10 transition-colors disabled:opacity-50 rounded-r-lg flex items-center justify-center"
+              >
+                <ChevronDown size={16} className={`transition-transform duration-200 ${exportOpen ? "rotate-180" : ""}`} />
+              </button>
+            </div>
+            
+            {exportOpen && (
+              <div className="absolute right-0 top-full mt-2 w-48 bg-white border border-slate-100 shadow-xl rounded-xl p-1.5 z-20 animate-in fade-in slide-in-from-top-2 duration-200">
+                <button onClick={() => { exportExcel(); setExportOpen(false); }} className="w-full text-left px-3 py-2.5 text-sm text-slate-700 hover:bg-slate-50 rounded-lg flex items-center justify-between font-medium transition-colors">
                   <div className="flex items-center gap-3">
-                    {t.image_url
-                      ? <img src={t.image_url} alt="" className="h-8 w-8 rounded-lg object-cover bg-slate-100" />
-                      : <span className="h-8 w-8 rounded-lg bg-slate-100" />}
-                    <div className="min-w-0 flex-1">
-                      <div>{t.name_uz}</div>
-                      <div className="h-1.5 mt-1 rounded-full bg-slate-100 overflow-hidden">
-                        <div className="h-full bg-amber-400 rounded-full" style={{ width: `${(t.quantity / maxQty) * 100}%` }} />
-                      </div>
-                    </div>
+                    <TableIcon size={18} className="text-emerald-600" /> Excel
                   </div>
-                </td>
-                <td className="td font-semibold">{t.quantity}</td>
-                <td className="td">{money(t.revenue)} so'm</td>
-                <td className="td text-emerald-600">{money(t.profit)} so'm</td>
-              </tr>
-            ))}
-            {data.top_products.length === 0 && (
-              <tr><td colSpan={5} className="td text-center text-slate-400 py-10">Hali sotuv yo'q</td></tr>
+                  <Download size={14} className="text-slate-400" />
+                </button>
+                <button onClick={() => { exportPDF(); setExportOpen(false); }} className="w-full text-left px-3 py-2.5 text-sm text-slate-700 hover:bg-slate-50 rounded-lg flex items-center justify-between font-medium transition-colors">
+                  <div className="flex items-center gap-3">
+                    <FileText size={18} className="text-rose-600" /> PDF
+                  </div>
+                  <Download size={14} className="text-slate-400" />
+                </button>
+                <button onClick={() => { exportCSV(); setExportOpen(false); }} className="w-full text-left px-3 py-2.5 text-sm text-slate-700 hover:bg-slate-50 rounded-lg flex items-center justify-between font-medium transition-colors">
+                  <div className="flex items-center gap-3">
+                    <FileSpreadsheet size={18} className="text-teal-600" /> CSV
+                  </div>
+                  <Download size={14} className="text-slate-400" />
+                </button>
+              </div>
             )}
-          </tbody>
-        </table>
+          </div>
+        </div>
       </div>
+
+      {loading ? (
+        <StatCardsSkeleton count={3} />
+      ) : err || !data ? (
+        <ErrorRetry onRetry={load} />
+      ) : (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div className="card p-5">
+              <div className="text-sm text-slate-500">Buyurtmalar</div>
+              <div className="text-2xl font-bold mt-1">{money(data.totals.orders)}</div>
+            </div>
+            <div className="card p-5">
+              <div className="text-sm text-slate-500">Tushum</div>
+              <div className="text-2xl font-bold mt-1">{money(data.totals.revenue)} <span className="text-sm text-slate-400">so'm</span></div>
+            </div>
+            <div className="card p-5">
+              <div className="text-sm text-slate-500">Foyda</div>
+              <div className="text-2xl font-bold mt-1 text-emerald-600">{money(data.totals.profit)} <span className="text-sm text-slate-400">so'm</span></div>
+            </div>
+          </div>
+
+          {/* ── Bar chart ─────────────────────────────────────── */}
+          <div className="card p-6 mb-6">
+            <div className="flex items-center gap-2 mb-4 font-semibold"><BarChart3 size={18} /> Savdo dinamikasi</div>
+            {data.series.length === 0 ? (
+              <div className="text-center text-slate-400 py-10">Ma'lumot yo'q</div>
+            ) : (
+              <div className="h-80 w-full mt-4">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={data.series.map(r => ({ ...r, label: fmtLabel(r.period, period) }))} margin={{ top: 10, right: 10, left: 0, bottom: 20 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                    <XAxis 
+                      dataKey="label" 
+                      axisLine={false} 
+                      tickLine={false} 
+                      tick={{ fill: '#94a3b8', fontSize: 12 }} 
+                      dy={10}
+                    />
+                    <YAxis 
+                      yAxisId="left"
+                      axisLine={false} 
+                      tickLine={false} 
+                      tick={{ fill: '#94a3b8', fontSize: 12 }}
+                      tickFormatter={(val) => val >= 1000000 ? `${(val / 1000000).toFixed(1)}M` : val >= 1000 ? `${(val / 1000).toFixed(0)}k` : val}
+                    />
+                    <YAxis 
+                      yAxisId="right"
+                      orientation="right"
+                      axisLine={false} 
+                      tickLine={false} 
+                      tick={{ fill: '#94a3b8', fontSize: 12 }}
+                    />
+                    <Tooltip 
+                      cursor={{ fill: '#f1f5f9', opacity: 0.4 }}
+                      contentStyle={{ borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)', padding: '12px 16px' }}
+                      formatter={(value: any, name: any) => [money(value || 0) + (name === 'Buyurtmalar' ? '' : " so'm"), name]}
+                    />
+                    <Legend iconType="circle" wrapperStyle={{ paddingTop: '24px', paddingBottom: '8px' }} />
+                    <Bar yAxisId="right" dataKey="orders" name="Buyurtmalar" fill="#f59e0b" radius={[4, 4, 0, 0]} maxBarSize={30} />
+                    <Bar yAxisId="left" dataKey="revenue" name="Tushum" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={30} />
+                    <Bar yAxisId="left" dataKey="profit" name="Foyda" fill="#3b82f6" radius={[4, 4, 0, 0]} maxBarSize={30} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </div>
+
+          {/* ── Period table ──────────────────────────────────── */}
+          <div className="card overflow-hidden mb-6">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[500px]">
+                <thead>
+                  <tr className="bg-slate-50">
+                    <th className="th">Davr</th>
+                    <th className="th">Buyurtma</th>
+                    <th className="th">Tushum</th>
+                    <th className="th">Foyda</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[...data.series].reverse().map((r) => (
+                    <tr key={r.period} className="hover:bg-slate-50/60">
+                      <td className="td font-medium">{fmtLabel(r.period, period)}</td>
+                      <td className="td">{r.orders}</td>
+                      <td className="td">{money(r.revenue)} so'm</td>
+                      <td className="td text-emerald-600 font-medium">{money(r.profit)} so'm</td>
+                    </tr>
+                  ))}
+                  {data.series.length === 0 && <tr><td colSpan={4} className="td text-center text-slate-400 py-8">Ma'lumot yo'q</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* ── Top products ──────────────────────────────────── */}
+          <div className="card overflow-hidden">
+            <div className="flex items-center gap-2 px-4 py-3 font-semibold border-b border-slate-100"><Star size={18} className="text-amber-500" /> Sotilgan mahsulotlar reytingi</div>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[600px]">
+                <thead>
+                  <tr className="bg-slate-50">
+                    <th className="th">#</th>
+                    <th className="th">Mahsulot</th>
+                    <th className="th">Sotildi</th>
+                    <th className="th">Tushum</th>
+                    <th className="th">Foyda</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.top_products.map((t, i) => (
+                    <tr key={t.product_id} className="hover:bg-slate-50/60">
+                      <td className="td text-slate-400 font-semibold">{i + 1}</td>
+                      <td className="td font-medium text-slate-900">
+                        <div className="flex items-center gap-3">
+                          {t.image_url
+                            ? <img src={t.image_url} alt="" className="h-8 w-8 rounded-lg object-cover bg-slate-100" />
+                            : <span className="h-8 w-8 rounded-lg bg-slate-100 flex items-center justify-center text-sm">🍽</span>}
+                          <div className="min-w-0 flex-1">
+                            <div>{t.name_uz}</div>
+                            <div className="h-1.5 mt-1 rounded-full bg-slate-100 overflow-hidden">
+                              <div className="h-full bg-amber-400 rounded-full transition-all duration-1000" style={{ width: `${(t.quantity / Math.max(1, ...data.top_products.map(p => p.quantity))) * 100}%` }} />
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="td font-semibold">{t.quantity}</td>
+                      <td className="td">{money(t.revenue)} so'm</td>
+                      <td className="td text-emerald-600">{money(t.profit)} so'm</td>
+                    </tr>
+                  ))}
+                  {data.top_products.length === 0 && (
+                    <tr><td colSpan={5} className="td text-center text-slate-400 py-10">Hali sotuv yo'q</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

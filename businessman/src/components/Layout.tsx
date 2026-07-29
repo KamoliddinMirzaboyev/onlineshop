@@ -21,7 +21,7 @@ const links = [
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const { business, logout } = useAuth();
-  const { selectedStoreId, setSelectedStore, stores, loadStores } = useStore();
+  const { loadStores } = useStore();
   const nav = useNavigate();
   const [open, setOpen] = useState(false);
 
@@ -40,19 +40,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         <img src="/logo.png" alt="Barakali Bozor" className="h-9 w-9 object-contain md:hidden shrink-0" />
         <span className="font-semibold tracking-tight md:hidden">Tadbirkor</span>
         <div className="ml-auto">
-          {stores.length > 0 && (
-            <select
-              className="input py-1.5 max-w-[200px]"
-              value={selectedStoreId ?? ""}
-              onChange={(e) => setSelectedStore(e.target.value === "all" ? "all" : Number(e.target.value))}
-              aria-label="Do'kon tanlash"
-            >
-              {stores.length > 1 && <option value="all">Barcha do'konlar</option>}
-              {stores.map((s) => (
-                <option key={s.id} value={s.id}>{s.name}</option>
-              ))}
-            </select>
-          )}
+          {/* Do'kon tanlash endi maxsus sahifalarning ichida (masalan, Mahsulotlar) */}
         </div>
       </header>
 

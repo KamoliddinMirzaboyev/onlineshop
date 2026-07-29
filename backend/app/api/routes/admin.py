@@ -2,7 +2,7 @@ from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from pydantic import BaseModel
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session, selectinload
 
 from app.api.deps import (
@@ -196,13 +196,17 @@ def _series(db: Session, rids: list[int], trunc: str, start: datetime) -> list[P
         .order_by(period)
     ).all()
     return [
-        PeriodPoint(period=p.date().isoformat(), orders=o, revenue=int(r), profit=int(pf))
+        PeriodPoint(period=p.isoformat(), orders=o, revenue=int(r), profit=int(pf))
         for p, o, r, pf in rows
     ]
 
 
-def _top_products(db: Session, rids: list[int], limit: int = 20) -> list[TopProduct]:
+def _top_products(db: Session, rids: list[int], start: datetime | None = None, limit: int = 20) -> list[TopProduct]:
     delivered = OrderStatus.delivered
+    cond = [Order.status == delivered, Order.restaurant_id.in_(rids)]
+    if start is not None:
+        cond.append(Order.created_at >= start)
+        
     rows = db.execute(
         select(
             Product.id,
@@ -217,7 +221,7 @@ def _top_products(db: Session, rids: list[int], limit: int = 20) -> list[TopProd
         .select_from(OrderItem)
         .join(Order, Order.id == OrderItem.order_id)
         .join(Product, Product.id == OrderItem.product_id)
-        .where(Order.status == delivered, Order.restaurant_id.in_(rids))
+        .where(*cond)
         .group_by(Product.id, Product.name_uz, Product.image_url)
         .order_by(func.sum(OrderItem.quantity).desc())
         .limit(limit)
@@ -277,15 +281,29 @@ def stats(store: Restaurant = Depends(current_restaurant), db: Session = Depends
 
 # ── Reports (hisobot) ────────────────────────────────────────────
 @router.get("/reports", response_model=ReportsOut)
-def reports(store: Restaurant = Depends(current_restaurant), db: Session = Depends(get_db)):
+def reports(period: str = "daily", store: Restaurant = Depends(current_restaurant), db: Session = Depends(get_db)):
     rid = store.id
     now = datetime.now(timezone.utc)
     today = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    
+    if period == "daily":
+        start = today # Bugun
+        trunc = "hour"
+    elif period == "weekly":
+        start = today - timedelta(days=7) # Oxirgi 7 kun
+        trunc = "day"
+    elif period == "monthly":
+        start = today - timedelta(days=30) # Oxirgi 30 kun
+        trunc = "day"
+    else:
+        start = today - timedelta(days=30)
+        trunc = "day"
+
+    o, r, p = _agg(db, [rid], start)
     return ReportsOut(
-        daily=_series(db, [rid], "day", today - timedelta(days=30)),
-        weekly=_series(db, [rid], "week", today - timedelta(weeks=12)),
-        monthly=_series(db, [rid], "month", today - timedelta(days=365)),
-        top_products=_top_products(db, [rid], limit=20),
+        totals={"orders": o, "revenue": r, "profit": p},
+        series=_series(db, [rid], trunc, start),
+        top_products=_top_products(db, [rid], start=start, limit=20),
     )
 
 
@@ -590,14 +608,30 @@ def list_users(
     offset: int = 0,
 ):
     """Faqat shu do'kondan buyurtma bergan mijozlar."""
-    rows = db.scalars(
-        select(User)
+    delivered = OrderStatus.delivered
+    
+    rows = db.execute(
+        select(
+            User,
+            func.count(Order.id).label("order_count"),
+            func.coalesce(func.sum(Order.total), 0).label("total_spent")
+        )
+        .outerjoin(Order, (Order.user_id == User.id) & (Order.restaurant_id == store.id) & (Order.status == delivered))
         .where(User.id.in_(select(Order.user_id).where(Order.restaurant_id == store.id)))
+        .group_by(User.id)
         .order_by(User.created_at.desc())
         .limit(limit)
         .offset(offset)
     ).all()
-    return [_user_dict(u) for u in rows]
+    
+    return [
+        {
+            **_user_dict(u),
+            "order_count": int(count),
+            "total_spent": int(spent)
+        }
+        for u, count, spent in rows
+    ]
 
 
 # ── Post — botga mijozlarga xabar yuborish (rasm/matn/ikkalasi) ─
@@ -761,6 +795,27 @@ def toggle_admin_user(
     return u
 
 
+class _PasswordUpdateIn(BaseModel):
+    password: str
+
+
+@router.patch("/admin-users/{uid}/password", response_model=AdminUserOut)
+def update_admin_user_password(
+    uid: int,
+    data: _PasswordUpdateIn,
+    _principal = Depends(require_store_admin_or_business),
+    store: Restaurant = Depends(current_restaurant),
+    db: Session = Depends(get_db),
+):
+    u = db.get(AdminUser, uid)
+    if not u or u.restaurant_id != store.id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Not found")
+    u.hashed_password = hash_password(data.password)
+    db.commit()
+    db.refresh(u)
+    return u
+
+
 @router.delete("/admin-users/{uid}", status_code=204)
 def delete_admin_user(
     uid: int,
@@ -773,6 +828,12 @@ def delete_admin_user(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Not found")
     if isinstance(principal, AdminUser) and u.id == principal.id:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "O'zingizni o'chira olmaysiz")
+    if u.role == AdminRole.courier:
+        db.execute(
+            update(Order)
+            .where(Order.courier_id == uid)
+            .values(courier_id=None)
+        )
     db.delete(u)
     db.commit()
 

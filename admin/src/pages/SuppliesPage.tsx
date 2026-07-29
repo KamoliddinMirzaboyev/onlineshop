@@ -6,7 +6,7 @@ import { confirm } from "../components/Confirm";
 import { ErrorRetry, TableSkeleton } from "../components/Skeleton";
 import type { Product, Restaurant, SupplyRecord } from "../types";
 
-const money = (n: number) => n.toLocaleString("ru-RU").replace(/,/g, " ");
+const money = (n?: number | null) => (n || 0).toLocaleString("ru-RU").replace(/,/g, " ");
 const today = () => new Date().toISOString().slice(0, 10);
 
 const UNITS = ["kg", "litr", "dona", "quti", "paket", "gramm"];

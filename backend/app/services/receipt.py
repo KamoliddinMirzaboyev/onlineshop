@@ -104,7 +104,7 @@ def render_receipt(order: Order) -> bytes:
     notes_extra = sum(NOTE_H for it in order.items if it.note)
     items_block = 30 + len(order.items) * ROW_H + notes_extra + 20
     totals_block = 3 * 34 + 28
-    addr_lines = 2 + (1 if order.phone else 0) + (1 if order.comment else 0)
+    addr_lines = 2 + (1 if getattr(order, "customer_name", None) else 0) + (1 if order.phone else 0) + (1 if order.comment else 0)
     addr_block = 30 + addr_lines * 28 + 20
     footer = 50
     H = head + items_block + totals_block + addr_block + footer + PAD
@@ -118,7 +118,10 @@ def render_receipt(order: Order) -> bytes:
 
     # logotipni chizish
     try:
-        logo_path = Path(__file__).resolve().parent.parent.parent.parent / "bblogo.png"
+        logo_path = Path(__file__).resolve()
+        while logo_path.name and logo_path.name != "backend":
+            logo_path = logo_path.parent
+        logo_path = logo_path.parent / "bblogo.png"
         if logo_path.exists():
             logo = Image.open(logo_path).convert("RGBA")
             lw, lh = logo.size
@@ -196,15 +199,18 @@ def render_receipt(order: Order) -> bytes:
     # yetkazish ma'lumoti
     d.text((PAD, y), "YETKAZISH", font=f_xs, fill=MUTED)
     y += 30
+    if getattr(order, "customer_name", None):
+        d.text((PAD, y), f"Mijoz:   {order.customer_name}", font=f_sm, fill=INK)
+        y += 28
     d.text((PAD, y), f"Manzil:  {order.address_line}", font=f_sm, fill=INK)
     y += 28
     d.text((PAD, y), f"To'lov:  {_PAYMENT.get(order.payment_method.value, '-')}", font=f_sm, fill=INK)
     y += 28
     if order.phone:
-        d.text((PAD, y), f"Telefon:  {order.phone}", font=f_sm, fill=INK)
+        d.text((PAD, y), f"Telefon: {order.phone}", font=f_sm, fill=INK)
         y += 28
     if order.comment:
-        d.text((PAD, y), f"Izoh:  {order.comment}", font=f_sm, fill=MUTED)
+        d.text((PAD, y), f"Izoh:    {order.comment}", font=f_sm, fill=MUTED)
         y += 28
 
     y += 10

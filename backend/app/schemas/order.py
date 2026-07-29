@@ -71,6 +71,7 @@ class OrderOut(BaseModel):
     address_line: str
     lat: float | None = None
     lng: float | None = None
+    customer_name: str | None = None
     phone: str | None = None
     comment: str | None = None
     distance_km: float | None = None
