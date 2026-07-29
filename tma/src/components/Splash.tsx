@@ -36,7 +36,7 @@ export default function Splash() {
           transition={{ type: "spring", stiffness: 260, damping: 18 }}
         >
           <motion.img
-            src="/logo.png"
+            src="/bblogobg.png"
             alt="Barakali Bozor"
             className="h-24 w-24 object-contain drop-shadow-2xl"
             animate={{ y: [-2, 2, -2] }}
