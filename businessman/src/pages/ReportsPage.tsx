@@ -249,7 +249,7 @@ export default function ReportsPage() {
   if (!data) {
     return (
       <div>
-        <div className="sticky top-14 z-20 -mt-4 md:-mt-8 -mx-4 px-4 md:-mx-8 md:px-8 pt-4 md:pt-8 pb-3 bg-[#f8fafc] md:bg-[#f8fafc]/95 md:backdrop-blur-md border-b border-slate-200 shadow-sm mb-6">
+        <div className="mb-6">
           <h1 className="text-2xl font-bold tracking-tight mb-1">Hisobot</h1>
           <p className="text-slate-500">Savdo, foyda va do'konlar kesimida tahlil</p>
         </div>
@@ -274,7 +274,7 @@ export default function ReportsPage() {
 
   return (
     <div>
-      <div className="sticky top-14 z-20 -mt-4 md:-mt-8 -mx-4 px-4 md:-mx-8 md:px-8 pt-4 md:pt-8 pb-3 bg-[#f8fafc] md:bg-[#f8fafc]/95 md:backdrop-blur-md border-b border-slate-200 shadow-sm mb-6">
+      <div className="mb-6">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold tracking-tight mb-1">Hisobot</h1>
