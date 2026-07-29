@@ -107,7 +107,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
 
-      <main className="md:ml-64 p-4 md:p-8 overflow-x-hidden">{children}</main>
+      <main className="md:ml-64 p-4 md:p-8 min-w-0">{children}</main>
     </div>
   );
 }

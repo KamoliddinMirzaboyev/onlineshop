@@ -99,7 +99,7 @@ def render_receipt(order: Order) -> bytes:
     ]
 
     # --- balandlikni o'lchaymiz ---
-    head = PAD + 46 + 8 + 28 + 26              # title + number + date
+    head = PAD + 180 + 35 + 20                 # logo + title + number + date
     # izohli mahsulot qatori balandroq (NOTE_H qo'shimcha).
     notes_extra = sum(NOTE_H for it in order.items if it.note)
     items_block = 30 + len(order.items) * ROW_H + notes_extra + 20
@@ -114,14 +114,34 @@ def render_receipt(order: Order) -> bytes:
 
     # tepa brand chizig'i
     d.rectangle([0, 0, W, 10], fill=BRAND)
-    y = PAD + 4
+    y = PAD + 10
 
-    d.text((PAD, y), "Barakali Bozor", font=f_title, fill=BRAND)
-    y += 48
+    # logotipni chizish
+    try:
+        logo_path = Path(__file__).resolve().parent.parent.parent.parent / "bblogo.png"
+        if logo_path.exists():
+            logo = Image.open(logo_path).convert("RGBA")
+            lw, lh = logo.size
+            logo_h = 75
+            logo_w = int(lw * (logo_h / lh))
+            logo = logo.resize((logo_w, logo_h), Image.LANCZOS)
+            img.paste(logo, (W // 2 - logo_w // 2, y), logo)
+            y += logo_h + 15
+    except Exception:
+        pass
+
+    # Sarlavha
+    title = "BARAKALI BOZOR"
+    tw = d.textlength(title, font=f_title)
+    d.text((W // 2 - tw // 2, y), title, font=f_title, fill=BRAND)
+    y += 55
+
+    # Buyurtma ma'lumotlari
     d.text((PAD, y), f"Buyurtma № {order.number}", font=f_h, fill=INK)
-    y += 30
-    d.text((PAD, y), order.created_at.strftime("%d.%m.%Y  %H:%M"), font=f_sm, fill=MUTED)
-    y += 28
+    date_str = order.created_at.strftime("%d.%m.%Y  %H:%M")
+    dw = d.textlength(date_str, font=f_sm)
+    d.text((W - PAD - dw, y + 4), date_str, font=f_sm, fill=MUTED)
+    y += 35
     d.line([PAD, y, W - PAD, y], fill=LINE, width=2)
     y += 20
 

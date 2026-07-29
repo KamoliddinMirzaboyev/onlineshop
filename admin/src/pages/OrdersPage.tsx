@@ -1,4 +1,4 @@
-import { MapPin, Navigation, Phone, User, X } from "lucide-react";
+import { Bike, MapPin, Navigation, Phone, Printer, User, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { get, patch } from "../api";
@@ -6,8 +6,13 @@ import { confirm } from "../components/Confirm";
 import { ErrorRetry, OrderListSkeleton } from "../components/Skeleton";
 import type { Order, OrderStatus } from "../types";
 
-const STATUSES: OrderStatus[] = [
-  "pending", "confirmed", "preparing", "ready", "accepted", "delivering", "delivered", "cancelled",
+const FILTER_TABS = [
+  { value: "pending", label: "Yangi" },
+  { value: "", label: "Barchasi" },
+  { value: "accepted", label: "Kuryer qabul qildi" },
+  { value: "delivering", label: "Yetkazilmoqda" },
+  { value: "delivered", label: "Yetkazildi" },
+  { value: "cancelled", label: "Bekor" },
 ];
 const LABEL: Record<OrderStatus, string> = {
   pending: "Yangi", confirmed: "Tasdiqlandi", preparing: "Tayyorlanmoqda",
@@ -31,6 +36,105 @@ const money = (n: number) => n.toLocaleString("ru-RU").replace(/,/g, " ");
 const RANK: Record<OrderStatus, number> = {
   pending: 0, confirmed: 1, preparing: 2, ready: 3, accepted: 4,
   delivering: 5, delivered: 6, cancelled: 7,
+};
+
+const printReceipt = (o: Order) => {
+  const iframe = document.createElement("iframe");
+  iframe.style.position = "fixed";
+  iframe.style.right = "0";
+  iframe.style.bottom = "0";
+  iframe.style.width = "0";
+  iframe.style.height = "0";
+  iframe.style.border = "none";
+  document.body.appendChild(iframe);
+
+  const doc = iframe.contentWindow?.document;
+  if (!doc) return;
+
+  const dateStr = new Date(o.created_at).toLocaleString("ru-RU");
+
+  let itemsHtml = "";
+  o.items.forEach((it, idx) => {
+    itemsHtml += `
+      <tr>
+        <td class="text-left" colspan="2" style="padding-bottom: 2px;">${idx + 1}. ${it.name_uz}</td>
+      </tr>
+      <tr>
+        <td class="text-left" style="padding-bottom: 6px; color: #444;">${it.quantity} x ${money(it.price)}</td>
+        <td class="text-right" style="padding-bottom: 6px;">${money(it.price * it.quantity)}</td>
+      </tr>
+    `;
+  });
+
+  doc.write(`
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <title>Chek №${o.number}</title>
+        <style>
+          @page { margin: 0; size: auto; }
+          body { 
+            font-family: 'Courier New', Courier, monospace; 
+            margin: 0; 
+            padding: 4mm; 
+            color: #000; 
+            font-size: 13px;
+            line-height: 1.4;
+            max-width: 80mm;
+          }
+          .text-center { text-align: center; }
+          .text-right { text-align: right; }
+          .text-left { text-align: left; }
+          .font-bold { font-weight: bold; }
+          .divider { border-top: 1px dashed #000; margin: 8px 0; }
+          table { width: 100%; border-collapse: collapse; }
+          td { vertical-align: top; }
+          .header { font-size: 18px; font-weight: bold; text-align: center; margin-bottom: 5px; }
+        </style>
+      </head>
+      <body>
+        <div class="header">BARAKALI BOZOR</div>
+        <div class="divider"></div>
+        <div><b>Buyurtma №:</b> ${o.number}</div>
+        <div><b>Sana:</b> ${dateStr}</div>
+        <div><b>Mijoz tel:</b> ${o.phone || "-"}</div>
+        <div><b>Manzil:</b> ${o.address_line}</div>
+        ${o.comment ? `<div><b>Izoh:</b> ${o.comment}</div>` : ""}
+        <div class="divider"></div>
+        <table>
+          ${itemsHtml}
+        </table>
+        <div class="divider"></div>
+        <table>
+          <tr>
+            <td class="text-left">Mahsulotlar:</td>
+            <td class="text-right">${money(o.items_total)}</td>
+          </tr>
+          <tr>
+            <td class="text-left">Yetkazib berish:</td>
+            <td class="text-right">${money(o.delivery_fee)}</td>
+          </tr>
+          <tr>
+            <td class="text-left font-bold" style="font-size: 15px; padding-top: 5px;">UMUMIY:</td>
+            <td class="text-right font-bold" style="font-size: 15px; padding-top: 5px;">${money(o.total)}</td>
+          </tr>
+        </table>
+        <div class="divider"></div>
+        ${o.assigned_courier_name ? `<div><b>Kuryer:</b> ${o.assigned_courier_name}</div>` : ""}
+        ${o.assigned_courier_phone ? `<div><b>Tel:</b> ${o.assigned_courier_phone}</div>` : ""}
+        <div class="text-center font-bold" style="margin-top: 10px;">Xaridingiz uchun rahmat!</div>
+      </body>
+    </html>
+  `);
+  doc.close();
+
+  setTimeout(() => {
+    iframe.contentWindow?.focus();
+    iframe.contentWindow?.print();
+    setTimeout(() => {
+      document.body.removeChild(iframe);
+    }, 1000);
+  }, 250);
 };
 
 export default function OrdersPage() {
@@ -103,12 +207,19 @@ export default function OrdersPage() {
       <h1 className="text-2xl font-bold tracking-tight mb-1">Buyurtmalar</h1>
       <p className="text-slate-500 mb-5">Kuzatuv rejimi — kuryer buyurtmani o'zi qabul qiladi</p>
 
-      <div className="flex gap-2 mb-5 flex-wrap">
-        <button className={`px-3 py-1.5 rounded-full text-sm font-medium transition ${filter === "" ? "bg-brand text-white shadow-sm" : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"}`}
-          onClick={() => setFilter("")}>Barchasi</button>
-        {STATUSES.map((s) => (
-          <button key={s} className={`px-3 py-1.5 rounded-full text-sm font-medium transition ${filter === s ? "bg-brand text-white shadow-sm" : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"}`}
-            onClick={() => setFilter(s)}>{LABEL[s]}</button>
+      <div className="sticky top-14 z-20 -mx-4 px-4 md:-mx-8 md:px-8 py-3 bg-white/90 backdrop-blur-md border-b border-slate-100 mb-6 flex gap-2.5 overflow-x-auto shadow-sm [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {FILTER_TABS.map((tab) => (
+          <button
+            key={tab.value}
+            className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-semibold transition-all duration-200 flex-shrink-0 ${
+              filter === tab.value
+                ? "bg-brand text-white shadow-md shadow-brand/25"
+                : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900 hover:border-slate-300"
+            }`}
+            onClick={() => setFilter(tab.value as any)}
+          >
+            {tab.label}
+          </button>
         ))}
       </div>
 
@@ -120,87 +231,115 @@ export default function OrdersPage() {
           return (
           <div
             key={o.id}
-            className={`card p-4 ${isNew ? "ring-2 ring-amber-300 bg-amber-50/40" : ""}`}
+            className={`bg-white rounded-3xl shadow-sm border p-5 md:p-6 transition-all ${
+              isNew ? "border-amber-300 ring-4 ring-amber-500/10 bg-amber-50/20" : "border-slate-200 hover:border-slate-300 hover:shadow-md"
+            }`}
           >
-            <div className="flex justify-between items-start gap-4">
-              <div className="min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-semibold">№ {o.number}</span>
-                  <span className={`pill ${PILL[o.status]}`}>{LABEL[o.status]}</span>
+            <div className="flex flex-col md:flex-row justify-between items-start gap-4 md:gap-6">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-3 flex-wrap mb-2">
+                  <span className="text-xl md:text-2xl font-extrabold text-slate-900 tracking-tight">№ {o.number}</span>
+                  <span className={`px-3 py-1 rounded-lg text-sm font-bold tracking-wide ${PILL[o.status]}`}>{LABEL[o.status]}</span>
                 </div>
-                <div className="text-sm text-slate-500 mt-1 flex items-center gap-1.5">
-                  <MapPin size={14} className="shrink-0" /> {o.address_line}
+                
+                <div className="space-y-2 mt-4">
+                  <div className="text-base text-slate-600 flex items-start gap-2.5">
+                    <MapPin size={20} className="shrink-0 text-slate-400 mt-0.5" /> 
+                    <span className="leading-snug">{o.address_line}</span>
+                  </div>
+                  {o.phone && (
+                    <a href={`tel:${o.phone}`} className="text-base font-semibold text-slate-700 flex items-center gap-2.5 hover:text-brand w-fit transition-colors">
+                      <Phone size={18} className="shrink-0 text-slate-400" /> {o.phone}
+                    </a>
+                  )}
                 </div>
-                {o.phone && (
-                  <a href={`tel:${o.phone}`} className="text-sm text-slate-500 flex items-center gap-1.5 hover:text-brand">
-                    <Phone size={14} className="shrink-0" /> {o.phone}
-                  </a>
-                )}
               </div>
-              <div className="text-right shrink-0">
-                <div className="font-bold">{money(o.total)} so'm</div>
-                <div className="text-xs text-slate-400">{new Date(o.created_at).toLocaleString()}</div>
+
+              <div className="text-left md:text-right shrink-0 w-full md:w-auto bg-slate-50 md:bg-transparent p-4 md:p-0 rounded-2xl">
+                <div className="text-sm font-medium text-slate-500 mb-1">{new Date(o.created_at).toLocaleString()}</div>
+                <div className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight">
+                  {money(o.total)} <span className="text-lg text-slate-500 font-bold">so'm</span>
+                </div>
               </div>
             </div>
 
             {/* Mahsulotlar — rasm bilan */}
-            <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
-              {o.items.map((it) => (
-                <div key={it.id} className="shrink-0 w-16 text-center">
-                  {it.image_url ? (
-                    <img src={it.image_url} alt="" className="h-16 w-16 rounded-xl object-cover bg-slate-100" />
-                  ) : (
-                    <div className="h-16 w-16 rounded-xl bg-slate-100 flex items-center justify-center text-xl">🍽</div>
-                  )}
-                  <div className="text-[11px] text-slate-600 mt-1 leading-tight line-clamp-2">{it.name_uz}</div>
-                  <div className="text-[11px] font-semibold text-slate-400">×{it.quantity}</div>
-                </div>
-              ))}
-              <div className="shrink-0 self-center pl-1 text-xs text-slate-400">{itemsCount} dona</div>
+            <div className="mt-8">
+              <div className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
+                Mahsulotlar 
+                <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded-md text-xs">{itemsCount} dona</span>
+              </div>
+              <div className="flex gap-4 md:gap-5 overflow-x-auto pb-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                {o.items.map((it) => (
+                  <div key={it.id} className="shrink-0 w-24 md:w-28 flex flex-col group">
+                    <div className="relative rounded-2xl overflow-hidden bg-slate-100 border border-slate-200/60 aspect-square shadow-sm group-hover:shadow-md transition">
+                      {it.image_url ? (
+                        <img src={it.image_url} alt="" className="w-full h-full object-cover group-hover:scale-110 transition duration-500" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-3xl">🍽</div>
+                      )}
+                      <div className="absolute top-0 right-0 bg-white/95 backdrop-blur-sm px-2 py-1 m-1.5 rounded-lg text-xs font-bold text-slate-800 shadow-sm border border-slate-200/50">
+                        ×{it.quantity}
+                      </div>
+                    </div>
+                    <div className="text-sm text-slate-700 mt-2.5 font-semibold leading-tight line-clamp-2" title={it.name_uz}>{it.name_uz}</div>
+                  </div>
+                ))}
+              </div>
             </div>
 
-            {/* Kuryer holati — faqat kuzatish, kuryer o'zi qabul qiladi */}
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              {o.assigned_courier_id ? (
-                <span className="pill bg-slate-100 text-slate-600 inline-flex items-center gap-1">
-                  <User size={12} /> {o.assigned_courier_name ?? `#${o.assigned_courier_id}`}
-                </span>
-              ) : null}
-              {o.assigned_courier_phone && (
-                <a
-                  href={`tel:${o.assigned_courier_phone}`}
-                  className="pill bg-slate-100 text-slate-600 inline-flex items-center gap-1 hover:text-brand"
-                >
-                  <Phone size={12} /> {o.assigned_courier_phone}
-                </a>
-              )}
-              {!o.assigned_courier_id && (
-                o.status !== "delivered" && o.status !== "cancelled" && (
-                  <span className="pill bg-amber-50 text-amber-600">Kuryer kutilmoqda</span>
-                )
-              )}
-              {o.lat != null && o.lng != null && (
-                <a
-                  href={`https://yandex.com/maps/?rtext=~${o.lat},${o.lng}&rtt=auto`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="pill bg-blue-50 text-blue-700 inline-flex items-center gap-1 hover:bg-blue-100"
-                >
-                  <Navigation size={12} /> Xarita
-                </a>
-              )}
-            </div>
+            <div className="mt-4 pt-5 border-t border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
+              {/* Kuryer holati — faqat kuzatish, kuryer o'zi qabul qiladi */}
+              <div className="flex flex-wrap items-center gap-3">
+                {o.assigned_courier_id ? (
+                  <span className="px-3 py-2 rounded-xl bg-slate-100 text-slate-700 text-sm font-semibold inline-flex items-center gap-2">
+                    <User size={18} className="text-slate-500" /> {o.assigned_courier_name ?? `#${o.assigned_courier_id}`}
+                  </span>
+                ) : null}
+                {o.assigned_courier_phone && (
+                  <a
+                    href={`tel:${o.assigned_courier_phone}`}
+                    className="px-3 py-2 rounded-xl bg-slate-100 text-slate-700 text-sm font-semibold inline-flex items-center gap-2 hover:bg-slate-200 hover:text-brand transition"
+                  >
+                    <Phone size={18} className="text-slate-500" /> {o.assigned_courier_phone}
+                  </a>
+                )}
+                {!o.assigned_courier_id && (
+                  o.status !== "delivered" && o.status !== "cancelled" && (
+                    <span className="px-3 py-2 rounded-xl bg-amber-100 text-amber-700 text-sm font-bold flex items-center gap-2">
+                      <Bike size={18} /> Kuryer kutilmoqda
+                    </span>
+                  )
+                )}
+                {o.lat != null && o.lng != null && (
+                  <a
+                    href={`https://yandex.com/maps/?rtext=~${o.lat},${o.lng}&rtt=auto`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="px-4 py-2 rounded-xl bg-blue-50 text-blue-700 text-sm font-bold inline-flex items-center gap-2 hover:bg-blue-100 hover:shadow-sm transition"
+                  >
+                    <Navigation size={18} /> Xarita
+                  </a>
+                )}
+              </div>
 
-            <div className="mt-3 flex items-center gap-2">
-              {o.status !== "delivered" && o.status !== "cancelled" && (
+              <div className="flex flex-col sm:flex-row shrink-0 gap-3 w-full md:w-auto">
                 <button
-                  disabled={busy === o.id}
-                  onClick={() => cancel(o)}
-                  className="px-3 py-2.5 rounded-xl border border-rose-200 text-rose-600 text-sm font-medium hover:bg-rose-50 transition inline-flex items-center gap-1 disabled:opacity-40"
+                  onClick={() => printReceipt(o)}
+                  className="w-full md:w-auto px-5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-700 text-sm font-bold hover:bg-slate-100 hover:text-slate-900 hover:border-slate-300 transition inline-flex items-center justify-center gap-2 shadow-sm"
                 >
-                  <X size={15} /> Bekor
+                  <Printer size={18} /> Chop etish
                 </button>
-              )}
+                {o.status !== "delivered" && o.status !== "cancelled" && (
+                  <button
+                    disabled={busy === o.id}
+                    onClick={() => cancel(o)}
+                    className="w-full md:w-auto px-5 py-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-600 text-sm font-bold hover:bg-rose-600 hover:text-white hover:border-rose-600 transition inline-flex items-center justify-center gap-2 disabled:opacity-50 disabled:hover:bg-rose-50 disabled:hover:text-rose-600 disabled:hover:border-rose-200 shadow-sm"
+                  >
+                    <X size={18} strokeWidth={2.5} /> Bekor qilish
+                  </button>
+                )}
+              </div>
             </div>
           </div>
           );
