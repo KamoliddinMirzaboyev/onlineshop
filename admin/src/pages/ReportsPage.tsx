@@ -1,4 +1,4 @@
-import { BarChart3, Star, Download, FileText, Table as TableIcon, ChevronDown, FileSpreadsheet } from "lucide-react";
+import { BarChart3, Star, Download, Table as FileSpreadsheet } from "lucide-react";
 import { useEffect, useState } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { get } from "../api";
@@ -29,7 +29,6 @@ export default function ReportsPage() {
   const [period, setPeriod] = useState<Period>("daily");
   const [err, setErr] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [exportOpen, setExportOpen] = useState(false);
 
   const load = () => {
     setErr(false);
@@ -58,67 +57,6 @@ export default function ReportsPage() {
 
   useEffect(() => { load(); }, [period]);
 
-  const exportPDF = () => {
-    if (!data) return;
-    const doc = new jsPDF();
-    
-    doc.setFontSize(22);
-    doc.setTextColor(15, 23, 42); // slate-900
-    doc.text("Barakali Bozor - Hisobot", 14, 20);
-    
-    doc.setFontSize(11);
-    doc.setTextColor(100, 116, 139); // slate-500
-    doc.text(`Sana: ${new Date().toLocaleDateString("ru-RU")}`, 14, 30);
-    doc.text(`Davr: ${TABS.find(t => t.key === period)?.label}`, 14, 36);
-    
-    doc.setFontSize(14);
-    doc.setTextColor(15, 23, 42);
-    doc.text("Umumiy ko'rsatkichlar", 14, 48);
-    
-    doc.setFontSize(12);
-    doc.text(`- Jami Buyurtmalar: ${money(data.totals.orders)} ta`, 14, 58);
-    doc.text(`- Jami Tushum:      ${money(data.totals.revenue)} so'm`, 14, 66);
-    doc.text(`- Jami Foyda:       ${money(data.totals.profit)} so'm`, 14, 74);
-    
-    let yPos = 86;
-    
-    doc.setFontSize(14);
-    doc.text("Savdo Dinamikasi", 14, yPos);
-    
-    autoTable(doc, {
-      startY: yPos + 5,
-      head: [["Sana / Davr", "Buyurtmalar", "Tushum (so'm)", "Foyda (so'm)"]],
-      body: [...data.series].reverse().map(r => [
-        fmtLabel(r.period, period),
-        r.orders.toString(),
-        money(r.revenue),
-        money(r.profit)
-      ]),
-      headStyles: { fillColor: [16, 185, 129] }, // emerald-500
-      styles: { fontSize: 10, cellPadding: 4 }
-    });
-    
-    yPos = (doc as any).lastAutoTable.finalY + 15;
-    
-    doc.setFontSize(14);
-    doc.text("Top Sotilgan Mahsulotlar Reytingi", 14, yPos);
-    
-    autoTable(doc, {
-      startY: yPos + 5,
-      head: [["#", "Mahsulot nomi", "Sotildi", "Tushum (so'm)", "Foyda (so'm)"]],
-      body: data.top_products.map((t, i) => [
-        (i + 1).toString(),
-        t.name_uz,
-        t.quantity.toString(),
-        money(t.revenue),
-        money(t.profit)
-      ]),
-      headStyles: { fillColor: [59, 130, 246] }, // blue-500
-      styles: { fontSize: 10, cellPadding: 4 }
-    });
-    
-    doc.save(`Hisobot_${period}_${new Date().toLocaleDateString("ru-RU")}.pdf`);
-  };
 
   const exportExcel = () => {
     if (!data) return;
@@ -211,18 +149,6 @@ export default function ReportsPage() {
     XLSX.writeFile(wb, `Hisobot_${period}_${new Date().toLocaleDateString("ru-RU")}.xlsx`);
   }
 
-  const exportCSV = () => {
-    if (!data) return;
-    const wb = XLSX.utils.book_new();
-    const wsSeries = XLSX.utils.json_to_sheet([...data.series].reverse().map(r => ({
-      "Sana / Davr": fmtLabel(r.period, period),
-      "Buyurtmalar soni": r.orders,
-      "Tushum (so'm)": r.revenue,
-      "Foyda (so'm)": r.profit
-    })));
-    XLSX.utils.book_append_sheet(wb, wsSeries, "Savdo Dinamikasi");
-    XLSX.writeFile(wb, `Hisobot_${period}_${new Date().toLocaleDateString("ru-RU")}.csv`, { bookType: "csv" });
-  };
 
   return (
     <div>
@@ -241,48 +167,13 @@ export default function ReportsPage() {
           
           <div className="h-8 w-px bg-slate-200 mx-2"></div>
           
-          <div className="relative" onMouseLeave={() => setExportOpen(false)}>
-            <div className="flex items-stretch rounded-lg shadow-sm border border-brand bg-brand text-white text-sm font-semibold transition-all hover:shadow-md">
-              <button 
-                onClick={exportExcel}
-                disabled={!data || loading} 
-                className="flex items-center gap-2 pl-4 pr-3 py-2 hover:bg-white/10 transition-colors disabled:opacity-50 rounded-l-lg"
-              >
-                <Download size={16} /> Yuklab olish
-              </button>
-              <div className="w-px bg-white/20 my-2" />
-              <button 
-                onClick={() => setExportOpen(!exportOpen)} 
-                disabled={!data || loading} 
-                className="px-2.5 py-2 hover:bg-white/10 transition-colors disabled:opacity-50 rounded-r-lg flex items-center justify-center"
-              >
-                <ChevronDown size={16} className={`transition-transform duration-200 ${exportOpen ? "rotate-180" : ""}`} />
-              </button>
-            </div>
-            
-            {exportOpen && (
-              <div className="absolute right-0 top-full mt-2 w-48 bg-white border border-slate-100 shadow-xl rounded-xl p-1.5 z-20 animate-in fade-in slide-in-from-top-2 duration-200">
-                <button onClick={() => { exportExcel(); setExportOpen(false); }} className="w-full text-left px-3 py-2.5 text-sm text-slate-700 hover:bg-slate-50 rounded-lg flex items-center justify-between font-medium transition-colors">
-                  <div className="flex items-center gap-3">
-                    <TableIcon size={18} className="text-emerald-600" /> Excel
-                  </div>
-                  <Download size={14} className="text-slate-400" />
-                </button>
-                <button onClick={() => { exportPDF(); setExportOpen(false); }} className="w-full text-left px-3 py-2.5 text-sm text-slate-700 hover:bg-slate-50 rounded-lg flex items-center justify-between font-medium transition-colors">
-                  <div className="flex items-center gap-3">
-                    <FileText size={18} className="text-rose-600" /> PDF
-                  </div>
-                  <Download size={14} className="text-slate-400" />
-                </button>
-                <button onClick={() => { exportCSV(); setExportOpen(false); }} className="w-full text-left px-3 py-2.5 text-sm text-slate-700 hover:bg-slate-50 rounded-lg flex items-center justify-between font-medium transition-colors">
-                  <div className="flex items-center gap-3">
-                    <FileSpreadsheet size={18} className="text-teal-600" /> CSV
-                  </div>
-                  <Download size={14} className="text-slate-400" />
-                </button>
-              </div>
-            )}
-          </div>
+          <button 
+            onClick={exportExcel}
+            disabled={!data || loading} 
+            className="flex items-center gap-2 px-4 py-2 rounded-lg shadow-sm border border-brand bg-brand text-white text-sm font-semibold transition-all hover:shadow-md hover:bg-brand/90 disabled:opacity-50"
+          >
+            <Download size={16} /> Yuklab olish
+          </button>
         </div>
       </div>
 
