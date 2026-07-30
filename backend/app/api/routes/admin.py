@@ -804,6 +804,57 @@ def toggle_admin_user(
     return u
 
 
+class _AdminUserUpdateIn(BaseModel):
+    """Tadbirkor/do'kon egasi xodim ma'lumotlarini tahrirlaydi (eski parol shart emas)."""
+    username: str | None = None
+    name: str | None = None
+    phone: str | None = None
+    role: AdminRole | None = None
+
+
+@router.patch("/admin-users/{uid}", response_model=AdminUserOut)
+def update_admin_user(
+    uid: int,
+    data: _AdminUserUpdateIn,
+    principal = Depends(require_store_admin_or_business),
+    store: Restaurant = Depends(current_restaurant),
+    db: Session = Depends(get_db),
+):
+    u = db.get(AdminUser, uid)
+    if not u or u.restaurant_id != store.id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Not found")
+    if isinstance(principal, AdminUser) and u.id == principal.id:
+        # O'zining rolini o'zgartirishni taqiqlash (qulflanib qolmasin).
+        if data.role is not None and data.role != u.role:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "O'zingizning rolingizni o'zgartira olmaysiz")
+
+    if data.username is not None:
+        username = data.username.strip()
+        if not username:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "Login bo'sh bo'lishi mumkin emas")
+        if username != u.username:
+            if db.scalar(select(AdminUser).where(AdminUser.username == username)):
+                raise HTTPException(status.HTTP_409_CONFLICT, "Username already taken")
+            u.username = username
+
+    if data.name is not None:
+        u.name = data.name.strip() or None
+
+    if data.phone is not None:
+        phone = data.phone.strip() or None
+        if phone and phone != u.phone:
+            if db.scalar(select(AdminUser).where(AdminUser.phone == phone, AdminUser.id != u.id)):
+                raise HTTPException(status.HTTP_409_CONFLICT, "Bu telefon raqam allaqachon band")
+        u.phone = phone
+
+    if data.role is not None:
+        u.role = data.role
+
+    db.commit()
+    db.refresh(u)
+    return u
+
+
 class _PasswordUpdateIn(BaseModel):
     password: str
 
@@ -816,10 +867,14 @@ def update_admin_user_password(
     store: Restaurant = Depends(current_restaurant),
     db: Session = Depends(get_db),
 ):
+    """Admin/tadbirkor xodim parolini eskisini bilmasdan o'rnatadi (reset)."""
     u = db.get(AdminUser, uid)
     if not u or u.restaurant_id != store.id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Not found")
-    u.hashed_password = hash_password(data.password)
+    pw = data.password.strip()
+    if len(pw) < 4:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Parol kamida 4 belgi bo'lishi kerak")
+    u.hashed_password = hash_password(pw)
     db.commit()
     db.refresh(u)
     return u
