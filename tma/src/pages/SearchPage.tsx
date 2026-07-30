@@ -4,6 +4,7 @@ import type { Product } from "../api/types";
 import CartPill from "../components/CartPill";
 import ErrorState from "../components/ErrorState";
 import LocationNeeded from "../components/LocationNeeded";
+import PageHeader from "../components/PageHeader";
 import ProductCard from "../components/ProductCard";
 import { useStore } from "../hooks/useStore";
 import { useI18n } from "../i18n";
@@ -35,15 +36,17 @@ export default function SearchPage() {
 
   return (
     <div className="min-h-full bg-tg-bg">
-      <div className="sticky top-0 z-20 px-2.5 pt-2 pb-2 bg-tg-bg">
+      <PageHeader title="Barakali Bozor" />
+
+      <div className="px-3 pt-3 pb-2">
         <div className="relative">
-          <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-tg-hint" />
+          <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-tg-hint" />
           <input
             autoFocus
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder={t.search}
-            className="w-full rounded-2xl bg-tg-card pl-10 pr-4 py-3 outline-none focus:ring-2 focus:ring-brand/40 transition"
+            className="w-full rounded-2xl bg-tg-card pl-10 pr-4 py-3 outline-none focus:ring-2 focus:ring-brand/40 transition shadow-[0_1px_6px_rgba(15,23,42,0.04)] border border-slate-200/80"
           />
         </div>
       </div>

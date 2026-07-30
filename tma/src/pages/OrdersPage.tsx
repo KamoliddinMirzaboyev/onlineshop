@@ -4,6 +4,7 @@ import { api } from "../api/client";
 import type { Order } from "../api/types";
 import ErrorState from "../components/ErrorState";
 import OptimizedImage from "../components/OptimizedImage";
+import PageHeader from "../components/PageHeader";
 import { OrderListSkeleton } from "../components/Skeleton";
 import StatusBadge from "../components/StatusBadge";
 import { useI18n } from "../i18n";
@@ -40,25 +41,28 @@ export default function OrdersPage() {
     return () => clearInterval(iv);
   }, []);
 
-  if (error) return <ErrorState onRetry={() => load()} />;
-  if (loading) return <OrderListSkeleton />;
-
-  if (orders.length === 0) {
-    return (
-      <div className="p-10 text-center text-tg-hint">
-        <div className="text-5xl mb-3">🧾</div>
-        {t.no_orders}
-      </div>
-    );
-  }
-
   return (
-    <div className="p-4">
-      <h1 className="text-lg font-semibold mb-4">{t.orders}</h1>
-      <div className="space-y-3">
-        {orders.map((o) => (
+    <div className="min-h-full bg-tg-bg pb-24">
+      <PageHeader title="Barakali Bozor" />
+
+      {error ? (
+        <ErrorState onRetry={() => load()} />
+      ) : loading ? (
+        <div className="p-4">
+          <OrderListSkeleton />
+        </div>
+      ) : orders.length === 0 ? (
+        <div className="p-10 text-center text-tg-hint">
+          <div className="text-5xl mb-3">🧾</div>
+          {t.no_orders}
+        </div>
+      ) : (
+        <div className="p-4 space-y-3">
+          <h2 className="text-[15px] font-semibold text-slate-800 px-0.5">{t.orders}</h2>
+          {orders.map((o) => (
             <button
               key={o.id}
+              type="button"
               onClick={() => nav(`/orders/${o.id}`)}
               className="card p-4 w-full text-left"
             >
@@ -71,14 +75,22 @@ export default function OrdersPage() {
                 {new Date(o.created_at).toLocaleString()}
               </div>
 
-              {/* Mahsulot rasmlari */}
               <div className="flex items-center gap-1.5 mt-3">
                 {o.items.slice(0, 5).map((it) =>
                   it.image_url ? (
-                    <OptimizedImage key={it.id} src={it.image_url} className="h-10 w-10 rounded-lg object-cover bg-tg-card shrink-0" />
+                    <OptimizedImage
+                      key={it.id}
+                      src={it.image_url}
+                      className="h-10 w-10 rounded-lg object-cover bg-tg-card shrink-0"
+                    />
                   ) : (
-                    <div key={it.id} className="h-10 w-10 rounded-lg bg-tg-card flex items-center justify-center text-sm shrink-0">🍽</div>
-                  )
+                    <div
+                      key={it.id}
+                      className="h-10 w-10 rounded-lg bg-tg-card flex items-center justify-center text-sm shrink-0"
+                    >
+                      🍽
+                    </div>
+                  ),
                 )}
                 {o.items.length > 5 && (
                   <span className="text-xs text-tg-hint">+{o.items.length - 5}</span>
@@ -93,10 +105,10 @@ export default function OrdersPage() {
                   {money(o.total)} {t.sum}
                 </span>
               </div>
-
             </button>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
