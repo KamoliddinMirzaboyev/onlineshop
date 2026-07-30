@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class ProductOut(BaseModel):
@@ -17,8 +17,7 @@ class ProductOut(BaseModel):
     low_stock_threshold: float = 10
     is_available: bool
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class CategoryOut(BaseModel):
@@ -33,8 +32,7 @@ class CategoryOut(BaseModel):
     is_active: bool = True
     sort_order: int
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class CategoryGroupOut(BaseModel):
@@ -45,8 +43,7 @@ class CategoryGroupOut(BaseModel):
     bg_color: str | None = None  # pastel hex — guruhdagi barcha kartochkalar
     sort_order: int
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class SubcategoryOut(CategoryOut):
@@ -77,8 +74,7 @@ class RestaurantOut(BaseModel):
     min_order: int
     avg_delivery_minutes: int
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class StoreSettingsIn(BaseModel):

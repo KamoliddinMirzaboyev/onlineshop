@@ -2,10 +2,14 @@ from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy import or_, select, update
 from sqlalchemy.orm import Session, selectinload
+import asyncio
+import json
 
 from app.api.deps import get_current_admin
+from app.core.security import decode_token
 from app.core.config import settings
 from app.core.db import get_db
 from app.models import AdminUser, Order, PushSubscription, User
@@ -18,6 +22,7 @@ from app.schemas.courier import (
     EarningsOut,
     OrderAdjustIn,
     StatBucket,
+    LocationUpdateIn,
 )
 from app.schemas.order import OrderOut, OrderStatusUpdate
 from app.services.eta import estimate_minutes
@@ -27,6 +32,7 @@ from app.services.notify import (
 )
 from app.services.orders import decrement_stock_atomic, ensure_transition
 from app.services import webpush
+from app.services.events import courier_events
 
 router = APIRouter(prefix="/courier", tags=["courier"])
 
@@ -51,6 +57,19 @@ def get_current_courier(admin: AdminUser = Depends(get_current_admin)) -> AdminU
     return admin
 
 
+def get_current_courier_ws(
+    token: str = Query(...),
+    db: Session = Depends(get_db)
+) -> AdminUser:
+    payload = decode_token(token)
+    if not payload or payload.get("role") not in {r.value for r in AdminRole}:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid token")
+    admin = db.get(AdminUser, int(payload["sub"]))
+    if not admin or not admin.is_active or admin.role != AdminRole.courier:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Courier not found")
+    return admin
+
+
 def _local_date(dt: datetime):
     """UTC (yoki naive) datetime ni Toshkent sanasiga aylantiradi."""
     if dt.tzinfo is None:
@@ -61,6 +80,54 @@ def _local_date(dt: datetime):
 def _completion_time(order: Order) -> datetime:
     """Buyurtma yakunlangan vaqt — updated_at, bo'lmasa created_at."""
     return order.updated_at or order.created_at
+
+
+@router.get("/stream")
+async def courier_stream(
+    courier: AdminUser = Depends(get_current_courier_ws),
+):
+    """Kuryer ilovasi ochiqligida real-time bildirishnomalar va pinglar olish uchu SSE endpointi.
+    Redis Pub/Sub orqali barcha gunicorn worker'lari bo'ylab ishlaydi.
+    Kuryer faqat o'z restoraniga tegishli eventlarni oladi.
+    """
+    async def event_generator():
+        ps = courier_events.subscribe()
+        loop = asyncio.get_event_loop()
+        try:
+            while True:
+                # Redis PubSub — blocking, thread pool'da o'qiymiz
+                msg = await loop.run_in_executor(None, ps.get_message, timeout=30.0)
+                if msg and msg["type"] == "message":
+                    data = json.loads(msg["data"])
+                    # Faqat o'z restorani eventlarini filtrlaymiz
+                    if data.get("restaurant_id") and data["restaurant_id"] != courier.restaurant_id:
+                        continue
+                    yield f"data: {msg['data']}\n\n"
+                else:
+                    # Keep-alive ping (SSE ulanishini tirik saqlash)
+                    yield ": keepalive\n\n"
+        except asyncio.CancelledError:
+            pass
+        finally:
+            courier_events.unsubscribe(ps)
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+
+@router.post("/location", status_code=status.HTTP_204_NO_CONTENT)
+def update_location(
+    data: LocationUpdateIn,
+    courier: AdminUser = Depends(get_current_courier),
+    db: Session = Depends(get_db),
+):
+    """Kuryerning joriy manzili yangilanadi. Mijoz kuzatib turishi uchun."""
+    courier.lat = data.lat
+    courier.lng = data.lng
+    courier.last_location_update = datetime.now(timezone.utc)
+    db.commit()
+    # TODO: kelajakda bu yerda Redis orqali yoki to'g'ridan-to'g'ri WebSocket(Mijoz)
+    # orqali mijozlarga (ularning buyurtmasi ushbu kuryerda bo'lsa) broadcast qilinadi.
+    return None
 
 
 @router.get("/orders", response_model=list[OrderOut])
@@ -244,8 +311,8 @@ def courier_update_order(
             courier.phone,
             user_lang,
         )
+    courier_events.publish({"type": "orders_updated", "restaurant_id": order.restaurant_id})
     return order
-
 
 @router.post("/orders/{order_id}/delivered", response_model=OrderOut)
 def courier_mark_delivered(
@@ -274,6 +341,7 @@ def courier_mark_delivered(
     order.status = OrderStatus.delivered
     db.commit()
     db.refresh(order)
+    courier_events.publish({"type": "orders_updated", "restaurant_id": order.restaurant_id})
     if user_tg:
         background.add_task(
             notify_status_change,

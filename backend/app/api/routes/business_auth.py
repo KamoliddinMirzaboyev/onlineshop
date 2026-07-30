@@ -22,7 +22,7 @@ def business_login(data: AdminLoginIn, db: Session = Depends(get_db)):
     business = db.scalar(select(Business).where(Business.username == data.username))
     if not business or not business.is_active or not verify_password(data.password, business.hashed_password):
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid credentials")
-    token = create_access_token(subject=business.id, role="businessman")
+    token = create_access_token(subject=str(business.id), role="businessman")
     return TokenOut(access_token=token)
 
 

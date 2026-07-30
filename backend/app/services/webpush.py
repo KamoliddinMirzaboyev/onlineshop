@@ -11,7 +11,7 @@ propagate — a push problem must not break an order.
 import json
 import logging
 
-from pywebpush import WebPushException, webpush
+from pywebpush import WebPushException, webpush  # type: ignore
 from sqlalchemy import delete, select
 
 from app.core.config import settings
@@ -33,7 +33,8 @@ def _send(sub: PushSubscription, payload: dict) -> None:
     )
 
 
-def _deliver(subs: list[PushSubscription], payload: dict) -> None:
+from typing import Sequence
+def _deliver(subs: Sequence[PushSubscription], payload: dict) -> None:
     dead: list[int] = []
     for s in subs:
         try:

@@ -149,7 +149,7 @@ def create_order(db: Session, user: User, data: OrderCreateIn) -> Order:
                 f"'{product.name_uz}' uchun ombor yetarli emas (qoldiq: {product.stock:g})",
             )
         line = product.price * ci.quantity
-        items_total += line
+        items_total += int(line)
         order_items.append(
             OrderItem(
                 product_id=product.id,

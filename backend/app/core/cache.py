@@ -14,7 +14,8 @@ def cache_get_json(key: str) -> Any | None:
         raw = redis_client.get(key)
     except Exception:
         return None
-    return json.loads(raw) if raw else None
+    from typing import cast
+    return json.loads(cast(str | bytes, raw)) if raw else None
 
 
 def cache_set_json(key: str, value: Any, ttl: int) -> None:

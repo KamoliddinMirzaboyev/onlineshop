@@ -30,8 +30,10 @@ def zone_is_configured(zone: DeliveryZone | None) -> bool:
     )
 
 
-def is_within_zone(zone: DeliveryZone, lat: float, lng: float) -> bool:
+def is_within_zone(zone: DeliveryZone | None, lat: float, lng: float) -> bool:
     """True if (lat,lng) is inside the circular zone."""
+    if zone is None or zone.center_lat is None or zone.center_lng is None or zone.radius_km is None:
+        return False
     return haversine_km(zone.center_lat, zone.center_lng, lat, lng) <= zone.radius_km
 
 

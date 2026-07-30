@@ -75,7 +75,7 @@ def _rounded_thumb(url: str | None, size: int) -> Image.Image | None:
     w, h = im.size
     s = min(w, h)
     im = im.crop(((w - s) // 2, (h - s) // 2, (w + s) // 2, (h + s) // 2)).resize(
-        (size, size), Image.LANCZOS
+        (size, size), Image.Resampling.LANCZOS
     )
     # yumaloq burchak maskasi
     mask = Image.new("L", (size, size), 0)
@@ -124,7 +124,7 @@ def render_receipt(order: Order) -> bytes:
             lw, lh = logo.size
             logo_h = 75
             logo_w = int(lw * (logo_h / lh))
-            logo = logo.resize((logo_w, logo_h), Image.LANCZOS)
+            logo = logo.resize((logo_w, logo_h), Image.Resampling.LANCZOS)
             img.paste(logo, (W // 2 - logo_w // 2, y), logo)
             y += logo_h + 15
     except Exception:

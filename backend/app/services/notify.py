@@ -126,7 +126,7 @@ def _ask_location(chat_id: int) -> None:
 
 
 def notify_new_order(
-    order: Order, user_telegram_id: int, receipt_png: bytes | None = None,
+    order: Order, user_telegram_id: int | None, receipt_png: bytes | None = None,
     needs_location: bool = True,
 ) -> None:
     lines = [
@@ -141,17 +141,18 @@ def notify_new_order(
         _send(settings.orders_chat_id, text)
 
     # Foydalanuvchiga chek (rasm) + status.
-    if receipt_png:
-        _send_photo(
-            user_telegram_id, receipt_png,
-            caption=f"🧾 Buyurtmangiz qabul qilindi · № {order.number}",
-        )
-    else:
-        _send(user_telegram_id, _STATUS_TEXT["pending"] + f"\n№ {order.number}")
+    if user_telegram_id:
+        if receipt_png:
+            _send_photo(
+                user_telegram_id, receipt_png,
+                caption=f"🧾 Buyurtmangiz qabul qilindi · № {order.number}",
+            )
+        else:
+            _send(user_telegram_id, _STATUS_TEXT["uz"]["pending"] + f"\n№ {order.number}")
 
-    # Joylashuv hali yo'q bo'lsa — so'raymiz (TMA xaritadan yuborgan bo'lsa, kerak emas).
-    if needs_location:
-        _ask_location(user_telegram_id)
+        # Joylashuv hali yo'q bo'lsa — so'raymiz (TMA xaritadan yuborgan bo'lsa, kerak emas).
+        if needs_location:
+            _ask_location(user_telegram_id)
 
     # admin PWA push
     webpush.notify_admins(

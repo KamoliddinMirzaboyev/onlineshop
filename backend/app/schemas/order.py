@@ -1,7 +1,7 @@
 from datetime import datetime
 
 # pyrefly: ignore [missing-import]
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.enums import OrderStatus, PaymentMethod, PaymentStatus
 
@@ -20,8 +20,7 @@ class AddressIn(BaseModel):
 class AddressOut(AddressIn):
     id: int
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class CartItemIn(BaseModel):
@@ -54,8 +53,7 @@ class OrderItemOut(BaseModel):
     unit: str = "dona"
     note: str | None = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class OrderOut(BaseModel):
@@ -85,8 +83,7 @@ class OrderOut(BaseModel):
     created_at: datetime
     items: list[OrderItemOut] = []
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class OrderStatusUpdate(BaseModel):

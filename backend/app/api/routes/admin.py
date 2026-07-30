@@ -12,13 +12,15 @@ from app.api.deps import (
 from app.core.config import settings
 from app.core.cache import invalidate_restaurant_catalog
 from app.core.db import get_db
+from app.core.security import hash_password
+from app.services.events import courier_events
 from app.models import (
     AdminUser, Business, Category, CategoryGroup, Order, OrderItem, Product,
     PushSubscription, Restaurant, SupplyRecord, User,
 )
 from app.models.enums import OrderStatus
 from app.schemas.admin import (
-    DashboardStats, NotificationEvent, PeriodPoint, PushSubscriptionIn, ReportsOut,
+    DashboardStats, NotificationEvent, PeriodPoint, PushSubscriptionIn, ReportsOut, ReportTotals,
     StockUpdate, SupplyRecordIn, SupplyRecordOut, TopProduct,
 )
 from app.schemas.admin import AdminUserOut
@@ -301,7 +303,7 @@ def reports(period: str = "daily", store: Restaurant = Depends(current_restauran
 
     o, r, p = _agg(db, [rid], start)
     return ReportsOut(
-        totals={"orders": o, "revenue": r, "profit": p},
+        totals=ReportTotals(orders=o, revenue=r, profit=p),
         series=_series(db, [rid], trunc, start),
         top_products=_top_products(db, [rid], start=start, limit=20),
     )
@@ -569,6 +571,7 @@ def update_order_status(
 
     db.commit()
     db.refresh(order)
+    courier_events.publish({"type": "orders_updated", "restaurant_id": store.id})
     user_tg = order.user.telegram_id if order.user else None
     user_lang = (order.user.language if order.user else None) or "uz"
     if user_tg:
@@ -658,7 +661,7 @@ def broadcast(
         .where(~User.is_blocked)
     ).all()
 
-    background.add_task(broadcast_post, list(telegram_ids), text, data.image_url)
+    background.add_task(broadcast_post, [t for t in telegram_ids if t is not None], text, data.image_url)
     return {"sent_to": len(telegram_ids)}
 
 
@@ -728,8 +731,6 @@ def delete_supply(
 
 
 # ── Admin users (kuryer akkauntlarini boshqarish) ───────────────
-from app.core.security import hash_password  # noqa: E402
-from app.models.enums import AdminRole  # noqa: E402
 
 
 class _AdminUserCreateIn(BaseModel):
@@ -831,8 +832,8 @@ def delete_admin_user(
     if u.role == AdminRole.courier:
         db.execute(
             update(Order)
-            .where(Order.courier_id == uid)
-            .values(courier_id=None)
+            .where(Order.assigned_courier_id == uid)
+            .values(assigned_courier_id=None)
         )
     db.delete(u)
     db.commit()

@@ -22,7 +22,7 @@ def platform_login(data: AdminLoginIn, db: Session = Depends(get_db)):
     admin = db.scalar(select(PlatformAdmin).where(PlatformAdmin.username == data.username))
     if not admin or not admin.is_active or not verify_password(data.password, admin.hashed_password):
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid credentials")
-    token = create_access_token(subject=admin.id, role="platform_superadmin")
+    token = create_access_token(subject=str(admin.id), role="platform_superadmin")
     return TokenOut(access_token=token)
 
 

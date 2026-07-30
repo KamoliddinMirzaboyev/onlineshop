@@ -12,6 +12,7 @@ import OrdersPage from "./pages/OrdersPage";
 import OrderDetailPage from "./pages/OrderDetailPage";
 import ProfilePage from "./pages/ProfilePage";
 import { useAuth } from "./store";
+import { startLocationTracking, stopLocationTracking } from "./location";
 
 function Protected({ children }: { children: React.ReactNode }) {
   const { loadMe } = useAuth();
@@ -55,6 +56,12 @@ function Protected({ children }: { children: React.ReactNode }) {
       </div>
     );
   }
+
+  useEffect(() => {
+    startLocationTracking();
+    return () => stopLocationTracking();
+  }, []);
+
   return <>{children}</>;
 }
 

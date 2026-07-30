@@ -38,7 +38,7 @@ def telegram_auth(data: TelegramAuthIn, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(user)
 
-    token = create_access_token(subject=user.id, role="user")
+    token = create_access_token(subject=str(user.id), role="user")
     return AuthResult(token=TokenOut(access_token=token), user=UserOut.model_validate(user))
 
 
@@ -56,7 +56,7 @@ def app_register(data: AppRegisterIn, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(user)
     
-    token = create_access_token(subject=user.id, role="user")
+    token = create_access_token(subject=str(user.id), role="user")
     return AuthResult(token=TokenOut(access_token=token), user=UserOut.model_validate(user))
 
 
@@ -66,7 +66,7 @@ def app_login(data: AppLoginIn, db: Session = Depends(get_db)):
     if not user or not user.password_hash or not verify_password(data.password, user.password_hash):
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid phone or password")
         
-    token = create_access_token(subject=user.id, role="user")
+    token = create_access_token(subject=str(user.id), role="user")
     return AuthResult(token=TokenOut(access_token=token), user=UserOut.model_validate(user))
 
 

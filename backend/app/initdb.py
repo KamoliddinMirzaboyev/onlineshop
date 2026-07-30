@@ -81,6 +81,9 @@ _USER_COLUMNS = (
 _ADMIN_USER_COLUMNS = (
     "ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS name VARCHAR(128)",
     "ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS phone VARCHAR(32)",
+    "ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS lat DOUBLE PRECISION",
+    "ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS lng DOUBLE PRECISION",
+    "ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS last_location_update TIMESTAMPTZ",
 )
 # Do'kon sozlamalari: manzil, ega, telefonlar (JSONB array), ijtimoiy tarmoq (JSONB obyekt).
 _STORE_COLUMNS = (

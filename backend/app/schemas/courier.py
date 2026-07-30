@@ -47,3 +47,7 @@ class OrderAdjustItemIn(BaseModel):
 
 class OrderAdjustIn(BaseModel):
     items: list[OrderAdjustItemIn]
+
+class LocationUpdateIn(BaseModel):
+    lat: float
+    lng: float

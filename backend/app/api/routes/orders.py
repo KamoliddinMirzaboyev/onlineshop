@@ -9,9 +9,9 @@ from app.schemas.order import OrderCreateIn, OrderOut
 from app.services.notify import notify_new_order
 from app.services.orders import create_order
 from app.services.receipt import render_receipt
+from app.services.events import courier_events
 
 router = APIRouter(prefix="/orders", tags=["orders"])
-
 
 @router.post("", response_model=OrderOut, status_code=201)
 def place_order(
@@ -31,6 +31,7 @@ def place_order(
     background.add_task(
         notify_new_order, order, user.telegram_id, receipt_png, needs_location
     )
+    courier_events.publish({"type": "orders_updated", "restaurant_id": order.restaurant_id})
     return order
 
 

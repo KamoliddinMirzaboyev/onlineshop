@@ -6,6 +6,8 @@ from sqlalchemy.orm import Session
 from app.api.deps import require_platform_admin
 from app.core.db import get_db
 from app.core.security import hash_password
+from sqlalchemy import delete as sqla_delete
+
 from app.models import Announcement, Business, Order, OrderItem, Restaurant, User
 from app.schemas.admin import AnnouncementIn, AnnouncementOut
 from app.schemas.catalog import RestaurantOut
@@ -78,10 +80,8 @@ def delete_user(uid: int, db: Session = Depends(get_db)):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "User not found")
     order_ids = db.scalars(select(Order.id).where(Order.user_id == uid)).all()
     if order_ids:
-        db.query(OrderItem).filter(OrderItem.order_id.in_(order_ids)).delete(
-            synchronize_session=False
-        )
-        db.query(Order).filter(Order.id.in_(order_ids)).delete(synchronize_session=False)
+        db.execute(sqla_delete(OrderItem).where(OrderItem.order_id.in_(order_ids)))
+        db.execute(sqla_delete(Order).where(Order.id.in_(order_ids)))
     db.delete(user)  # addresses cascade via relationship
     db.commit()
 
@@ -226,8 +226,8 @@ def delete_store(rid: int, force: bool = False, db: Session = Depends(get_db)):
             status.HTTP_409_CONFLICT, "Buyurtma tarixi bor do'konni o'chirib bo'lmaydi"
         )
     if order_ids:
-        db.query(OrderItem).filter(OrderItem.order_id.in_(order_ids)).delete(synchronize_session=False)
-        db.query(Order).filter(Order.id.in_(order_ids)).delete(synchronize_session=False)
+        db.execute(sqla_delete(OrderItem).where(OrderItem.order_id.in_(order_ids)))
+        db.execute(sqla_delete(Order).where(Order.id.in_(order_ids)))
     db.delete(store)
     db.commit()
 

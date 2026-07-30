@@ -10,7 +10,7 @@ from app.core.security import hash_password
 from app.models import AdminUser, Business, Order, Product, Restaurant
 from app.models.enums import AdminRole
 from app.schemas.business import (
-    BusinessReportsOut, BusinessStatsOut, StoreBreakdown, StoreCreateIn,
+    BusinessReportsOut, BusinessStatsOut, StoreBreakdown, StoreCreateIn, ReportTotals,
     StoreWithStaffCreateIn,
 )
 from app.schemas.catalog import RestaurantOut
@@ -164,7 +164,7 @@ def business_reports(
     ).all()
     ids = [s.id for s in stores]
     if not ids:
-        return BusinessReportsOut()
+        return BusinessReportsOut(totals=ReportTotals(orders=0, revenue=0, profit=0))
 
     today = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
     month_start = today - timedelta(days=30)
@@ -197,7 +197,7 @@ def business_reports(
 
     o, r, p = _agg(db, ids, start)
     return BusinessReportsOut(
-        totals={"orders": o, "revenue": r, "profit": p},
+        totals=ReportTotals(orders=o, revenue=r, profit=p),
         series=_series(db, ids, trunc, start),
         top_products=_top_products(db, ids, start=start, limit=20),
         stores=breakdown,
