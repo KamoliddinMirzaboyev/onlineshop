@@ -52,10 +52,12 @@ app = FastAPI(title="Barakali Bozor API", version="1.0.0", docs_url="/docs" if s
 app.add_middleware(SecurityHeadersMiddleware)
 
 if settings.environment == "production":
-    # Faqat aniq ro'yxatdagi origin'lar (TMA_URL/ADMIN_URL/COURIER_URL + .env).
+    # Aniq origin'lar + barcha barakali-bozor.uz subdomainlari
+    # (Telegram WebView ba'zan origin variantlarini yuboradi).
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
+        allow_origin_regex=r"https://([a-z0-9-]+\.)?barakali-bozor\.uz",
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],

@@ -9,10 +9,14 @@ class Settings(BaseSettings):
     # Telegram
     bot_token: str = "changeme"
     bot_username: str = "barakalibozorobot"
-    tma_url: str = "https://barakali-bozor.uz"
-    # Qo'shimcha prod origin'lar (CORS). Bo'sh bo'lsa faqat tma_url ishlatiladi.
-    admin_url: str = ""
-    courier_url: str = ""
+    tma_url: str = "https://www.barakali-bozor.uz"
+    # Prod CORS origin'lar (faqat scheme+host; path e'tiborga olinmaydi).
+    admin_url: str = "https://admin.barakali-bozor.uz"
+    courier_url: str = "https://kuryer.barakali-bozor.uz"
+    business_url: str = "https://tadbirkor.barakali-bozor.uz"
+    platform_url: str = ""  # superadmin PWA (ixtiyoriy)
+    # Qo'shimcha origin'lar: vergul bilan (migratsiya / eski domenlar).
+    extra_cors_origins: str = ""
 
     # Auth
     secret_key: str = "change-me"
@@ -20,7 +24,7 @@ class Settings(BaseSettings):
     algorithm: str = "HS256"
 
     environment: str = "development"
-    api_base_url: str = "https://allfoodapi.webportfolio.uz"
+    api_base_url: str = "https://api.barakali-bozor.uz"
 
     # Telegram chat that receives new-order notifications (group/channel id)
     orders_chat_id: int | None = None
@@ -60,13 +64,25 @@ class Settings(BaseSettings):
             f"@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
         )
 
+    @staticmethod
+    def _as_origin(url: str) -> str:
+        """Brauzer Origin headeri path'siz: scheme://host[:port]."""
+        from urllib.parse import urlparse
+
+        raw = (url or "").strip()
+        if not raw:
+            return ""
+        parsed = urlparse(raw if "://" in raw else f"https://{raw}")
+        if not parsed.scheme or not parsed.netloc:
+            return ""
+        return f"{parsed.scheme}://{parsed.netloc}"
+
     @property
     def cors_origins(self) -> list[str]:
         """Prod uchun aniq origin ro'yxati (development'da wildcard ishlatiladi).
 
         Lokal frontend (vite dev) prod API'ga ulana olishi uchun localhost
-        portlari ham har doim ruxsat etiladi: tma 5173, admin 3000/5174,
-        courier 3001/5175.
+        portlari ham har doim ruxsat etiladi.
         """
         localhost_dev = [
             "http://localhost:5173", "http://127.0.0.1:5173",  # tma
@@ -74,13 +90,38 @@ class Settings(BaseSettings):
             "http://localhost:3001", "http://127.0.0.1:3001",  # courier
             "http://localhost:5174", "http://127.0.0.1:5174",  # admin (eski port)
             "http://localhost:5175", "http://127.0.0.1:5175",  # courier (eski port)
+            "http://localhost:5176", "http://127.0.0.1:5176",  # businessman
+            "http://localhost:5177", "http://127.0.0.1:5177",  # superadmin
         ]
-        origins = [self.tma_url, self.admin_url, self.courier_url, *localhost_dev]
-        # Apex TMA domeni uchun www. varianti ham (DNS redirect bo'lmasa ham CORS ishlasin).
-        if self.tma_url.startswith("https://") and not self.tma_url.startswith("https://www."):
-            host = self.tma_url.removeprefix("https://").split("/")[0]
-            origins.append(f"https://www.{host}")
-        return [o for o in origins if o]
+        configured = [
+            self.tma_url,
+            self.admin_url,
+            self.courier_url,
+            self.business_url,
+            self.platform_url,
+            *self.extra_cors_origins.split(","),
+        ]
+        origins: list[str] = []
+        for item in configured:
+            origin = self._as_origin(item)
+            if origin and origin not in origins:
+                origins.append(origin)
+        # TMA apex ↔ www juftligi (redirect bo'lmasa ham CORS ishlasin).
+        for origin in list(origins):
+            if origin.startswith("https://www."):
+                apex = "https://" + origin.removeprefix("https://www.")
+                if apex not in origins:
+                    origins.append(apex)
+            elif origin.startswith("https://") and origin.count(".") >= 1:
+                host = origin.removeprefix("https://")
+                if not host.startswith("www.") and host.count(".") == 1:
+                    www = f"https://www.{host}"
+                    if www not in origins:
+                        origins.append(www)
+        for item in localhost_dev:
+            if item not in origins:
+                origins.append(item)
+        return origins
 
 
 @lru_cache

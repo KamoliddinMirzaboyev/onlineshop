@@ -5,7 +5,7 @@ import {
 } from "../telegram";
 import type { Address, Order, Restaurant, RestaurantDetail, User } from "./types";
 
-const BASE = import.meta.env.VITE_API_URL ?? "https://allfoodapi.webportfolio.uz/api";
+const BASE = import.meta.env.VITE_API_URL ?? "https://api.barakali-bozor.uz/api";
 
 export class OutOfRangeError extends Error {}
 export class LocationDeniedError extends Error {}

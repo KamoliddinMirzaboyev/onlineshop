@@ -1,4 +1,4 @@
-const BASE = import.meta.env.VITE_API_URL ?? "https://allfoodapi.webportfolio.uz/api";
+const BASE = import.meta.env.VITE_API_URL ?? "https://api.barakali-bozor.uz/api";
 
 let token: string | null = localStorage.getItem("af_admin_token");
 
