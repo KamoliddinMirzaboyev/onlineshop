@@ -204,8 +204,9 @@ export default function OrdersPage() {
   );
 
   return (
-    <div>
-      <div className="mb-6">
+    <div className="flex flex-col h-[calc(100dvh-3.5rem-2rem)] md:h-[calc(100dvh-3.5rem-4rem)]">
+      {/* Title + filterlar fixed — ro'yxat alohida scroll, yopilmaydi */}
+      <div className="shrink-0 pb-4">
         <h1 className="text-2xl font-bold tracking-tight mb-1">Buyurtmalar</h1>
         <p className="text-slate-500 mb-4">Kuzatuv rejimi — kuryer buyurtmani o'zi qabul qiladi</p>
 
@@ -218,7 +219,7 @@ export default function OrdersPage() {
                 ? "bg-brand text-white shadow-md shadow-brand/25"
                 : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900 hover:border-slate-300"
             }`}
-            onClick={() => setFilter(tab.value as any)}
+            onClick={() => setFilter(tab.value as OrderStatus | "")}
           >
             {tab.label}
           </button>
@@ -226,8 +227,12 @@ export default function OrdersPage() {
         </div>
       </div>
 
-      {loading ? <OrderListSkeleton /> : err && orders.length === 0 ? <ErrorRetry onRetry={load} /> : (
-      <div className="space-y-4">
+      {loading ? (
+        <div className="flex-1 min-h-0 overflow-y-auto"><OrderListSkeleton /></div>
+      ) : err && orders.length === 0 ? (
+        <ErrorRetry onRetry={load} />
+      ) : (
+      <div className="flex-1 min-h-0 overflow-y-auto space-y-4 pb-2">
         {sorted.map((o) => {
           const isNew = o.status === "pending";
           const itemsCount = o.items.reduce((s, it) => s + it.quantity, 0);

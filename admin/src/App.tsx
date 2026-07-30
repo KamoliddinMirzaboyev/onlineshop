@@ -17,6 +17,7 @@ import SettingsPage from "./pages/SettingsPage";
 import SuppliesPage from "./pages/SuppliesPage";
 import UsersPage from "./pages/UsersPage";
 import WarehousePage from "./pages/WarehousePage";
+import { enablePush } from "./push";
 import { useAuth } from "./store";
 
 function CourierBlocked() {
@@ -57,6 +58,15 @@ function Protected({ roles, children }: { roles?: string[]; children: React.Reac
     }
     loadMe().finally(() => setChecked(true));
   }, [loadMe]);
+
+  // Login bo'lgach darhol bildirishnoma ruxsatini so'rash + push subscribe.
+  // Sozlamalarda alohida yoqish yo'q — doim yoniq.
+  useEffect(() => {
+    if (!admin || admin.role === "courier") return;
+    void enablePush().catch(() => {
+      // ruxsat rad etilsa yoki SW yo'q — jim; keyingi sessiya qayta urinib ko'radi
+    });
+  }, [admin]);
 
   if (!checked) return <div className="p-10 text-gray-400">…</div>;
 

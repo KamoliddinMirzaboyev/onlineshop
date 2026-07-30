@@ -28,12 +28,16 @@ function serviceWorkerReady(timeoutMs = 10000): Promise<ServiceWorkerRegistratio
 }
 
 /**
- * Request permission, subscribe via PushManager, register subscription with the backend.
- * May throw — callers should surface the error to the user.
+ * Ruxsat so'rash + PushManager subscribe + backendga yozish.
+ * App startida chaqiriladi — sozlamalarda alohida toggle yo'q.
  */
 export async function enablePush(): Promise<NotificationPermission> {
   if (!pushSupported()) return "denied";
-  const perm = await Notification.requestPermission();
+
+  let perm = Notification.permission;
+  if (perm === "default") {
+    perm = await Notification.requestPermission();
+  }
   if (perm !== "granted") return perm;
 
   const reg = await serviceWorkerReady();
@@ -47,13 +51,7 @@ export async function enablePush(): Promise<NotificationPermission> {
       applicationServerKey: urlBase64ToUint8Array(public_key).buffer as ArrayBuffer,
     });
   }
+  // Mavjud sub ham bo'lsa backendga qayta yozamiz (qurilma/token yangilanishi).
   await post("/admin/push/subscribe", sub.toJSON());
   return "granted";
-}
-
-export async function disablePush(): Promise<void> {
-  if (!pushSupported()) return;
-  const reg = await serviceWorkerReady();
-  const sub = await reg.pushManager.getSubscription();
-  if (sub) await sub.unsubscribe();
 }

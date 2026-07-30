@@ -68,7 +68,16 @@ export default function OrderDetailPage() {
   const isDelivered = order.status === "delivered";
   const isCancelled = order.status === "cancelled";
   const justPlaced = searchParams.get("placed") === "1";
-  const payLabel = order.payment_method === "card" ? t.pay_card : t.pay_cash;
+  const payLabel =
+    order.payment_method === "payme"
+      ? t.pay_payme
+      : order.payment_method === "click"
+        ? t.pay_click
+        : order.payment_method === "uzum"
+          ? t.pay_uzum
+          : order.payment_method === "card"
+            ? t.pay_card
+            : t.pay_cash;
 
   return (
     <div className="p-4 pb-8">

@@ -17,8 +17,11 @@ import app.models  # noqa: F401  (register all models on Base.metadata)
 # ustunlarini idempotent ravishda qoʻshamiz (Postgres).
 _PRODUCT_COLUMNS = (
     "ALTER TABLE products ADD COLUMN IF NOT EXISTS cost INTEGER NOT NULL DEFAULT 0",
-    "ALTER TABLE products ADD COLUMN IF NOT EXISTS stock INTEGER NOT NULL DEFAULT 0",
-    "ALTER TABLE products ADD COLUMN IF NOT EXISTS low_stock_threshold INTEGER NOT NULL DEFAULT 10",
+    "ALTER TABLE products ADD COLUMN IF NOT EXISTS stock DOUBLE PRECISION NOT NULL DEFAULT 0",
+    "ALTER TABLE products ADD COLUMN IF NOT EXISTS low_stock_threshold DOUBLE PRECISION NOT NULL DEFAULT 10",
+    # Eski INTEGER ustunlar model Float bilan moslashsin.
+    "ALTER TABLE products ALTER COLUMN stock TYPE DOUBLE PRECISION USING stock::double precision",
+    "ALTER TABLE products ALTER COLUMN low_stock_threshold TYPE DOUBLE PRECISION USING low_stock_threshold::double precision",
 )
 
 # Kategoriyalarga rasm (kartochka foni) + subkategoriya uchun parent_id — idempotent.

@@ -1,7 +1,7 @@
 from datetime import datetime
 
 # pyrefly: ignore [missing-import]
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.models.enums import OrderStatus, PaymentMethod, PaymentStatus
 
@@ -31,7 +31,7 @@ class CartItemIn(BaseModel):
 
 class OrderCreateIn(BaseModel):
     restaurant_id: int
-    items: list[CartItemIn]
+    items: list[CartItemIn] = Field(min_length=1)
     address_id: int | None = None
     # inline address (if not saved)
     address_line: str | None = None
@@ -39,7 +39,15 @@ class OrderCreateIn(BaseModel):
     lng: float | None = None
     phone: str | None = None
     comment: str | None = None
+    # Gateway yo'q — faqat naqd. Schema darajasida rad etiladi.
     payment_method: PaymentMethod = PaymentMethod.cash
+
+    @field_validator("payment_method")
+    @classmethod
+    def only_cash_until_gateways(cls, v: PaymentMethod) -> PaymentMethod:
+        if v != PaymentMethod.cash:
+            raise ValueError("Hozircha faqat naqd to'lov (cash) qabul qilinadi")
+        return v
 
 
 class OrderItemOut(BaseModel):

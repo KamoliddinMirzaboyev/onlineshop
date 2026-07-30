@@ -12,6 +12,7 @@ from app.schemas.auth import AuthResult, TelegramAuthIn, TokenOut, UserOut, User
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 _tg_auth_limit = rate_limiter("tg_auth", limit=30, window_seconds=60)
+_app_auth_limit = rate_limiter("app_auth", limit=15, window_seconds=60)
 
 
 @router.post("/telegram", response_model=AuthResult, dependencies=[Depends(_tg_auth_limit)])
@@ -35,6 +36,8 @@ def telegram_auth(data: TelegramAuthIn, db: Session = Depends(get_db)):
         user.username = tg.get("username") or user.username
         # first_name endi profil sahifasidan tahrirlanadi — mavjud
         # foydalanuvchida Telegram nomi bilan qayta ustidan yozilmaydi.
+    if user.is_blocked:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Akkauntingiz bloklangan")
     db.commit()
     db.refresh(user)
 
@@ -42,11 +45,11 @@ def telegram_auth(data: TelegramAuthIn, db: Session = Depends(get_db)):
     return AuthResult(token=TokenOut(access_token=token), user=UserOut.model_validate(user))
 
 
-@router.post("/register", response_model=AuthResult)
+@router.post("/register", response_model=AuthResult, dependencies=[Depends(_app_auth_limit)])
 def app_register(data: AppRegisterIn, db: Session = Depends(get_db)):
     if db.scalar(select(User).where(User.phone == data.phone)):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Phone number already registered")
-    
+
     user = User(
         phone=data.phone,
         password_hash=hash_password(data.password),
@@ -55,17 +58,19 @@ def app_register(data: AppRegisterIn, db: Session = Depends(get_db)):
     db.add(user)
     db.commit()
     db.refresh(user)
-    
+
     token = create_access_token(subject=str(user.id), role="user")
     return AuthResult(token=TokenOut(access_token=token), user=UserOut.model_validate(user))
 
 
-@router.post("/login", response_model=AuthResult)
+@router.post("/login", response_model=AuthResult, dependencies=[Depends(_app_auth_limit)])
 def app_login(data: AppLoginIn, db: Session = Depends(get_db)):
     user = db.scalar(select(User).where(User.phone == data.phone))
     if not user or not user.password_hash or not verify_password(data.password, user.password_hash):
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid phone or password")
-        
+    if user.is_blocked:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Akkauntingiz bloklangan")
+
     token = create_access_token(subject=str(user.id), role="user")
     return AuthResult(token=TokenOut(access_token=token), user=UserOut.model_validate(user))
 

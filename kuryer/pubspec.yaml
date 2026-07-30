@@ -1,5 +1,5 @@
 name: kuryer
-description: "A new Flutter project."
+description: "BB Kuryer — Barakali Bozor kuryer ilovasi."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -40,6 +40,8 @@ dependencies:
   intl: ^0.20.3
   url_launcher: ^6.3.2
   flutter_local_notifications: ^18.0.1
+  geolocator: ^13.0.2
+  permission_handler: ^11.4.0
 
 dev_dependencies:
   flutter_test:
@@ -59,6 +61,8 @@ flutter_launcher_icons:
   image_path: "assets/icon/icon.png"
   remove_alpha_ios: true
   background_color_ios: "#16A34A"
+  adaptive_icon_background: "#16A34A"
+  adaptive_icon_foreground: "assets/icon/icon.png"
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

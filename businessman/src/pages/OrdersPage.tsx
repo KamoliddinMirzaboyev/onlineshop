@@ -104,8 +104,8 @@ export default function OrdersPage() {
   }
 
   return (
-    <div>
-      <div className="mb-6">
+    <div className="flex flex-col h-[calc(100dvh-3.5rem-2rem)] md:h-[calc(100dvh-3.5rem-4rem)]">
+      <div className="shrink-0 pb-4">
         <h1 className="text-2xl font-bold tracking-tight mb-1">Buyurtmalar</h1>
         <p className="text-slate-500 mb-4">Kuzatuv rejimi — kuryer buyurtmani o'zi qabul qiladi</p>
 
@@ -136,8 +136,12 @@ export default function OrdersPage() {
         </div>
       </div>
 
-      {loading ? <TableSkeleton cols={4} /> : err && orders.length === 0 ? <ErrorRetry onRetry={load} /> : (
-      <div className="space-y-4">
+      {loading ? (
+        <div className="flex-1 min-h-0 overflow-y-auto"><TableSkeleton cols={4} /></div>
+      ) : err && orders.length === 0 ? (
+        <ErrorRetry onRetry={load} />
+      ) : (
+      <div className="flex-1 min-h-0 overflow-y-auto space-y-4 pb-2">
         {orders.map((o) => {
           const isNew = o.status === "pending";
           const isOpen = open === o.id;

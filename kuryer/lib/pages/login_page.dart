@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../core/theme.dart';
-import '../services/notifications.dart';
 import '../state/auth.dart';
 import '../widgets/common.dart';
 
@@ -35,10 +34,8 @@ class _LoginPageState extends State<LoginPage> {
     });
     try {
       await context.read<AuthState>().login(_username.text.trim(), _password.text);
-      // Ask for the order-alert notification (login tap is a user gesture).
-      // Best-effort — a refusal must not block entering the app.
-      notifications.requestPermission();
-      // Navigation handled by the root AuthGate listening to AuthState/token.
+      // Ruxsatlar AuthGate._ensureRuntimeServices da so'raladi (notif + GPS).
+      // Navigation — AuthGate token/identity ni kuzatadi.
     } catch (err) {
       final raw = err.toString();
       setState(() {
@@ -63,31 +60,37 @@ class _LoginPageState extends State<LoginPage> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Brand mark
+                // Brand mark — bblogo
                 Container(
-                  width: 64,
-                  height: 64,
+                  width: 72,
+                  height: 72,
                   decoration: BoxDecoration(
-                    color: AppColors.brand,
-                    borderRadius: BorderRadius.circular(16),
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(18),
                     boxShadow: [
                       BoxShadow(
-                        color: AppColors.brand.withValues(alpha: 0.3),
+                        color: AppColors.brand.withValues(alpha: 0.25),
                         blurRadius: 20,
                         offset: const Offset(0, 8),
                       ),
                     ],
                   ),
-                  child: const Icon(Icons.pedal_bike, size: 32, color: Colors.white),
+                  padding: const EdgeInsets.all(8),
+                  child: Image.asset(
+                    'assets/icon/logo.png',
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, __, ___) =>
+                        const Icon(Icons.pedal_bike, size: 32, color: AppColors.brand),
+                  ),
                 ),
                 const SizedBox(height: 12),
                 const Text(
-                  'Barakali Bozor',
+                  'BB Kuryer',
                   style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 4),
                 const Text(
-                  'Kuryer paneli',
+                  'Barakali Bozor kuryer paneli',
                   style: TextStyle(fontSize: 14, color: AppColors.slate500),
                 ),
                 const SizedBox(height: 32),

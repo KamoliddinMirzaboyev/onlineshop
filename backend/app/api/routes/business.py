@@ -182,17 +182,18 @@ def business_reports(
             top_product_name=top[0].name_uz if top else None,
         ))
 
+    # Admin hisobot bilan bir xil diapazonlar.
     if period == "daily":
-        start = today
-        trunc = "hour"
+        start = today - timedelta(days=29)
+        trunc = "day"
     elif period == "weekly":
-        start = today - timedelta(days=7)
-        trunc = "day"
+        start = today - timedelta(weeks=12)
+        trunc = "week"
     elif period == "monthly":
-        start = today - timedelta(days=30)
-        trunc = "day"
+        start = today - timedelta(days=365)
+        trunc = "month"
     else:
-        start = today - timedelta(days=30)
+        start = today - timedelta(days=29)
         trunc = "day"
 
     o, r, p = _agg(db, ids, start)

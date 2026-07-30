@@ -9,10 +9,10 @@ import asyncio
 import json
 
 from app.api.deps import get_current_admin
-from app.core.security import decode_token
+from app.core.security import create_access_token, decode_token
 from app.core.config import settings
 from app.core.db import get_db
-from app.models import AdminUser, Order, PushSubscription, User
+from app.models import AdminUser, Order, OrderItem, PushSubscription, User
 from app.models.enums import AdminRole, OrderStatus
 from app.schemas.admin import PushSubscriptionIn
 from app.schemas.courier import (
@@ -30,7 +30,12 @@ from app.services.notify import (
     notify_delivering_eta,
     notify_status_change,
 )
-from app.services.orders import decrement_stock_atomic, ensure_transition
+from app.services.orders import (
+    ensure_transition,
+    mark_order_paid_if_cash,
+    reserve_stock_atomic,
+    restore_stock_atomic,
+)
 from app.services import webpush
 from app.services.events import courier_events
 
@@ -57,17 +62,38 @@ def get_current_courier(admin: AdminUser = Depends(get_current_admin)) -> AdminU
     return admin
 
 
+# SSE uchun qisqa muddatli ticket (daqiqa). To'liq JWT query string'da
+# uzoq yashamasin — log/Referer orqali oqish xavfini kamaytiradi.
+_SSE_TICKET_MINUTES = 5
+
+
 def get_current_courier_ws(
     token: str = Query(...),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ) -> AdminUser:
     payload = decode_token(token)
     if not payload or payload.get("role") not in {r.value for r in AdminRole}:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid token")
+    # Faqat purpose=sse ticket yoki (orqaga moslik) oddiy kuryer token.
+    purpose = payload.get("purpose")
+    if purpose is not None and purpose != "sse":
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid stream token")
     admin = db.get(AdminUser, int(payload["sub"]))
     if not admin or not admin.is_active or admin.role != AdminRole.courier:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Courier not found")
     return admin
+
+
+@router.get("/stream-ticket")
+def courier_stream_ticket(courier: AdminUser = Depends(get_current_courier)):
+    """SSE ulanishi uchun qisqa muddatli token (Authorization: Bearer bilan olinadi)."""
+    token = create_access_token(
+        subject=str(courier.id),
+        role=courier.role.value,
+        expires_minutes=_SSE_TICKET_MINUTES,
+        purpose="sse",
+    )
+    return {"token": token, "expires_in": _SSE_TICKET_MINUTES * 60}
 
 
 def _local_date(dt: datetime):
@@ -125,8 +151,14 @@ def update_location(
     courier.lng = data.lng
     courier.last_location_update = datetime.now(timezone.utc)
     db.commit()
-    # TODO: kelajakda bu yerda Redis orqali yoki to'g'ridan-to'g'ri WebSocket(Mijoz)
-    # orqali mijozlarga (ularning buyurtmasi ushbu kuryerda bo'lsa) broadcast qilinadi.
+    # Faol buyurtmasi bor mijozlarga joylashuv event (SSE/Redis).
+    courier_events.publish({
+        "type": "courier_location",
+        "restaurant_id": courier.restaurant_id,
+        "courier_id": courier.id,
+        "lat": data.lat,
+        "lng": data.lng,
+    })
     return None
 
 
@@ -186,7 +218,11 @@ def courier_adjust_order(
         .where(Order.id == order_id)
         .options(selectinload(Order.items))
     )
-    if not order or order.assigned_courier_id != courier.id:
+    if (
+        not order
+        or order.assigned_courier_id != courier.id
+        or order.restaurant_id != courier.restaurant_id
+    ):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Order not found")
 
     if order.status not in (OrderStatus.accepted, OrderStatus.preparing, OrderStatus.ready):
@@ -197,16 +233,32 @@ def courier_adjust_order(
 
     adjust_map = {item.order_item_id: item.quantity for item in data.items}
 
-    new_items_total = 0
+    # Oldindan yakuniy miqdorlarni hisoblab, bo'sh buyurtmani va omborni tekshiramiz.
+    planned: list[tuple[OrderItem, float]] = []
     for item in order.items:
-        if item.id in adjust_map:
-            item.quantity = adjust_map[item.id]
-        new_items_total += item.price * item.quantity
+        new_qty = adjust_map[item.id] if item.id in adjust_map else item.quantity
+        if new_qty < 0:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "Miqdor manfiy bo'lishi mumkin emas")
+        planned.append((item, new_qty))
 
-    # Remove items with 0 quantity
-    order.items = [item for item in order.items if item.quantity > 0]
+    remaining = [(item, q) for item, q in planned if q > 0]
+    if not remaining:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "Buyurtmada kamida bitta mahsulot qolishi kerak",
+        )
 
-    order.items_total = round(new_items_total)
+    for item, new_qty in planned:
+        delta = new_qty - item.quantity
+        if delta > 0:
+            reserve_stock_atomic(db, item.product_id, delta, product_name=item.name_uz)
+        elif delta < 0:
+            restore_stock_atomic(db, item.product_id, -delta)
+        item.quantity = new_qty
+
+    order.items = [item for item, _q in remaining]
+    new_items_total = sum(item.price * item.quantity for item in order.items)
+    order.items_total = int(round(new_items_total))
     # Yetkazish haqi o'zgarmaydi (masofa/chegara buyurtma paytida hisoblangan).
     order.total = order.items_total + order.delivery_fee
 
@@ -337,7 +389,8 @@ def courier_mark_delivered(
     user_lang = (customer.language if customer else None) or "uz"
     ensure_transition(order.status, OrderStatus.delivered)
     order.courier_delivered_at = datetime.now(timezone.utc)
-    decrement_stock_atomic(db, order)
+    # Stock buyurtma yaratilganda zaxiralangan — qayta kamaytirilmaydi.
+    mark_order_paid_if_cash(order)
     order.status = OrderStatus.delivered
     db.commit()
     db.refresh(order)

@@ -40,31 +40,50 @@ function useNewOrderAlerts() {
   }, [data, setAvailableCount]);
 
   useEffect(() => {
-    const token = localStorage.getItem("af_courier_token");
-    if (!token) return;
-
     const baseURL = import.meta.env.VITE_API_URL ?? "https://allfoodapi.webportfolio.uz/api";
-    const es = new EventSource(`${baseURL}/courier/stream?token=${token}`);
-    
-    es.onmessage = (event) => {
+    let es: EventSource | null = null;
+    let closed = false;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const connect = async () => {
+      if (closed) return;
       try {
-        const payload = JSON.parse(event.data);
-        if (payload.type === "orders_updated") {
-          refresh();
-          window.dispatchEvent(new Event("courier-push"));
+        // To'liq JWT o'rniga qisqa muddatli SSE ticket (query string xavfini kamaytiradi).
+        const ticket = await get<{ token: string }>("/courier/stream-ticket");
+        if (closed) return;
+        es?.close();
+        es = new EventSource(`${baseURL}/courier/stream?token=${encodeURIComponent(ticket.token)}`);
+        es.onmessage = (event) => {
+          try {
+            const payload = JSON.parse(event.data) as { type?: string };
+            if (payload.type === "orders_updated") {
+              refresh();
+              window.dispatchEvent(new Event("courier-push"));
+            }
+          } catch {
+            /* ignore malformed keepalive/noise */
+          }
+        };
+        es.onerror = () => {
+          es?.close();
+          es = null;
+          if (!closed) {
+            retryTimer = setTimeout(connect, 3000);
+          }
+        };
+      } catch {
+        if (!closed) {
+          retryTimer = setTimeout(connect, 5000);
         }
-      } catch (e) {
-        console.error("SSE parse error", e);
       }
     };
-    
-    es.onerror = (err) => {
-      console.error("SSE Error:", err);
-      // EventSource avtomatik ravishda qayta ulanishga harakat qiladi
-    };
+
+    void connect();
 
     return () => {
-      es.close();
+      closed = true;
+      if (retryTimer) clearTimeout(retryTimer);
+      es?.close();
     };
   }, [refresh]);
 }

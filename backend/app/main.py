@@ -1,6 +1,7 @@
-from fastapi import APIRouter, FastAPI
+from fastapi import APIRouter, FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.api.routes import (
     addresses, admin, admin_auth, auth, business, business_auth, catalog, courier,
@@ -8,6 +9,24 @@ from app.api.routes import (
 )
 from app.api.routes.uploads import UPLOAD_DIR
 from app.core.config import settings
+
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    """Asosiy xavfsizlik headerlari (XSS, clickjacking, MIME sniff)."""
+
+    async def dispatch(self, request: Request, call_next) -> Response:
+        response = await call_next(request)
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("X-Frame-Options", "DENY")
+        response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+        response.headers.setdefault(
+            "Permissions-Policy", "geolocation=(self), microphone=(), camera=()"
+        )
+        if settings.environment == "production":
+            response.headers.setdefault(
+                "Strict-Transport-Security", "max-age=31536000; includeSubDomains"
+            )
+        return response
 
 # Prod'da .env.example'dagi zaif default qiymatlar bilan ishga tushishni
 # taqiqlaydi — noto'g'ri sozlangan deploy jim tarzda zaif kalitlar/parollar
@@ -29,7 +48,8 @@ if settings.environment == "production":
             f".env'da o'zgartiring: {', '.join(leaked)}"
         )
 
-app = FastAPI(title="Barakali Bozor API", version="1.0.0")
+app = FastAPI(title="Barakali Bozor API", version="1.0.0", docs_url="/docs" if settings.environment != "production" else None, redoc_url=None if settings.environment == "production" else "/redoc")
+app.add_middleware(SecurityHeadersMiddleware)
 
 if settings.environment == "production":
     # Faqat aniq ro'yxatdagi origin'lar (TMA_URL/ADMIN_URL/COURIER_URL + .env).
