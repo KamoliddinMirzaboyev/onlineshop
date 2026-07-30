@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { get, patch, post, setToken } from "./api";
 import { clearCache } from "./lib/cache";
-import { enablePush, syncPush } from "./push";
+import { syncPush } from "./push";
 
 interface AuthMe {
   username: string;
@@ -41,14 +41,10 @@ function applyMe(me: AuthMe) {
   };
 }
 
-/** Login / restart: push ruxsat + subscribe (best-effort). */
+/** Login / restart: ruxsat so'rash + subscribe (best-effort). */
 async function ensurePush() {
   try {
-    if (typeof Notification !== "undefined" && Notification.permission === "default") {
-      await enablePush();
-    } else {
-      await syncPush();
-    }
+    await syncPush();
   } catch {
     /* ignore */
   }

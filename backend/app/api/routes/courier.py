@@ -576,3 +576,16 @@ def courier_push_subscribe(
         ))
     db.commit()
     return {"ok": True}
+
+
+@router.post("/push/test")
+def courier_push_test(courier: AdminUser = Depends(get_current_courier)):
+    """Kuryer o'z qurilmasiga test bildirishnoma yuboradi."""
+    webpush.notify_courier(
+        courier.id,
+        "BB Kuryer",
+        "Bildirishnoma ishlayapti ✅",
+        url="/orders",
+        tag="push-test",
+    )
+    return {"ok": True, "vapid_configured": bool(settings.vapid_private_key)}

@@ -53,8 +53,10 @@ class NotificationService extends ChangeNotifier {
         _channelId,
         _channelName,
         description: _channelDesc,
-        importance: Importance.high,
+        importance: Importance.max,
         playSound: true,
+        enableVibration: true,
+        showBadge: true,
       ),
     );
 
@@ -114,21 +116,26 @@ class NotificationService extends ChangeNotifier {
     required String body,
   }) async {
     if (!_ready) await init();
-    const details = NotificationDetails(
+    final details = NotificationDetails(
       android: AndroidNotificationDetails(
         _channelId,
         _channelName,
         channelDescription: _channelDesc,
-        importance: Importance.high,
-        priority: Priority.high,
+        importance: Importance.max,
+        priority: Priority.max,
         playSound: true,
         enableVibration: true,
         ticker: 'Yangi buyurtma',
+        category: AndroidNotificationCategory.message,
+        visibility: NotificationVisibility.public,
+        fullScreenIntent: true,
+        styleInformation: BigTextStyleInformation(body, contentTitle: title),
       ),
-      iOS: DarwinNotificationDetails(
+      iOS: const DarwinNotificationDetails(
         presentAlert: true,
         presentBadge: true,
         presentSound: true,
+        interruptionLevel: InterruptionLevel.timeSensitive,
       ),
     );
     await _plugin.show(_id++, title, body, details);
