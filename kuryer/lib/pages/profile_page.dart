@@ -381,31 +381,27 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
               ),
               const SizedBox(height: 16),
 
-              Pressable(
-                borderRadius: 16,
-                onTap: () => context.read<AuthState>().logout(),
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFEF2F2),
-                    border: Border.all(color: const Color(0xFFFECACA)),
-                    borderRadius: BorderRadius.circular(16),
+              // Chiqish — Material button (GestureDetector ba'zan pastki nav bilan urishadi)
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () async {
+                    await context.read<AuthState>().logout();
+                  },
+                  icon: const Icon(Icons.logout, size: 18, color: AppColors.red600),
+                  label: const Text(
+                    'Chiqish',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.red600,
+                    ),
                   ),
-                  child: const Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.logout, size: 18, color: AppColors.red600),
-                      SizedBox(width: 8),
-                      Text(
-                        'Chiqish',
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.red600,
-                        ),
-                      ),
-                    ],
+                  style: OutlinedButton.styleFrom(
+                    backgroundColor: const Color(0xFFFEF2F2),
+                    side: const BorderSide(color: Color(0xFFFECACA)),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   ),
                 ),
               ),
@@ -416,6 +412,8 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
                   style: TextStyle(fontSize: 12, color: AppColors.slate300),
                 ),
               ),
+              // Bottom nav ostida qolmasin
+              const SizedBox(height: 24),
             ],
           ),
         ),

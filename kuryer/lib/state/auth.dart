@@ -56,14 +56,17 @@ class AuthState extends ChangeNotifier {
   }
 
   Future<void> logout() async {
-    await locationService.stop();
-    await api.setToken(null);
-    clearCache();
+    // Avval sessiyani yopish — UI darhol Login'ga o'tsin.
     username = null;
     name = null;
     phone = null;
     role = null;
+    clearCache();
+    await api.setToken(null);
     notifyListeners();
+    try {
+      await locationService.stop();
+    } catch (_) {}
   }
 
   Future<void> loadMe() async {

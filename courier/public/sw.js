@@ -26,21 +26,22 @@ self.addEventListener("push", (event) => {
         // If a courier already has the app open & focused, skip the OS banner
         // and let the page show an in-app toast instead (less intrusive,
         // and avoids a duplicate when they're already looking at the screen).
-        const focused = clients.some((c) => c.focused || c.visibilityState === "visible");
+        // Faqat haqiqatan focus bo'lgan oynada banner o'rniga in-app toast.
+        // Ekran o'chiq / app background → OS bildirishnoma.
+        const focused = clients.some((c) => c.focused);
         if (focused) {
           clients.forEach((c) => c.postMessage({ type: "push", payload }));
           return;
         }
-        // App closed / backgrounded → OS notification.
         return self.registration.showNotification(payload.title, {
           body: payload.body,
-          icon: "/icon.svg",
-          badge: "/icon.svg",
-          tag: payload.tag,
-          renotify: !!payload.tag,
+          icon: "/pwa-192.png",
+          badge: "/pwa-192.png",
+          tag: payload.tag || "courier-order",
+          renotify: true,
           requireInteraction: true,
           silent: false,
-          vibrate: [80, 40, 80],
+          vibrate: [200, 100, 200, 100, 200],
           data: { url: payload.url },
         });
       })

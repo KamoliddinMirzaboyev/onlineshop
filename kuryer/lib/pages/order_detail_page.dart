@@ -260,7 +260,11 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
   }
 
   Widget _content(Order order) {
-    final maps = mapsUrl(order.lat, order.lng);
+    final hasNav = canNavigate(
+      lat: order.lat,
+      lng: order.lng,
+      address: order.addressLine,
+    );
     final dist = distanceLabel(order.distanceKm);
     final eta = etaLabel(order.etaMinutes);
 
@@ -373,14 +377,19 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                   ],
                 ]),
               ],
-              if (maps != null) ...[
-                const SizedBox(height: 10),
-                GhostButton(
+              if (hasNav) ...[
+                const SizedBox(height: 12),
+                AppButton(
                   label: 'Navigatsiya',
                   icon: Icons.navigation_outlined,
                   expand: true,
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                  onPressed: () => launchExternal(maps),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  onPressed: () => showNavigationChooser(
+                    context,
+                    lat: order.lat,
+                    lng: order.lng,
+                    address: order.addressLine,
+                  ),
                 ),
               ],
             ],
