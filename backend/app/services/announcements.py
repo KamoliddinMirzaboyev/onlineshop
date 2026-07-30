@@ -83,9 +83,10 @@ def broadcast(announcement_id: int) -> None:
         ann = db.get(Announcement, announcement_id)
         if not ann:
             return
-        telegram_ids = list(
-            db.scalars(select(User.telegram_id).where(User.is_blocked.is_(False))).all()
-        )
+        telegram_ids = [
+            t for t in db.scalars(select(User.telegram_id).where(User.is_blocked.is_(False))).all()
+            if t is not None
+        ]
         ann.status = AnnouncementStatus.sending
         ann.total_recipients = len(telegram_ids)
         db.commit()

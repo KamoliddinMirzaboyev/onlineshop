@@ -8,6 +8,7 @@ import 'core/theme.dart';
 import 'pages/login_page.dart';
 import 'services/api.dart';
 import 'services/cache.dart';
+import 'services/location.dart';
 import 'services/notifications.dart';
 import 'state/auth.dart';
 import 'state/order_alerts.dart';
@@ -52,7 +53,7 @@ class _BarakaliCourierAppState extends State<BarakaliCourierApp> {
         ChangeNotifierProvider(create: (_) => OrderAlerts()),
       ],
       child: MaterialApp(
-        title: 'Barakali Bozor Kuryer',
+        title: 'BB Kuryer',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.light,
         home: const AuthGate(),
@@ -131,7 +132,10 @@ class _AuthGateState extends State<AuthGate> {
     if (!api.hasToken) return const LoginPage();
 
     // Logged in via the login form (identity set) — go straight to the shell.
-    if (auth.username != null) return const NavShell();
+    if (auth.username != null) {
+      _ensureRuntimeServices();
+      return const NavShell();
+    }
 
     if (!_checked) {
       return const Scaffold(
@@ -174,6 +178,28 @@ class _AuthGateState extends State<AuthGate> {
       );
     }
 
-    return const NavShell();
+    if (api.hasToken) {
+      _ensureRuntimeServices();
+      return const NavShell();
+    }
+    return const LoginPage();
+  }
+
+  bool _servicesStarted = false;
+
+  /// Login/sessiya tiklangach: bildirishnoma ruxsati + GPS tracking.
+  void _ensureRuntimeServices() {
+    if (_servicesStarted) return;
+    _servicesStarted = true;
+    // Best-effort — ruxsat rad etilsa ham app ishlaydi.
+    unawaited(notifications.requestPermission());
+    unawaited(locationService.start());
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Logout bo'lganda keyingi login uchun qayta start.
+    if (!api.hasToken) _servicesStarted = false;
   }
 }

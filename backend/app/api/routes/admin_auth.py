@@ -9,7 +9,7 @@ from app.core.security import create_access_token, hash_password, verify_passwor
 from app.models import AdminUser
 from app.schemas.admin import AdminUserOut
 from app.schemas.auth import AdminLoginIn, TokenOut
-from app.schemas.courier import ChangePasswordIn
+from app.schemas.courier import ChangePasswordIn, ProfileUpdateIn
 
 router = APIRouter(prefix="/admin/auth", tags=["admin-auth"])
 
@@ -28,12 +28,37 @@ def admin_login(data: AdminLoginIn, db: Session = Depends(get_db)):
     )
     if not admin or not admin.is_active or not verify_password(data.password, admin.hashed_password):
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid credentials")
-    token = create_access_token(subject=admin.id, role=admin.role.value)
+    token = create_access_token(subject=str(admin.id), role=admin.role.value)
     return TokenOut(access_token=token)
 
 
 @router.get("/me", response_model=AdminUserOut)
 def admin_me(admin: AdminUser = Depends(get_current_admin)):
+    return admin
+
+
+@router.patch("/me", response_model=AdminUserOut)
+def update_profile(
+    data: ProfileUpdateIn,
+    admin: AdminUser = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    """Ism/familiya va telefon — kuryer/admin o'zi tahrirlaydi."""
+    payload = data.model_dump(exclude_unset=True)
+    if "name" in payload:
+        name = (payload["name"] or "").strip() or None
+        admin.name = name
+    if "phone" in payload:
+        phone = (payload["phone"] or "").strip() or None
+        if phone:
+            existing = db.scalar(
+                select(AdminUser).where(AdminUser.phone == phone, AdminUser.id != admin.id)
+            )
+            if existing:
+                raise HTTPException(status.HTTP_400_BAD_REQUEST, "Bu telefon allaqachon band")
+        admin.phone = phone
+    db.commit()
+    db.refresh(admin)
     return admin
 
 

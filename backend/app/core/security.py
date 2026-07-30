@@ -22,11 +22,23 @@ def verify_password(plain: str, hashed: str) -> bool:
 
 
 # ── JWT ──────────────────────────────────────────────────────────
-def create_access_token(subject: str, role: str) -> str:
-    expire = datetime.now(timezone.utc) + timedelta(
-        minutes=settings.access_token_expire_minutes
+def create_access_token(
+    subject: str,
+    role: str,
+    *,
+    expires_minutes: int | None = None,
+    purpose: str | None = None,
+) -> str:
+    """JWT chiqaradi. `purpose` (masalan 'sse') qisqa muddatli stream ticket uchun."""
+    minutes = (
+        expires_minutes
+        if expires_minutes is not None
+        else settings.access_token_expire_minutes
     )
-    payload = {"sub": str(subject), "role": role, "exp": expire}
+    expire = datetime.now(timezone.utc) + timedelta(minutes=minutes)
+    payload: dict = {"sub": str(subject), "role": role, "exp": expire}
+    if purpose:
+        payload["purpose"] = purpose
     return jwt.encode(payload, settings.secret_key, algorithm=settings.algorithm)
 
 

@@ -12,13 +12,15 @@ from app.api.deps import (
 from app.core.config import settings
 from app.core.cache import invalidate_restaurant_catalog
 from app.core.db import get_db
+from app.core.security import hash_password
+from app.services.events import courier_events
 from app.models import (
     AdminUser, Business, Category, CategoryGroup, Order, OrderItem, Product,
     PushSubscription, Restaurant, SupplyRecord, User,
 )
 from app.models.enums import OrderStatus
 from app.schemas.admin import (
-    DashboardStats, NotificationEvent, PeriodPoint, PushSubscriptionIn, ReportsOut,
+    DashboardStats, NotificationEvent, PeriodPoint, PushSubscriptionIn, ReportsOut, ReportTotals,
     StockUpdate, SupplyRecordIn, SupplyRecordOut, TopProduct,
 )
 from app.schemas.admin import AdminUserOut
@@ -32,7 +34,7 @@ from app.models.enums import AdminRole
 from app.schemas.order import OrderOut, OrderStatusUpdate
 from app.services import webpush
 from app.services.notify import broadcast_post, notify_status_change
-from app.services.orders import ensure_transition
+from app.services.orders import cancel_order
 
 # Autentifikatsiya poli: hech bir endpoint tokensiz ochilib qolmasligi uchun.
 # Har bir endpoint ustiga o'z scoping/ruxsat dependency'sini qo'shadi.
@@ -54,10 +56,12 @@ def update_store(
     store: Restaurant = Depends(current_restaurant),
     db: Session = Depends(get_db),
 ):
-    for k, v in data.model_dump().items():
+    # exclude_unset: frontend yubormagan maydonlar (lat/lng va h.k.) o'chirilib ketmasin.
+    for k, v in data.model_dump(exclude_unset=True).items():
         setattr(store, k, v)
     db.commit()
     db.refresh(store)
+    invalidate_restaurant_catalog(store.id)
     return store
 
 
@@ -195,10 +199,14 @@ def _series(db: Session, rids: list[int], trunc: str, start: datetime) -> list[P
         .group_by(period)
         .order_by(period)
     ).all()
-    return [
-        PeriodPoint(period=p.isoformat(), orders=o, revenue=int(r), profit=int(pf))
-        for p, o, r, pf in rows
-    ]
+    out: list[PeriodPoint] = []
+    for p, o, r, pf in rows:
+        if p is None:
+            continue
+        # date_trunc ba'zan date, ba'zan datetime qaytaradi
+        period_str = p.isoformat() if hasattr(p, "isoformat") else str(p)
+        out.append(PeriodPoint(period=period_str, orders=int(o), revenue=int(r), profit=int(pf)))
+    return out
 
 
 def _top_products(db: Session, rids: list[int], start: datetime | None = None, limit: int = 20) -> list[TopProduct]:
@@ -286,22 +294,24 @@ def reports(period: str = "daily", store: Restaurant = Depends(current_restauran
     now = datetime.now(timezone.utc)
     today = now.replace(hour=0, minute=0, second=0, microsecond=0)
     
+    # Kunlik = oxirgi 30 kun, haftalik = 12 hafta, oylik = 12 oy.
+    # (Faqat "bugun soatlik" bo'lsa bo'sh chart chiqardi.)
     if period == "daily":
-        start = today # Bugun
-        trunc = "hour"
+        start = today - timedelta(days=29)
+        trunc = "day"
     elif period == "weekly":
-        start = today - timedelta(days=7) # Oxirgi 7 kun
-        trunc = "day"
+        start = today - timedelta(weeks=12)
+        trunc = "week"
     elif period == "monthly":
-        start = today - timedelta(days=30) # Oxirgi 30 kun
-        trunc = "day"
+        start = today - timedelta(days=365)
+        trunc = "month"
     else:
-        start = today - timedelta(days=30)
+        start = today - timedelta(days=29)
         trunc = "day"
 
     o, r, p = _agg(db, [rid], start)
     return ReportsOut(
-        totals={"orders": o, "revenue": r, "profit": p},
+        totals=ReportTotals(orders=o, revenue=r, profit=p),
         series=_series(db, [rid], trunc, start),
         top_products=_top_products(db, [rid], start=start, limit=20),
     )
@@ -555,7 +565,11 @@ def update_order_status(
 ):
     """Admin faqat kuzatib boradi va buyurtmani bekor qila oladi — qabul qilish
     va kuryer biriktirish kuryerning o'zi tomonidan amalga oshiriladi."""
-    order = db.get(Order, order_id)
+    order = db.scalar(
+        select(Order)
+        .where(Order.id == order_id)
+        .options(selectinload(Order.items), selectinload(Order.user))
+    )
     if not order or order.restaurant_id != store.id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Order not found")
     if data.status != OrderStatus.cancelled:
@@ -564,13 +578,10 @@ def update_order_status(
             "Admin faqat buyurtmani bekor qila oladi",
         )
 
-    ensure_transition(order.status, data.status)
-    order.status = data.status
-
-    db.commit()
-    db.refresh(order)
     user_tg = order.user.telegram_id if order.user else None
     user_lang = (order.user.language if order.user else None) or "uz"
+    order = cancel_order(db, order)
+    courier_events.publish({"type": "orders_updated", "restaurant_id": store.id})
     if user_tg:
         background.add_task(notify_status_change, order, user_tg, user_lang)
     return order
@@ -658,7 +669,7 @@ def broadcast(
         .where(~User.is_blocked)
     ).all()
 
-    background.add_task(broadcast_post, list(telegram_ids), text, data.image_url)
+    background.add_task(broadcast_post, [t for t in telegram_ids if t is not None], text, data.image_url)
     return {"sent_to": len(telegram_ids)}
 
 
@@ -728,8 +739,6 @@ def delete_supply(
 
 
 # ── Admin users (kuryer akkauntlarini boshqarish) ───────────────
-from app.core.security import hash_password  # noqa: E402
-from app.models.enums import AdminRole  # noqa: E402
 
 
 class _AdminUserCreateIn(BaseModel):
@@ -831,8 +840,8 @@ def delete_admin_user(
     if u.role == AdminRole.courier:
         db.execute(
             update(Order)
-            .where(Order.courier_id == uid)
-            .values(courier_id=None)
+            .where(Order.assigned_courier_id == uid)
+            .values(assigned_courier_id=None)
         )
     db.delete(u)
     db.commit()

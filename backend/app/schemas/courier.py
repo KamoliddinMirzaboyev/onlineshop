@@ -41,9 +41,19 @@ class ChangePasswordIn(BaseModel):
     new_password: str = Field(min_length=6, max_length=128)
     new_username: str | None = Field(default=None, min_length=3, max_length=64)
 
+
+class ProfileUpdateIn(BaseModel):
+    """Kuryer ism/familiya va telefon."""
+    name: str | None = Field(default=None, max_length=128)
+    phone: str | None = Field(default=None, max_length=32)
+
 class OrderAdjustItemIn(BaseModel):
     order_item_id: int
     quantity: float = Field(ge=0)  # 0 means item is removed or out of stock
 
 class OrderAdjustIn(BaseModel):
     items: list[OrderAdjustItemIn]
+
+class LocationUpdateIn(BaseModel):
+    lat: float
+    lng: float

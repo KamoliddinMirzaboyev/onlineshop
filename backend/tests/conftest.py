@@ -7,7 +7,7 @@ from sqlalchemy.orm import sessionmaker
 
 TEST_DATABASE_URL = os.environ.get(
     "TEST_DATABASE_URL",
-    "postgresql+psycopg://allfoods:allfoods@localhost:5433/allfoods",
+    "postgresql+psycopg://allfoods:allfoods@localhost:5432/allfoods_test",
 )
 
 

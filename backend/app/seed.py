@@ -21,6 +21,8 @@ def seed() -> None:
         restaurant = db.scalar(select(Restaurant).limit(1))
         if not restaurant:
             business = db.scalar(select(Business).order_by(Business.id).limit(1))
+            if business is None:
+                raise ValueError("Default business not found")
             restaurant = Restaurant(
                 name=DEFAULT_STORE_NAME,
                 is_active=True, is_open=True,

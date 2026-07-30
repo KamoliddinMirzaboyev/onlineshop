@@ -21,7 +21,8 @@ def rate_limiter(prefix: str, limit: int, window_seconds: int):
                 redis_client.expire(key, window_seconds)
         except Exception:
             return  # Redis yo'q — fail-open
-        if count > limit:
+        from typing import cast
+        if cast(int, count) > limit:
             raise HTTPException(
                 status.HTTP_429_TOO_MANY_REQUESTS,
                 "Juda ko'p urinish. Birozdan so'ng qayta urinib ko'ring.",

@@ -54,18 +54,23 @@ export default function WarehousePage() {
   const sorted = [...products].sort((a, b) => a.stock - b.stock);
 
   return (
-    <div>
-      <h1 className="text-2xl font-bold tracking-tight mb-1">Ombor</h1>
-      <p className="text-slate-500 mb-6">Qoldiqlarni boshqarish. Buyurtma yetkazilganda qoldiq avtomatik kamayadi.</p>
+    <div className="flex flex-col h-[calc(100dvh-3.5rem-2rem)] md:h-[calc(100dvh-3.5rem-4rem)]">
+      <div className="shrink-0 pb-4">
+        <h1 className="text-2xl font-bold tracking-tight mb-1">Ombor</h1>
+        <p className="text-slate-500 mb-4">Qoldiqlarni boshqarish. Buyurtma yetkazilganda qoldiq avtomatik kamayadi.</p>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <Card label="Mahsulotlar" value={String(total)} icon={Package} tint="bg-sky-50 text-sky-600" />
-        <Card label="Kam qoldiq" value={String(low)} icon={AlertTriangle} tint="bg-amber-50 text-amber-600" />
-        <Card label="Tugagan" value={String(out)} icon={CircleX} tint="bg-rose-50 text-rose-600" />
-        <Card label="Ombor qiymati" value={`${money(stockValue)} so'm`} icon={Boxes} tint="bg-emerald-50 text-emerald-600" />
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <Card label="Mahsulotlar" value={String(total)} icon={Package} tint="bg-sky-50 text-sky-600" />
+          <Card label="Kam qoldiq" value={String(low)} icon={AlertTriangle} tint="bg-amber-50 text-amber-600" />
+          <Card label="Tugagan" value={String(out)} icon={CircleX} tint="bg-rose-50 text-rose-600" />
+          <Card label="Ombor qiymati" value={`${money(stockValue)} so'm`} icon={Boxes} tint="bg-emerald-50 text-emerald-600" />
+        </div>
       </div>
 
-      {err ? <ErrorRetry onRetry={load} /> : loading ? <TableSkeleton cols={6} /> : (
+      {err ? <ErrorRetry onRetry={load} /> : loading ? (
+        <div className="flex-1 min-h-0 overflow-y-auto"><TableSkeleton cols={6} /></div>
+      ) : (
+      <div className="flex-1 min-h-0 overflow-y-auto pb-2">
       <div className="card overflow-hidden">
         <table className="w-full">
           <thead>
@@ -118,6 +123,7 @@ export default function WarehousePage() {
             )}
           </tbody>
         </table>
+      </div>
       </div>
       )}
 

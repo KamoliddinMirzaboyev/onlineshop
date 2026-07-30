@@ -20,7 +20,6 @@ import {
 import { isAcceptableOrderStatus } from "../lib/orderActions";
 import type { Order, OrderStatus, OrderItem } from "../types";
 
-const POLL_INTERVAL_MS = 60000;
 
 export default function OrderDetailPage() {
   const { id } = useParams();
@@ -42,7 +41,7 @@ export default function OrderDetailPage() {
   const { data: order, loading, error, refresh } = useResource<Order>(
     id ? `courier_order_${id}` : null,
     fetcher,
-    { pollMs: POLL_INTERVAL_MS, errorText: "Buyurtmani yuklab bo'lmadi. Internetni tekshiring." }
+    { errorText: "Buyurtmani yuklab bo'lmadi. Internetni tekshiring." }
   );
 
   useEffect(() => {

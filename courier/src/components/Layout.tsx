@@ -18,10 +18,9 @@ const POLL_INTERVAL_MS = 20000;
     marta mount bo'ladi, shuning uchun "ko'rilgan" id'lar shu yerda saqlanadi. */
 function useNewOrderAlerts() {
   const setAvailableCount = useOrderAlerts((s) => s.setAvailableCount);
-  const { data } = useResource<Order[]>(
+  const { data, refresh } = useResource<Order[]>(
     "courier_orders",
-    () => get<Order[]>("/courier/orders"),
-    { pollMs: POLL_INTERVAL_MS }
+    () => get<Order[]>("/courier/orders")
   );
   const seenIds = useRef<Set<number> | null>(null);
 
@@ -39,6 +38,54 @@ function useNewOrderAlerts() {
     }
     seenIds.current = ids;
   }, [data, setAvailableCount]);
+
+  useEffect(() => {
+    const baseURL = import.meta.env.VITE_API_URL ?? "https://allfoodapi.webportfolio.uz/api";
+    let es: EventSource | null = null;
+    let closed = false;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const connect = async () => {
+      if (closed) return;
+      try {
+        // To'liq JWT o'rniga qisqa muddatli SSE ticket (query string xavfini kamaytiradi).
+        const ticket = await get<{ token: string }>("/courier/stream-ticket");
+        if (closed) return;
+        es?.close();
+        es = new EventSource(`${baseURL}/courier/stream?token=${encodeURIComponent(ticket.token)}`);
+        es.onmessage = (event) => {
+          try {
+            const payload = JSON.parse(event.data) as { type?: string };
+            if (payload.type === "orders_updated") {
+              refresh();
+              window.dispatchEvent(new Event("courier-push"));
+            }
+          } catch {
+            /* ignore malformed keepalive/noise */
+          }
+        };
+        es.onerror = () => {
+          es?.close();
+          es = null;
+          if (!closed) {
+            retryTimer = setTimeout(connect, 3000);
+          }
+        };
+      } catch {
+        if (!closed) {
+          retryTimer = setTimeout(connect, 5000);
+        }
+      }
+    };
+
+    void connect();
+
+    return () => {
+      closed = true;
+      if (retryTimer) clearTimeout(retryTimer);
+      es?.close();
+    };
+  }, [refresh]);
 }
 
 /** Tab sahifalar uchun: kontent + pastki navigatsiya. Tablar almashganda

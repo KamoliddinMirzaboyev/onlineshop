@@ -67,9 +67,11 @@ def reprocess_file(path: Path) -> bool:
 
 
 def _open(data: bytes) -> Image.Image:
-    im = Image.open(io.BytesIO(data))
+    im: Image.Image = Image.open(io.BytesIO(data))
     # EXIF orientation (telefon kameralari)
-    im = ImageOps.exif_transpose(im)
+    im_t = ImageOps.exif_transpose(im)
+    if im_t is not None:
+        im = im_t
     # Animatsiyali GIF/WebP — faqat birinchi freym
     if getattr(im, "is_animated", False):
         im.seek(0)

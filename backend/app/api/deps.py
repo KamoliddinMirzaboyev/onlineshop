@@ -20,9 +20,14 @@ def get_current_user(
     payload = decode_token(_bearer(authorization))
     if not payload or payload.get("role") != "user":
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid token")
+    # Qisqa muddatli stream ticket'lar oddiy API uchun yaroqsiz.
+    if payload.get("purpose"):
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid token")
     user = db.get(User, int(payload["sub"]))
     if not user:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "User not found")
+    if user.is_blocked:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Akkauntingiz bloklangan")
     return user
 
 
@@ -32,6 +37,8 @@ def get_current_admin(
 ) -> AdminUser:
     payload = decode_token(_bearer(authorization))
     if not payload or payload.get("role") not in {r.value for r in AdminRole}:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid admin token")
+    if payload.get("purpose"):
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid admin token")
     admin = db.get(AdminUser, int(payload["sub"]))
     if not admin or not admin.is_active:
@@ -60,6 +67,8 @@ def get_current_business(
     payload = decode_token(_bearer(authorization))
     if not payload or payload.get("role") != "businessman":
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid business token")
+    if payload.get("purpose"):
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid business token")
     business = db.get(Business, int(payload["sub"]))
     if not business or not business.is_active:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Business not found")
@@ -76,6 +85,8 @@ def get_current_platform_admin(
 ) -> PlatformAdmin:
     payload = decode_token(_bearer(authorization))
     if not payload or payload.get("role") != "platform_superadmin":
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid platform token")
+    if payload.get("purpose"):
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid platform token")
     admin = db.get(PlatformAdmin, int(payload["sub"]))
     if not admin or not admin.is_active:
@@ -100,6 +111,8 @@ def get_current_staff_or_business(
     """
     payload = decode_token(_bearer(authorization))
     if not payload:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid token")
+    if payload.get("purpose"):
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid token")
     role = payload.get("role")
 

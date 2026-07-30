@@ -356,8 +356,8 @@ export default function ProductsPage() {
   }
 
   return (
-    <div>
-      <div className="mb-6">
+    <div className="flex flex-col h-[calc(100dvh-3.5rem-2rem)] md:h-[calc(100dvh-3.5rem-4rem)]">
+      <div className="shrink-0 pb-4">
         <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 mb-5">
           <div>
             <h1 className="text-2xl font-bold tracking-tight mb-1">Mahsulotlar</h1>
@@ -399,12 +399,9 @@ export default function ProductsPage() {
             onClick={() => setTab("groups")}
           ><Heading size={16} /> Title</button>
         </div>
-      </div>
 
-      {/* ── PRODUCTS ─────────────────────────────────────── */}
-      {tab === "products" && (
-        <>
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+        {tab === "products" && (
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-4">
             <div className="flex flex-col sm:flex-row gap-2">
               <div className="relative">
                 <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -438,7 +435,35 @@ export default function ProductsPage() {
               <Plus size={18} /> Mahsulot qo'shish
             </button>
           </div>
+        )}
+        {tab === "subcategories" && (
+          <div className="flex justify-end mt-4">
+            <button
+              className="btn"
+              disabled={isAll || topCategories.length === 0}
+              title={isAll ? "Aniq do'kon tanlang" : topCategories.length === 0 ? "Avval kategoriya qo'shing" : ""}
+              onClick={() => setEditSubcat({ parent_id: topCategories[0]?.id })}
+            >
+              <Plus size={18} /> Subkategoriya qo'shish
+            </button>
+          </div>
+        )}
+        {tab === "categories" && (
+          <div className="flex justify-end mt-4">
+            <button className="btn" disabled={isAll} title={isAll ? "Aniq do'kon tanlang" : ""} onClick={() => setEditCat({})}><Plus size={18} /> Kategoriya qo'shish</button>
+          </div>
+        )}
+        {tab === "groups" && (
+          <div className="flex justify-end mt-4">
+            <button className="btn" disabled={isAll} title={isAll ? "Aniq do'kon tanlang" : ""} onClick={() => setEditGroup({ bg_color: DEFAULT_CATEGORY_COLOR })}><Plus size={18} /> Title qo'shish</button>
+          </div>
+        )}
+      </div>
 
+      <div className="flex-1 min-h-0 overflow-y-auto pb-2">
+      {/* ── PRODUCTS ─────────────────────────────────────── */}
+      {tab === "products" && (
+        <>
           {err ? <ErrorRetry onRetry={reload} /> : loading ? <TableSkeleton cols={6} /> : (
           <div className="card overflow-hidden">
             <table className="w-full">
@@ -506,17 +531,6 @@ export default function ProductsPage() {
       {/* ── SUBCATEGORIES ────────────────────────────────── */}
       {tab === "subcategories" && (
         <>
-          <div className="flex justify-end mb-4">
-            <button
-              className="btn"
-              disabled={isAll || topCategories.length === 0}
-              title={isAll ? "Aniq do'kon tanlang" : topCategories.length === 0 ? "Avval kategoriya qo'shing" : ""}
-              onClick={() => setEditSubcat({ parent_id: topCategories[0]?.id })}
-            >
-              <Plus size={18} /> Subkategoriya qo'shish
-            </button>
-          </div>
-
           {err ? <ErrorRetry onRetry={reload} /> : loading ? <TableSkeleton cols={4} /> : (
           <div className="card overflow-hidden">
             <table className="w-full">
@@ -579,10 +593,6 @@ export default function ProductsPage() {
       {/* ── TITLE (category_groups) ──────────────────────── */}
       {tab === "groups" && (
         <>
-          <div className="flex justify-end mb-4">
-            <button className="btn" disabled={isAll} title={isAll ? "Aniq do'kon tanlang" : ""} onClick={() => setEditGroup({ bg_color: DEFAULT_CATEGORY_COLOR })}><Plus size={18} /> Title qo'shish</button>
-          </div>
-
           {err ? <ErrorRetry onRetry={reload} /> : loading ? <TableSkeleton cols={3} /> : (
           <div className="card overflow-hidden">
             <table className="w-full">
@@ -631,10 +641,6 @@ export default function ProductsPage() {
       {/* ── CATEGORIES ───────────────────────────────────── */}
       {tab === "categories" && (
         <>
-          <div className="flex justify-end mb-4">
-            <button className="btn" disabled={isAll} title={isAll ? "Aniq do'kon tanlang" : ""} onClick={() => setEditCat({})}><Plus size={18} /> Kategoriya qo'shish</button>
-          </div>
-
           {err ? <ErrorRetry onRetry={reload} /> : loading ? <TableSkeleton cols={3} /> : (
           <div className="card overflow-hidden">
             <table className="w-full">
@@ -699,6 +705,7 @@ export default function ProductsPage() {
           )}
         </>
       )}
+      </div>
 
       {/* ── PRODUCT MODAL ────────────────────────────────── */}
       {editing && (

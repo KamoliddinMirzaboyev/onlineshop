@@ -75,10 +75,10 @@ describe("paymentLabel", () => {
 });
 
 describe("mapsUrl", () => {
-  it("generates Yandex Maps URL", () => {
+  it("generates Google Maps navigation URL", () => {
     const url = mapsUrl(41.3, 69.2);
-    expect(url).toContain("yandex.com/maps");
-    expect(url).toContain("rtext=~41.3,69.2");
+    expect(url).toContain("google.com/maps");
+    expect(url).toContain("destination=41.3,69.2");
   });
 
   it("returns null if lat/lng missing", () => {

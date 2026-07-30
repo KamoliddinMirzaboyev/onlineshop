@@ -47,11 +47,11 @@ class Settings(BaseSettings):
 
     # Admin bootstrap
     first_admin_username: str = "admin"
-    first_admin_password: str = "admin12345"
+    first_admin_password: str = ""
 
     # Platform superadmin bootstrap
     first_platform_username: str = "platform"
-    first_platform_password: str = "platform12345"
+    first_platform_password: str = ""
 
     @property
     def database_url(self) -> str:
