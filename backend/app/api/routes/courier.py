@@ -585,7 +585,7 @@ def courier_push_test(courier: AdminUser = Depends(get_current_courier)):
         courier.id,
         "BB Kuryer",
         "Bildirishnoma ishlayapti ✅",
-        url="/orders",
+        url="/courier/orders",
         tag="push-test",
     )
     return {"ok": True, "vapid_configured": bool(settings.vapid_private_key)}

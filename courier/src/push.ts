@@ -50,19 +50,24 @@ export async function showOrderNotification(
   const tag = opts?.tag || `order-${Date.now()}`;
   const url = opts?.url || "/orders";
 
+  const base = import.meta.env.BASE_URL || "/";
+  const icon = `${base}icon-192.png`.replace(/\/{2,}/g, "/").replace(":/", "://");
+  // Notification click navigates within app basename
+  const notifUrl = url.startsWith("http") ? url : `${base}${url.replace(/^\//, "")}`;
+
   try {
     const reg = await ensureRegistration();
     if (reg) {
       const opts: NotificationOptions & { renotify?: boolean; vibrate?: number[] } = {
         body,
-        icon: "/icon-192.png",
-        badge: "/icon-192.png",
+        icon,
+        badge: icon,
         tag,
         renotify: true,
         requireInteraction: true,
         silent: false,
         vibrate: [200, 100, 200, 100, 200],
-        data: { url },
+        data: { url: notifUrl },
       };
       await reg.showNotification(title, opts);
       return;
@@ -72,14 +77,13 @@ export async function showOrderNotification(
   }
 
   try {
-    // Fallback without SW
     // eslint-disable-next-line no-new
     new Notification(title, {
       body,
-      icon: "/icon-192.png",
+      icon,
       tag,
       requireInteraction: true,
-      data: { url },
+      data: { url: notifUrl },
     });
   } catch {
     /* ignore */
@@ -114,18 +118,25 @@ export function notifPermission(): NotificationPermission {
   return "Notification" in window ? Notification.permission : "denied";
 }
 
-/** SW ni erta ro'yxatdan o'tkazish (main.tsx dan). */
+/** SW ni erta ro'yxatdan o'tkazish (main.tsx dan).
+ *  BASE_URL muhim: serverda ilova /courier/ ostida — /sw.js 404 edi.
+ */
 export function registerServiceWorker(): Promise<ServiceWorkerRegistration | null> {
   if (!("serviceWorker" in navigator)) return Promise.resolve(null);
   if (!swRegisterPromise) {
+    const base = import.meta.env.BASE_URL || "/";
+    const swUrl = `${base}sw.js`.replace(/\/{2,}/g, "/").replace(":/", "://");
+    // scope: /courier/  (base always ends with / in Vite)
     swRegisterPromise = navigator.serviceWorker
-      .register("/sw.js", { scope: "/" })
+      .register(swUrl, { scope: base })
       .then(async (reg) => {
-        // Yangilanishni darhol qo'llash
         await reg.update().catch(() => {});
         return reg;
       })
-      .catch(() => null);
+      .catch((err) => {
+        console.error("SW register failed", swUrl, err);
+        return null;
+      });
   }
   return swRegisterPromise;
 }

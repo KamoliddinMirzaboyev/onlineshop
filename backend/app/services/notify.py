@@ -163,11 +163,12 @@ def notify_new_order(
     )
 
     # Shu do'kon kuryerlariga — yangi buyurtma mavjud (birinchi qabul qilgan oladi).
+    # Courier PWA serverda /courier/ ostida joylashgan.
     webpush.notify_all_couriers(
         f"🆕 Yangi buyurtma № {order.number}",
         f"{order.total:,} so'm · {order.address_line}",
         order.restaurant_id,
-        url="/orders",
+        url="/courier/orders",
         tag=f"neworder-{order.id}",
     )
 
@@ -178,7 +179,7 @@ def notify_courier_assigned(order: Order, courier_admin_id: int) -> None:
         courier_admin_id,
         f"🛵 Yangi buyurtma № {order.number}",
         f"{order.total:,} so'm · {order.address_line}",
-        url=f"/orders/{order.id}",
+        url=f"/courier/orders/{order.id}",
         tag=f"assign-{order.id}",
     )
 

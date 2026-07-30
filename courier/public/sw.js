@@ -26,16 +26,18 @@ self.addEventListener("push", (event) => {
         // Focus bo'lsa ham qisqa banner (ba'zi brauzerlarda toast eshitilmaydi)
       }
 
+      // SW scope /courier/ — relative icons
+      const base = self.registration.scope; // e.g. https://host/courier/
       return self.registration.showNotification(payload.title, {
         body: payload.body,
-        icon: "/icon-192.png",
-        badge: "/icon-192.png",
+        icon: new URL("icon-192.png", base).href,
+        badge: new URL("icon-192.png", base).href,
         tag: payload.tag,
         renotify: true,
         requireInteraction: true,
         silent: false,
         vibrate: [200, 100, 200, 100, 200],
-        data: { url: payload.url },
+        data: { url: payload.url || "orders" },
         actions: [
           { action: "open", title: "Ochish" },
         ],
@@ -46,8 +48,8 @@ self.addEventListener("push", (event) => {
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const url = (event.notification.data && event.notification.data.url) || "/orders";
-  const target = new URL(url, self.location.origin);
+  const raw = (event.notification.data && event.notification.data.url) || "orders";
+  const target = new URL(raw, self.registration.scope);
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
       for (const client of list) {
