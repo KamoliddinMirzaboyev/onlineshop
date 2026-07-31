@@ -84,7 +84,7 @@ export function haptic(type: "light" | "medium" | "heavy" = "light") {
 }
 
 export type TelegramLocationResult =
-  | { status: "ok"; lat: number; lng: number }
+  | { status: "ok"; lat: number; lng: number; accuracyM?: number }
   | { status: "unsupported" | "device_off" | "denied" | "error" };
 
 export function isTelegramDesktopLike(): boolean {
@@ -104,13 +104,22 @@ export function isTelegramLocationGranted(): boolean {
   return !!(lm?.isAccessGranted);
 }
 
+export type TelegramLocationOpts = {
+  /** Kutish (ms). Checkout uchun uzunasiga — sekin GPS ham chiqsin. */
+  timeoutMs?: number;
+  /** true: isLocationAvailable=false bo'lsa ham getLocation urinadi (ba'zi klientlar). */
+  requireFresh?: boolean;
+};
+
 /**
  * Telegram joylashuvi.
  * - Ruxsat yo'q → getLocation() bir marta so'raydi (Telegram prompt)
  * - Ruxsat bor → qayta prompt yo'q, faqat koordinata
  * - Rad etilgan → denied (openSettings kerak)
  */
-export async function requestTelegramLocation(): Promise<TelegramLocationResult> {
+export async function requestTelegramLocation(
+  opts: TelegramLocationOpts = {},
+): Promise<TelegramLocationResult> {
   const lm = tg?.LocationManager;
   if (!lm || isTelegramDesktopLike()) {
     return { status: "unsupported" };
@@ -124,11 +133,13 @@ export async function requestTelegramLocation(): Promise<TelegramLocationResult>
   }
 
   // Ruxsat bor, GPS o'chiq — getLocation befoyda/sekin bo'lishi mumkin.
-  if (lm.isAccessGranted && !lm.isLocationAvailable) {
+  // requireFresh: baribir urinish (ba'zi TG versiyalarida isLocationAvailable yolg'on negative).
+  if (lm.isAccessGranted && !lm.isLocationAvailable && !opts.requireFresh) {
     return { status: "device_off" };
   }
 
-  const timeoutMs = lm.isAccessGranted ? 2500 : 8000;
+  const timeoutMs =
+    opts.timeoutMs ?? (lm.isAccessGranted ? 5_000 : 10_000);
 
   return new Promise<TelegramLocationResult>((resolve) => {
     let done = false;
@@ -148,8 +159,17 @@ export async function requestTelegramLocation(): Promise<TelegramLocationResult>
       // getLocation: ruxsat yo'q bo'lsa Telegram prompt; bor bo'lsa jim o'qiydi.
       lm.getLocation((loc) => {
         window.clearTimeout(timer);
-        if (loc) {
-          finish({ status: "ok", lat: loc.latitude, lng: loc.longitude });
+        if (loc && typeof loc.latitude === "number" && typeof loc.longitude === "number") {
+          const acc =
+            typeof loc.horizontal_accuracy === "number" && loc.horizontal_accuracy > 0
+              ? loc.horizontal_accuracy
+              : undefined;
+          finish({
+            status: "ok",
+            lat: loc.latitude,
+            lng: loc.longitude,
+            accuracyM: acc,
+          });
           return;
         }
         if (lm.isAccessGranted) {

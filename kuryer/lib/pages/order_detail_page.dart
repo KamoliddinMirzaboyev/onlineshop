@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../core/format.dart';
@@ -5,6 +7,7 @@ import '../core/theme.dart';
 import '../models/order.dart';
 import '../services/api.dart';
 import '../services/cache.dart';
+import '../services/rate_prompt.dart';
 import '../widgets/common.dart';
 import '../widgets/skeleton.dart';
 import '../widgets/toast.dart';
@@ -117,6 +120,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
       await api.post('/courier/orders/${order.id}/delivered', {});
       toast.success('Buyurtma yetkazildi ✅');
       _res.refresh();
+      if (mounted) unawaited(ratePrompt.maybeShowAfterDelivery(context));
     } catch (_) {
       toast.error("Yakunlab bo'lmadi. Qayta urinib ko'ring.");
     } finally {

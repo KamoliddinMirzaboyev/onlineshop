@@ -45,8 +45,15 @@ function parseNominatimAddress(addr: Record<string, unknown> | undefined, displa
 /** Koordinatadan ko'cha + uy (OpenStreetMap Nominatim). */
 export async function reverseGeocodeParts(lat: number, lng: number): Promise<GeoAddress | null> {
   try {
+    // zoom=19 — binolar darajasi; zoom past bo'lsa faqat mahalla keladi.
     const r = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=jsonv2&addressdetails=1&accept-language=uz,ru&zoom=18`,
+      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=jsonv2&addressdetails=1&accept-language=uz,ru&zoom=19`,
+      {
+        headers: {
+          // Nominatim foydalanish qoidasi: aniqlanadigan UA
+          Accept: "application/json",
+        },
+      },
     );
     if (!r.ok) return null;
     const d = (await r.json()) as {

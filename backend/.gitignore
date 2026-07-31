@@ -11,6 +11,8 @@ venv/
 # Env / secrets
 .env
 *.local
+secrets/
+*firebase-adminsdk*.json
 
 # OS / editor
 .DS_Store

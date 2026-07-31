@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -7,6 +9,8 @@ import '../models/order.dart';
 import '../models/stats.dart';
 import '../services/api.dart';
 import '../services/cache.dart';
+import '../services/order_widget.dart';
+import '../services/rate_prompt.dart';
 import '../state/auth.dart';
 import '../state/order_alerts.dart';
 import '../widgets/common.dart';
@@ -44,9 +48,16 @@ class _DashboardPageState extends State<DashboardPage> {
     _orders = Resource<List<Order>>(
       cacheKey: 'courier_orders',
       fetchRaw: () => api.get('/courier/orders'),
-      parse: Order.listFrom,
+      parse: (raw) {
+        final list = Order.listFrom(raw);
+        unawaited(orderWidget.updateFromOrders(list));
+        return list;
+      },
       pollMs: 12000,
     );
+    // Cache'dan darhol widget yangilash.
+    final cached = _orders.data;
+    if (cached != null) unawaited(orderWidget.updateFromOrders(cached));
   }
 
   @override
@@ -110,6 +121,7 @@ class _DashboardPageState extends State<DashboardPage> {
       toast.success('Yetkazildi ✅');
       _orders.refresh();
       _stats.refresh();
+      if (mounted) unawaited(ratePrompt.maybeShowAfterDelivery(context));
     } catch (_) {
       toast.error("Yakunlab bo'lmadi");
     } finally {

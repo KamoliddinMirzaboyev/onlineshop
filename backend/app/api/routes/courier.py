@@ -3,6 +3,7 @@ from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel, Field
 from sqlalchemy import or_, select, update
 from sqlalchemy.orm import Session, selectinload
 import asyncio
@@ -550,7 +551,7 @@ def courier_earnings(
     )
 
 
-# ── Web Push (kuryer ilovasi) ────────────────────────────────────
+# ── Web Push (kuryer PWA) + FCM (native APK) ─────────────────────
 @router.get("/push/public-key")
 def courier_push_public_key(_: AdminUser = Depends(get_current_courier)):
     return {"public_key": settings.vapid_public_key}
@@ -578,9 +579,53 @@ def courier_push_subscribe(
     return {"ok": True}
 
 
+class FcmTokenIn(BaseModel):
+    fcm_token: str = Field(min_length=10, max_length=512)
+
+
+@router.post("/push/fcm-token", status_code=200)
+def courier_fcm_token(
+    data: FcmTokenIn,
+    courier: AdminUser = Depends(get_current_courier),
+    db: Session = Depends(get_db),
+):
+    """Native kuryer APK FCM tokenini saqlash (login/resume)."""
+    token = data.fcm_token.strip()
+    # Bir token faqat bitta kuryerga bog'lansin (qurilma boshqa akkauntga o'tganda).
+    db.execute(
+        update(AdminUser)
+        .where(AdminUser.fcm_token == token, AdminUser.id != courier.id)
+        .values(fcm_token=None)
+    )
+    row = db.get(AdminUser, courier.id)
+    if not row:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Courier topilmadi")
+    row.fcm_token = token
+    db.commit()
+    return {"ok": True}
+
+
+@router.delete("/push/fcm-token", status_code=200)
+def courier_fcm_token_clear(
+    courier: AdminUser = Depends(get_current_courier),
+    db: Session = Depends(get_db),
+):
+    """Logout: shu akkaunt FCM tokenini o'chirish."""
+    row = db.get(AdminUser, courier.id)
+    if row:
+        row.fcm_token = None
+        db.commit()
+    return {"ok": True}
+
+
 @router.post("/push/test")
-def courier_push_test(courier: AdminUser = Depends(get_current_courier)):
-    """Kuryer o'z qurilmasiga test bildirishnoma yuboradi."""
+def courier_push_test(
+    courier: AdminUser = Depends(get_current_courier),
+    db: Session = Depends(get_db),
+):
+    """Kuryer o'z qurilmasiga test bildirishnoma (Web Push + FCM)."""
+    from app.services import fcm
+
     webpush.notify_courier(
         courier.id,
         "BB Kuryer",
@@ -588,4 +633,17 @@ def courier_push_test(courier: AdminUser = Depends(get_current_courier)):
         url="/courier/orders",
         tag="push-test",
     )
-    return {"ok": True, "vapid_configured": bool(settings.vapid_private_key)}
+    fcm.notify_courier(
+        courier.id,
+        "BB Kuryer",
+        "Bildirishnoma ishlayapti ✅",
+        url="/orders",
+        tag="push-test",
+    )
+    row = db.get(AdminUser, courier.id)
+    return {
+        "ok": True,
+        "vapid_configured": bool(settings.vapid_private_key),
+        "fcm_configured": fcm.configured(),
+        "has_fcm_token": bool(row.fcm_token if row else None),
+    }

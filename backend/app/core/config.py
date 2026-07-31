@@ -49,6 +49,12 @@ class Settings(BaseSettings):
     vapid_private_key: str = ""
     vapid_subject: str = "mailto:admin@allfoods.uz"
 
+    # Firebase Cloud Messaging (native kuryer APK).
+    # FIREBASE_CREDENTIALS_JSON = service account JSON butun matni (bir qator yoki multiline).
+    # yoki FIREBASE_CREDENTIALS_PATH = serverdagi fayl yo'li.
+    firebase_credentials_json: str = ""
+    firebase_credentials_path: str = ""
+
     # Admin bootstrap
     first_admin_username: str = "admin"
     first_admin_password: str = ""

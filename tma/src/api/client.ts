@@ -18,12 +18,30 @@ export function setToken(t: string) {
 }
 
 // ── Joylashuv kesh (sessiya + xotira) ─────────────────────────────
-// Bir marta ruxsat → keyingi ochilish/checkout qayta so'ramaydi.
-const COORDS_SS_KEY = "af_coords_v1";
-const ADDR_SS_KEY = "af_addr_v1";
-const COORDS_TTL_MS = 30 * 60 * 1000; // 30 daqiqa
+// Katalog (do'kon tanlash) uchun qisqa kesh OK.
+// Checkout: force + highAccuracy — eski kesh yuborilmasin.
+const COORDS_SS_KEY = "af_coords_v2";
+const ADDR_SS_KEY = "af_addr_v2";
+const COORDS_TTL_MS = 3 * 60 * 1000; // 3 daqiqa (ilgari 30 — eski joy yuborilardi)
 
-type Coords = { lat: number; lng: number };
+export type Coords = {
+  lat: number;
+  lng: number;
+  /** GPS xatosi (m), kichikroq = aniqroq */
+  accuracyM?: number;
+  /** qachon olingan (ms epoch) */
+  at?: number;
+};
+
+export type GetCoordsOpts = {
+  /** true: keshni e'tiborsiz qoldirib qayta o'qiydi; muvaffaqiyatsizda eski kesh QAYTMASIN */
+  force?: boolean;
+  /** true: GPS yuqori aniqlik (checkout/buyurtma) — sekinroq, lekin aniq */
+  highAccuracy?: boolean;
+};
+
+/** Checkout: shu metrdan yomon aniqlikni qayta urinish */
+const MAX_ACCEPT_ACCURACY_M = 80;
 
 let coordsCache: Coords | null | undefined;
 let coordsPromise: Promise<Coords | null> | null = null;
@@ -64,11 +82,29 @@ function writeStoredCoords(c: Coords) {
   }
 }
 
+function clearStoredCoords() {
+  try {
+    sessionStorage.removeItem(COORDS_SS_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
 function rememberCoords(c: Coords): Coords {
   lastLocationIssue = null;
-  coordsCache = c;
-  writeStoredCoords(c);
-  return c;
+  const full: Coords = { ...c, at: c.at ?? Date.now() };
+  coordsCache = full;
+  writeStoredCoords(full);
+  return full;
+}
+
+/** Ikki nuqtadan aniqroqini tanlash (accuracyM kichik g'olib). */
+function pickBest(a: Coords | null, b: Coords | null): Coords | null {
+  if (!a) return b;
+  if (!b) return a;
+  const aa = a.accuracyM ?? 9999;
+  const ba = b.accuracyM ?? 9999;
+  return aa <= ba ? a : b;
 }
 
 /** Reverse-geocode natijasini saqlash — checkout darhol manzil ko'rsatadi. */
@@ -88,16 +124,25 @@ export function peekAddressLabel(): string | null {
   }
 }
 
+export function clearAddressLabel() {
+  try {
+    sessionStorage.removeItem(ADDR_SS_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
 /**
  * Brauzer geolocation.
  * @param silent true — ruxsat dialogi ochilmasin (faqat kesh/maximumAge).
- *   Checkout va qayta urinishlarda silent: Telegram ruxsati yetarli.
  */
-function browserCoords(timeoutMs: number, silent: boolean): Promise<Coords | null> {
+function browserCoords(
+  timeoutMs: number,
+  silent: boolean,
+  highAccuracy: boolean,
+): Promise<Coords | null> {
   if (!navigator.geolocation) return Promise.resolve(null);
 
-  // Silent: agar ruxsat holati denied/prompt bo'lsa — dialog ochmasdan chiqamiz.
-  // "granted" bo'lsa maximumAge bilan tez o'qiymiz.
   const run = (): Promise<Coords | null> =>
     new Promise((resolve) => {
       let done = false;
@@ -106,21 +151,27 @@ function browserCoords(timeoutMs: number, silent: boolean): Promise<Coords | nul
         done = true;
         resolve(v);
       };
-      const timer = window.setTimeout(() => finish(null), timeoutMs);
+      const timer = window.setTimeout(() => finish(null), timeoutMs + 300);
       navigator.geolocation.getCurrentPosition(
         (pos) => {
           window.clearTimeout(timer);
-          finish({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+          const acc = pos.coords.accuracy;
+          finish({
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+            accuracyM: typeof acc === "number" && acc > 0 ? acc : undefined,
+            at: Date.now(),
+          });
         },
         () => {
           window.clearTimeout(timer);
           finish(null);
         },
         {
-          enableHighAccuracy: false,
+          enableHighAccuracy: highAccuracy,
           timeout: timeoutMs,
-          // Silent: faqat keshlangan qiymat; aks holda 5 daqiqa kesh OK.
-          maximumAge: silent ? Infinity : 300_000,
+          // Checkout: yangi fix (maximumAge:0); katalog: qisqa kesh.
+          maximumAge: highAccuracy ? 0 : silent ? 60_000 : 120_000,
         },
       );
     });
@@ -131,20 +182,62 @@ function browserCoords(timeoutMs: number, silent: boolean): Promise<Coords | nul
       .then((st) => (st.state === "granted" ? run() : null))
       .catch(() => null);
   }
-  // Silent lekin Permissions API yo'q — xavfsiz: dialog ochilishi mumkin.
-  // Shuning uchun silent + no API → null (faqat Telegram ishlatiladi).
   if (silent) return Promise.resolve(null);
   return run();
 }
 
 /**
- * Joylashuv olish.
- * - Birinchi marta: Telegram prompt (yoki brauzer desktopda)
- * - Keyin: xotira/session kesh → qayta ruxsat YO'Q
- * - force: yangilash, lekin ruxsat qayta so'ralmaydi (silent refresh)
+ * Yuqori aniqlik: Telegram + brauzer GPS parallel, eng aniq (kichik accuracyM) g'olib.
+ * Yomon aniqlik bo'lsa qayta urinadi.
  */
-export function getCoords(force = false): Promise<Coords | null> {
-  // Yangi sessiya: sessionStorage dan tiklash (checkout qayta so'ramasligi uchun)
+async function fetchHighAccuracyCoords(): Promise<Coords | null> {
+  const attempt = async (): Promise<Coords | null> => {
+    const tgP = isTelegramDesktopLike()
+      ? Promise.resolve(null as Coords | null)
+      : requestTelegramLocation({ timeoutMs: 12_000, requireFresh: true }).then((r) =>
+          r.status === "ok"
+            ? {
+                lat: r.lat,
+                lng: r.lng,
+                accuracyM: r.accuracyM,
+                at: Date.now(),
+              }
+            : null,
+        );
+
+    // Silent: ruxsat dialogini qayta ochmaslik (Telegram ruxsati asosiy).
+    // Desktopda silent=false.
+    const silentBrowser = !isTelegramDesktopLike();
+    const browserP = browserCoords(12_000, silentBrowser, true);
+
+    const [tg, browser] = await Promise.all([tgP, browserP]);
+    return pickBest(tg, browser);
+  };
+
+  let best = await attempt();
+  // Juda noaniq (tarmoq/wifi) → bir marta yana, uzoqroq GPS.
+  if (best && best.accuracyM != null && best.accuracyM > MAX_ACCEPT_ACCURACY_M) {
+    const again = await attempt();
+    best = pickBest(best, again);
+  }
+  // Hali yomon bo'lsa ham eng yaxshisini qaytaramiz (hech narsa yo'qdan yaxshi),
+  // lekin accuracyM saqlanadi — UI ko'rsatishi mumkin.
+  return best;
+}
+
+/**
+ * Joylashuv olish.
+ * - force: yangi GPS (kesh emas); muvaffaqiyatsiz → null (eski joy QAYTMASIN)
+ * - highAccuracy: checkout/buyurtma uchun aniqroq
+ */
+export function getCoords(
+  forceOrOpts: boolean | GetCoordsOpts = false,
+): Promise<Coords | null> {
+  const opts: GetCoordsOpts =
+    typeof forceOrOpts === "boolean" ? { force: forceOrOpts } : forceOrOpts;
+  const force = !!opts.force;
+  const highAccuracy = !!opts.highAccuracy;
+
   if (coordsCache === undefined && !force) {
     const stored = readStoredCoords();
     if (stored) {
@@ -153,45 +246,63 @@ export function getCoords(force = false): Promise<Coords | null> {
     }
   }
 
-  if (!force && coordsCache !== undefined) {
+  // Faqat past aniqlik + force yo'q: kesh ishlatish mumkin.
+  if (!force && !highAccuracy && coordsCache !== undefined) {
     return Promise.resolve(coordsCache);
   }
-  if (!force && coordsPromise) return coordsPromise;
+  if (!force && !highAccuracy && coordsPromise) return coordsPromise;
 
-  // force: muvaffaqiyatsiz null keshni tozalash; muvaffaqiyatli keshni saqlab
-  // background yangilash mumkin — lekin force true bo'lsa qayta o'qiymiz.
   if (force) {
     coordsPromise = null;
+    coordsCache = undefined;
+    clearStoredCoords();
   }
 
-  coordsPromise = (async () => {
-    // Desktop — brauzer (1 marta ruxsat, keyin maximumAge).
+  const run = (async () => {
+    // ── Checkout / buyurtma: yuqori aniqlik, parallel manbalar ──
+    if (highAccuracy || force) {
+      const best = await fetchHighAccuracyCoords();
+      if (best) return rememberCoords(best);
+
+      if (isTelegramLocationGranted()) lastLocationIssue = "device_off";
+      else lastLocationIssue = "other";
+      if (!force) coordsCache = null;
+      return null; // eski kesh QAYTMASIN
+    }
+
+    const tgTimeout = 4_000;
+    const browserTimeout = 2_500;
+
+    // Desktop — brauzer.
     if (isTelegramDesktopLike()) {
-      const browser = await browserCoords(2500, false);
+      const browser = await browserCoords(browserTimeout, false, false);
       if (browser) return rememberCoords(browser);
       lastLocationIssue = "other";
       coordsCache = null;
       return null;
     }
 
-    // Mobil: asosan Telegram LocationManager (ruxsat 1 marta, doimiy).
-    const tgResult = await requestTelegramLocation();
+    // Mobil katalog: Telegram LocationManager (tez, past aniqlik OK).
+    const tgResult = await requestTelegramLocation({
+      timeoutMs: tgTimeout,
+      requireFresh: false,
+    });
     if (tgResult.status === "ok") {
-      return rememberCoords({ lat: tgResult.lat, lng: tgResult.lng });
+      return rememberCoords({
+        lat: tgResult.lat,
+        lng: tgResult.lng,
+        accuracyM: tgResult.accuracyM,
+      });
     }
 
     if (tgResult.status === "device_off") lastLocationIssue = "device_off";
     else if (tgResult.status === "denied") lastLocationIssue = "denied";
     else lastLocationIssue = "other";
 
-    // Brauzer fallback:
-    // - Ruxsat rad emas
-    // - Agar TG ruxsati bor → silent (qayta dialog YO'Q)
-    // - Agar TG unsupported/error va hali ruxsat so'ralmagan → bir marta so'rash mumkin
     const tgGranted = isTelegramLocationGranted();
     if (tgResult.status !== "denied") {
       const silent = tgGranted || tgResult.status === "device_off";
-      const browser = await browserCoords(silent ? 1200 : 2500, silent);
+      const browser = await browserCoords(silent ? 1_500 : 2_500, silent, false);
       if (browser) return rememberCoords(browser);
     }
 
@@ -199,7 +310,6 @@ export function getCoords(force = false): Promise<Coords | null> {
       lastLocationIssue = "device_off";
     }
 
-    // Eski session kesh bo'lsa — yangilash muvaffaqiyatsiz bo'lsa ham ishlatamiz.
     const stale = readStoredCoords();
     if (stale) {
       coordsCache = stale;
@@ -208,11 +318,16 @@ export function getCoords(force = false): Promise<Coords | null> {
 
     coordsCache = null;
     return null;
-  })().finally(() => {
-    coordsPromise = null;
-  });
+  })();
 
-  return coordsPromise;
+  if (!force && !highAccuracy) {
+    coordsPromise = run.finally(() => {
+      coordsPromise = null;
+    });
+    return coordsPromise;
+  }
+
+  return run;
 }
 
 /** GPS yoqib qaytganda — null keshni tashlab qayta o'qish (ruxsat qayta so'ralmaydi). */

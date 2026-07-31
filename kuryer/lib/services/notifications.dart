@@ -1,16 +1,11 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
-/// Local notifications wrapper — the Flutter counterpart to the web app's
-/// `push.ts`. The web courier gets OS notifications via a service worker + web
-/// push; on native we drive alerts from the in-app order poller (see
-/// `NavShell`), which shows a heads-up notification with sound when a new,
-/// not-yet-assigned order appears — mirroring `useNewOrderAlerts` +
-/// `playOrderAlertSound()`.
+/// Local notifications + FCM foreground display.
 ///
-/// True background/killed-app push would need Firebase Cloud Messaging plus a
-/// backend that stores FCM tokens (the current backend only speaks Web Push /
-/// VAPID). Everything here works while the app is running or resumed.
+/// - App ochiq: poller (`NavShell`) va/yoki FCM `onMessage` → shu yerda show.
+/// - App yopiq / killed: backend FCM `notification` payload → OS ko'rsatadi
+///   (`services/fcm.dart` + backend `services/fcm.py`).
 class NotificationService extends ChangeNotifier {
   NotificationService._();
   static final NotificationService instance = NotificationService._();

@@ -44,6 +44,11 @@ interface TelegramWebApp {
 interface TelegramLocationData {
   latitude: number;
   longitude: number;
+  /** metr (ixtiyoriy, Telegram versiyasiga bog'liq) */
+  horizontal_accuracy?: number;
+  altitude?: number;
+  course?: number;
+  speed?: number;
 }
 
 // Bot API 8.0+ — Telegram mijozining o'z joylashuv ruxsat oqimi. Brauzer

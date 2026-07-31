@@ -6,10 +6,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/theme.dart';
 import 'pages/login_page.dart';
+import 'pages/onboarding_page.dart';
 import 'services/api.dart';
 import 'services/cache.dart';
+import 'services/fcm.dart';
 import 'services/location.dart';
 import 'services/notifications.dart';
+import 'services/order_widget.dart';
+import 'services/rate_prompt.dart';
 import 'state/auth.dart';
 import 'state/order_alerts.dart';
 import 'widgets/nav_shell.dart';
@@ -22,6 +26,10 @@ Future<void> main() async {
   attachCachePrefs(prefs);
   await api.init();
   await notifications.init();
+  // google-services.json bo'lmasa ham app ishlaydi (local poll).
+  await fcm.init();
+  await orderWidget.init();
+  await ratePrompt.init();
   runApp(const BarakaliCourierApp());
 }
 
@@ -36,6 +44,7 @@ class _BarakaliCourierAppState extends State<BarakaliCourierApp> {
   // Boot splash: shown once on cold start with a minimum on-screen time so the
   // brand animation reads even on a fast connection (mirrors App.tsx).
   bool _booting = true;
+  bool? _onboardingDone;
 
   @override
   void initState() {
@@ -43,6 +52,12 @@ class _BarakaliCourierAppState extends State<BarakaliCourierApp> {
     Timer(const Duration(milliseconds: 1700), () {
       if (mounted) setState(() => _booting = false);
     });
+    unawaited(_loadOnboarding());
+  }
+
+  Future<void> _loadOnboarding() async {
+    final done = await isOnboardingDone();
+    if (mounted) setState(() => _onboardingDone = done);
   }
 
   @override
@@ -56,7 +71,16 @@ class _BarakaliCourierAppState extends State<BarakaliCourierApp> {
         title: 'BB Kuryer',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.light,
-        home: const AuthGate(),
+        home: _onboardingDone == null
+            ? const Scaffold(
+                backgroundColor: AppColors.slate50,
+                body: SizedBox.shrink(),
+              )
+            : _onboardingDone!
+                ? const AuthGate()
+                : OnboardingPage(
+                    onDone: () => setState(() => _onboardingDone = true),
+                  ),
         builder: (context, child) {
           // Overlays hosted above every route: toast stack + boot splash.
           return Stack(
@@ -194,6 +218,12 @@ class _AuthGateState extends State<AuthGate> {
     if (_servicesStarted) return;
     _servicesStarted = true;
     unawaited(notifications.requestPermission());
+    unawaited(fcm.syncToken());
     unawaited(locationService.start());
+    unawaited(ratePrompt.recordAppOpen());
+    // Soft rate prompt — sessiya ochilgach.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(ratePrompt.maybeShow(context));
+    });
   }
 }

@@ -164,22 +164,45 @@ def notify_new_order(
 
     # Shu do'kon kuryerlariga — yangi buyurtma mavjud (birinchi qabul qilgan oladi).
     # Courier PWA serverda /courier/ ostida joylashgan.
+    title = f"🆕 Yangi buyurtma № {order.number}"
+    body = f"{order.total:,} so'm · {order.address_line}"
     webpush.notify_all_couriers(
-        f"🆕 Yangi buyurtma № {order.number}",
-        f"{order.total:,} so'm · {order.address_line}",
+        title,
+        body,
         order.restaurant_id,
         url="/courier/orders",
+        tag=f"neworder-{order.id}",
+    )
+    # Native kuryer APK (FCM) — app yopiq / ekran o'chiq bo'lsa ham.
+    from app.services import fcm
+
+    fcm.notify_all_couriers(
+        title,
+        body,
+        order.restaurant_id,
+        url="/orders",
         tag=f"neworder-{order.id}",
     )
 
 
 def notify_courier_assigned(order: Order, courier_admin_id: int) -> None:
-    """Push to the assigned courier's app (web push)."""
+    """Push to the assigned courier (web push + FCM)."""
+    title = f"🛵 Yangi buyurtma № {order.number}"
+    body = f"{order.total:,} so'm · {order.address_line}"
     webpush.notify_courier(
         courier_admin_id,
-        f"🛵 Yangi buyurtma № {order.number}",
-        f"{order.total:,} so'm · {order.address_line}",
+        title,
+        body,
         url=f"/courier/orders/{order.id}",
+        tag=f"assign-{order.id}",
+    )
+    from app.services import fcm
+
+    fcm.notify_courier(
+        courier_admin_id,
+        title,
+        body,
+        url=f"/orders/{order.id}",
         tag=f"assign-{order.id}",
     )
 

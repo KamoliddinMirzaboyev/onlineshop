@@ -87,6 +87,8 @@ _ADMIN_USER_COLUMNS = (
     "ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS lat DOUBLE PRECISION",
     "ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS lng DOUBLE PRECISION",
     "ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS last_location_update TIMESTAMPTZ",
+    # Native kuryer APK push (Firebase Cloud Messaging).
+    "ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS fcm_token VARCHAR(512)",
 )
 # Do'kon sozlamalari: manzil, ega, telefonlar (JSONB array), ijtimoiy tarmoq (JSONB obyekt).
 _STORE_COLUMNS = (

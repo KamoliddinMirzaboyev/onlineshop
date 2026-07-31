@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../core/format.dart';
@@ -5,6 +7,8 @@ import '../core/theme.dart';
 import '../models/order.dart';
 import '../services/api.dart';
 import '../services/cache.dart';
+import '../services/order_widget.dart';
+import '../services/rate_prompt.dart';
 import '../widgets/common.dart';
 import '../widgets/skeleton.dart';
 import '../widgets/toast.dart';
@@ -30,10 +34,16 @@ class _OrdersPageState extends State<OrdersPage> {
     _res = Resource<List<Order>>(
       cacheKey: 'courier_orders',
       fetchRaw: () => api.get('/courier/orders'),
-      parse: Order.listFrom,
+      parse: (raw) {
+        final list = Order.listFrom(raw);
+        unawaited(orderWidget.updateFromOrders(list));
+        return list;
+      },
       pollMs: 20000,
       errorText: "Buyurtmalarni yangilab bo'lmadi. Internetni tekshiring.",
     );
+    final cached = _res.data;
+    if (cached != null) unawaited(orderWidget.updateFromOrders(cached));
   }
 
   @override
@@ -67,6 +77,7 @@ class _OrdersPageState extends State<OrdersPage> {
       await api.post('/courier/orders/$id/delivered', {});
       toast.success('Buyurtma yetkazildi ✅');
       _res.refresh();
+      if (mounted) unawaited(ratePrompt.maybeShowAfterDelivery(context));
     } catch (_) {
       toast.error("Yakunlab bo'lmadi. Qayta urinib ko'ring.");
     } finally {

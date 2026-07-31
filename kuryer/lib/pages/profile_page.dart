@@ -2,7 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../core/theme.dart';
+import '../services/api.dart';
+import '../services/fcm.dart';
 import '../services/notifications.dart';
+import '../services/order_widget.dart';
+import '../services/rate_prompt.dart';
 import '../state/auth.dart';
 import '../widgets/common.dart';
 import '../widgets/toast.dart';
@@ -314,6 +318,33 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
               const SizedBox(height: 12),
 
               AppCard(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFEF3C7),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(Icons.star_rounded, color: Color(0xFFD97706), size: 22),
+                  ),
+                  title: const Text(
+                    'Ilovani baholash',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                  ),
+                  subtitle: const Text(
+                    'Play Marketda izoh qoldiring',
+                    style: TextStyle(fontSize: 12, color: AppColors.slate400),
+                  ),
+                  trailing: const Icon(Icons.open_in_new, size: 18, color: AppColors.slate400),
+                  onTap: () => ratePrompt.show(context, force: true),
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              AppCard(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -386,6 +417,8 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
                 width: double.infinity,
                 child: OutlinedButton.icon(
                   onPressed: () async {
+                    await orderWidget.clear();
+                    if (!context.mounted) return;
                     await context.read<AuthState>().logout();
                   },
                   icon: const Icon(Icons.logout, size: 18, color: AppColors.red600),
@@ -408,7 +441,7 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
               const SizedBox(height: 14),
               const Center(
                 child: Text(
-                  'BB Kuryer · v1.1.0',
+                  'BB Kuryer · v1.2.0',
                   style: TextStyle(fontSize: 12, color: AppColors.slate300),
                 ),
               ),
@@ -524,13 +557,40 @@ class _NotificationTileState extends State<_NotificationTile> {
                       : () async {
                           setState(() => _busy = true);
                           await notifications.requestPermission();
+                          await fcm.syncToken();
                           if (mounted) setState(() => _busy = false);
                         },
                   child: Text(_busy ? '…' : 'Yoqish',
                       style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.brand)),
                 )
               else
-                const Icon(Icons.check_circle, color: AppColors.emerald600, size: 22),
+                TextButton(
+                  onPressed: _busy
+                      ? null
+                      : () async {
+                          setState(() => _busy = true);
+                          try {
+                            await fcm.syncToken();
+                            final res = await api.post('/courier/push/test', {})
+                                as Map<String, dynamic>?;
+                            final fcmOk = res?['fcm_configured'] == true;
+                            final hasTok = res?['has_fcm_token'] == true;
+                            if (!fcmOk) {
+                              toast.error('Serverda FCM sozlanmagan');
+                            } else if (!hasTok) {
+                              toast.error('Token yozilmadi — qayta login qiling');
+                            } else {
+                              toast.success('Test push yuborildi');
+                            }
+                          } catch (_) {
+                            toast.error('Test yuborilmadi');
+                          } finally {
+                            if (mounted) setState(() => _busy = false);
+                          }
+                        },
+                  child: Text(_busy ? '…' : 'Test',
+                      style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.brand)),
+                ),
             ],
           ),
         );
