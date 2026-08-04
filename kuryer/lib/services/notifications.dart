@@ -1,16 +1,11 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
-/// Local notifications wrapper — the Flutter counterpart to the web app's
-/// `push.ts`. The web courier gets OS notifications via a service worker + web
-/// push; on native we drive alerts from the in-app order poller (see
-/// `NavShell`), which shows a heads-up notification with sound when a new,
-/// not-yet-assigned order appears — mirroring `useNewOrderAlerts` +
-/// `playOrderAlertSound()`.
+/// Local notifications + FCM foreground display.
 ///
-/// True background/killed-app push would need Firebase Cloud Messaging plus a
-/// backend that stores FCM tokens (the current backend only speaks Web Push /
-/// VAPID). Everything here works while the app is running or resumed.
+/// - App ochiq: poller (`NavShell`) va/yoki FCM `onMessage` → shu yerda show.
+/// - App yopiq / killed: backend FCM `notification` payload → OS ko'rsatadi
+///   (`services/fcm.dart` + backend `services/fcm.py`).
 class NotificationService extends ChangeNotifier {
   NotificationService._();
   static final NotificationService instance = NotificationService._();
@@ -53,8 +48,10 @@ class NotificationService extends ChangeNotifier {
         _channelId,
         _channelName,
         description: _channelDesc,
-        importance: Importance.high,
+        importance: Importance.max,
         playSound: true,
+        enableVibration: true,
+        showBadge: true,
       ),
     );
 
@@ -114,21 +111,26 @@ class NotificationService extends ChangeNotifier {
     required String body,
   }) async {
     if (!_ready) await init();
-    const details = NotificationDetails(
+    final details = NotificationDetails(
       android: AndroidNotificationDetails(
         _channelId,
         _channelName,
         channelDescription: _channelDesc,
-        importance: Importance.high,
-        priority: Priority.high,
+        importance: Importance.max,
+        priority: Priority.max,
         playSound: true,
         enableVibration: true,
         ticker: 'Yangi buyurtma',
+        category: AndroidNotificationCategory.message,
+        visibility: NotificationVisibility.public,
+        fullScreenIntent: true,
+        styleInformation: BigTextStyleInformation(body, contentTitle: title),
       ),
-      iOS: DarwinNotificationDetails(
+      iOS: const DarwinNotificationDetails(
         presentAlert: true,
         presentBadge: true,
         presentSound: true,
+        interruptionLevel: InterruptionLevel.timeSensitive,
       ),
     );
     await _plugin.show(_id++, title, body, details);

@@ -8,9 +8,9 @@ import { useToast } from "../components/Toast";
 import { useResource } from "../lib/cache";
 import { listContainer, listItem, tap } from "../lib/motion";
 import {
+  canNavigate,
   distanceLabel,
   etaLabel,
-  mapsUrl,
   money,
   paymentLabel,
   qtyUnit,
@@ -18,7 +18,8 @@ import {
   statusPill,
 } from "../lib/format";
 import { isAcceptableOrderStatus } from "../lib/orderActions";
-import type { Order, OrderStatus, OrderItem } from "../types";
+import type { Order, OrderStatus } from "../types";
+import NavChooser from "../components/NavChooser";
 
 
 export default function OrderDetailPage() {
@@ -26,6 +27,7 @@ export default function OrderDetailPage() {
   const nav = useNavigate();
   const toast = useToast();
   const [updating, setUpdating] = useState(false);
+  const [navOpen, setNavOpen] = useState(false);
 
   // 404 → the order is truly gone, leave the screen. Other errors are kept as
   // transient (cache shows last good copy or an inline retry).
@@ -58,7 +60,7 @@ export default function OrderDetailPage() {
       toast.success(
         status === "accepted"
           ? "Buyurtma qabul qilindi ✅"
-          : "Yetkazish boshlandi 🛵 — mijozga ETA yuborildi"
+          : "Yetkazish boshlandi 🛵 — mijozga chek + ETA yuborildi"
       );
       refresh();
     } catch {
@@ -101,7 +103,7 @@ export default function OrderDetailPage() {
     );
   }
 
-  const maps = mapsUrl(order.lat, order.lng);
+  const hasNav = canNavigate(order.lat, order.lng, order.address_line);
 
   return (
     <div className="min-h-screen bg-slate-50 p-4 max-w-md mx-auto">
@@ -175,16 +177,15 @@ export default function OrderDetailPage() {
               )}
             </div>
           )}
-          {maps && (
-            <motion.a
+          {hasNav && (
+            <motion.button
+              type="button"
               whileTap={tap}
-              href={maps}
-              target="_blank"
-              rel="noreferrer"
-              className="btn-ghost w-full justify-center text-sm py-2.5 mt-1"
+              onClick={() => setNavOpen(true)}
+              className="btn w-full justify-center text-sm py-2.5 mt-1"
             >
               <Navigation size={16} /> Navigatsiya
-            </motion.a>
+            </motion.button>
           )}
         </motion.div>
 
@@ -269,6 +270,13 @@ export default function OrderDetailPage() {
         </motion.button>
       </div>
 
+      <NavChooser
+        open={navOpen}
+        onClose={() => setNavOpen(false)}
+        lat={order.lat}
+        lng={order.lng}
+        address={order.address_line}
+      />
     </div>
   );
 }

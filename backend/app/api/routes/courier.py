@@ -3,6 +3,7 @@ from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel, Field
 from sqlalchemy import or_, select, update
 from sqlalchemy.orm import Session, selectinload
 import asyncio
@@ -28,6 +29,7 @@ from app.schemas.order import OrderOut, OrderStatusUpdate
 from app.services.eta import estimate_minutes
 from app.services.notify import (
     notify_delivering_eta,
+    notify_order_adjusted,
     notify_status_change,
 )
 from app.services.orders import (
@@ -36,6 +38,7 @@ from app.services.orders import (
     reserve_stock_atomic,
     restore_stock_atomic,
 )
+from app.services.receipt import render_receipt
 from app.services import webpush
 from app.services.events import courier_events
 
@@ -74,9 +77,8 @@ def get_current_courier_ws(
     payload = decode_token(token)
     if not payload or payload.get("role") not in {r.value for r in AdminRole}:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid token")
-    # Faqat purpose=sse ticket yoki (orqaga moslik) oddiy kuryer token.
-    purpose = payload.get("purpose")
-    if purpose is not None and purpose != "sse":
+    # Faqat qisqa muddatli purpose=sse ticket (to'liq JWT query'da taqiqlanadi).
+    if payload.get("purpose") != "sse":
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid stream token")
     admin = db.get(AdminUser, int(payload["sub"]))
     if not admin or not admin.is_active or admin.role != AdminRole.courier:
@@ -210,6 +212,7 @@ def courier_order(
 def courier_adjust_order(
     order_id: int,
     data: OrderAdjustIn,
+    background: BackgroundTasks,
     courier: AdminUser = Depends(get_current_courier),
     db: Session = Depends(get_db),
 ):
@@ -235,10 +238,13 @@ def courier_adjust_order(
 
     # Oldindan yakuniy miqdorlarni hisoblab, bo'sh buyurtmani va omborni tekshiramiz.
     planned: list[tuple[OrderItem, float]] = []
+    changed = False
     for item in order.items:
         new_qty = adjust_map[item.id] if item.id in adjust_map else item.quantity
         if new_qty < 0:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "Miqdor manfiy bo'lishi mumkin emas")
+        if abs(new_qty - item.quantity) > 1e-9:
+            changed = True
         planned.append((item, new_qty))
 
     remaining = [(item, q) for item, q in planned if q > 0]
@@ -262,8 +268,35 @@ def courier_adjust_order(
     # Yetkazish haqi o'zgarmaydi (masofa/chegara buyurtma paytida hisoblangan).
     order.total = order.items_total + order.delivery_fee
 
+    customer = db.get(User, order.user_id)
+    user_tg = customer.telegram_id if customer else None
+    user_lang = (customer.language if customer else None) or "uz"
+
     db.commit()
     db.refresh(order)
+    # items relationship commitdan keyin ham kerak (chek)
+    order = db.scalar(
+        select(Order)
+        .where(Order.id == order.id)
+        .options(selectinload(Order.items))
+    ) or order
+
+    # Haqiqiy o'zgarish bo'lsa — mijozga yangi chek (3 kg → 3.5 kg va h.k.)
+    if changed and user_tg:
+        receipt_png = None
+        try:
+            receipt_png = render_receipt(order)
+        except Exception:
+            receipt_png = None
+        background.add_task(
+            notify_order_adjusted,
+            order,
+            user_tg,
+            user_lang,
+            receipt_png,
+        )
+
+    courier_events.publish({"type": "orders_updated", "restaurant_id": order.restaurant_id})
     return order
 
 
@@ -317,6 +350,7 @@ def courier_update_order(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Order not found")
 
     ensure_transition(order.status, data.status)
+    prev_status = order.status
 
     notify_accept = False
     if is_accept and order.courier_accepted_at is None:
@@ -330,6 +364,21 @@ def courier_update_order(
         order.eta_minutes = estimate_minutes(db, order.distance_km)
         notify_eta = True
 
+    # Atomik holat o'tishi — concurrent update yo'qotilmasin.
+    transitioned = db.execute(
+        update(Order)
+        .where(Order.id == order.id, Order.status == prev_status)
+        .values(
+            status=data.status,
+            assigned_courier_id=order.assigned_courier_id,
+            courier_accepted_at=order.courier_accepted_at,
+            delivering_started_at=order.delivering_started_at,
+            eta_minutes=order.eta_minutes,
+        )
+    )
+    if transitioned.rowcount == 0 and prev_status != data.status:
+        db.rollback()
+        raise HTTPException(status.HTTP_409_CONFLICT, "Buyurtma holati o'zgargan")
     order.status = data.status
     db.commit()
     db.refresh(order)
@@ -351,17 +400,28 @@ def courier_update_order(
             url="/orders",
             tag=f"accepted-{order.id}",
         )
-    # "Yetkazilmoqda" — mijoz tilida masofa + ETA + kuryer.
+    # "Yetkazilmoqda" — yangilangan chek (tahrirdan keyin summa) + ETA + kuryer.
     if notify_eta and user_tg:
+        order_full = db.scalar(
+            select(Order)
+            .where(Order.id == order.id)
+            .options(selectinload(Order.items))
+        ) or order
+        receipt_png = None
+        try:
+            receipt_png = render_receipt(order_full)
+        except Exception:
+            receipt_png = None
         background.add_task(
             notify_delivering_eta,
-            order,
+            order_full,
             user_tg,
             order.eta_minutes,
             order.distance_km,
             courier.name,
             courier.phone,
             user_lang,
+            receipt_png,
         )
     courier_events.publish({"type": "orders_updated", "restaurant_id": order.restaurant_id})
     return order
@@ -388,10 +448,30 @@ def courier_mark_delivered(
     user_tg = customer.telegram_id if customer else None
     user_lang = (customer.language if customer else None) or "uz"
     ensure_transition(order.status, OrderStatus.delivered)
-    order.courier_delivered_at = datetime.now(timezone.utc)
-    # Stock buyurtma yaratilganda zaxiralangan — qayta kamaytirilmaydi.
+    now = datetime.now(timezone.utc)
+    # Atomik: faqat delivering → delivered (double-deliver no-op).
     mark_order_paid_if_cash(order)
+    transitioned = db.execute(
+        update(Order)
+        .where(
+            Order.id == order.id,
+            Order.status == OrderStatus.delivering,
+            Order.assigned_courier_id == courier.id,
+        )
+        .values(
+            status=OrderStatus.delivered,
+            courier_delivered_at=now,
+            payment_status=order.payment_status,
+        )
+    )
+    if transitioned.rowcount == 0:
+        db.rollback()
+        db.refresh(order)
+        if order.status == OrderStatus.delivered:
+            return order
+        raise HTTPException(status.HTTP_409_CONFLICT, "Buyurtma holati o'zgargan")
     order.status = OrderStatus.delivered
+    order.courier_delivered_at = now
     db.commit()
     db.refresh(order)
     courier_events.publish({"type": "orders_updated", "restaurant_id": order.restaurant_id})
@@ -550,7 +630,7 @@ def courier_earnings(
     )
 
 
-# ── Web Push (kuryer ilovasi) ────────────────────────────────────
+# ── Web Push (kuryer PWA) + FCM (native APK) ─────────────────────
 @router.get("/push/public-key")
 def courier_push_public_key(_: AdminUser = Depends(get_current_courier)):
     return {"public_key": settings.vapid_public_key}
@@ -576,3 +656,73 @@ def courier_push_subscribe(
         ))
     db.commit()
     return {"ok": True}
+
+
+class FcmTokenIn(BaseModel):
+    fcm_token: str = Field(min_length=10, max_length=512)
+
+
+@router.post("/push/fcm-token", status_code=200)
+def courier_fcm_token(
+    data: FcmTokenIn,
+    courier: AdminUser = Depends(get_current_courier),
+    db: Session = Depends(get_db),
+):
+    """Native kuryer APK FCM tokenini saqlash (login/resume)."""
+    token = data.fcm_token.strip()
+    # Bir token faqat bitta kuryerga bog'lansin (qurilma boshqa akkauntga o'tganda).
+    db.execute(
+        update(AdminUser)
+        .where(AdminUser.fcm_token == token, AdminUser.id != courier.id)
+        .values(fcm_token=None)
+    )
+    row = db.get(AdminUser, courier.id)
+    if not row:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Courier topilmadi")
+    row.fcm_token = token
+    db.commit()
+    return {"ok": True}
+
+
+@router.delete("/push/fcm-token", status_code=200)
+def courier_fcm_token_clear(
+    courier: AdminUser = Depends(get_current_courier),
+    db: Session = Depends(get_db),
+):
+    """Logout: shu akkaunt FCM tokenini o'chirish."""
+    row = db.get(AdminUser, courier.id)
+    if row:
+        row.fcm_token = None
+        db.commit()
+    return {"ok": True}
+
+
+@router.post("/push/test")
+def courier_push_test(
+    courier: AdminUser = Depends(get_current_courier),
+    db: Session = Depends(get_db),
+):
+    """Kuryer o'z qurilmasiga test bildirishnoma (Web Push + FCM)."""
+    from app.services import fcm
+
+    webpush.notify_courier(
+        courier.id,
+        "BB Kuryer",
+        "Bildirishnoma ishlayapti ✅",
+        url="/courier/orders",
+        tag="push-test",
+    )
+    fcm.notify_courier(
+        courier.id,
+        "BB Kuryer",
+        "Bildirishnoma ishlayapti ✅",
+        url="/orders",
+        tag="push-test",
+    )
+    row = db.get(AdminUser, courier.id)
+    return {
+        "ok": True,
+        "vapid_configured": bool(settings.vapid_private_key),
+        "fcm_configured": fcm.configured(),
+        "has_fcm_token": bool(row.fcm_token if row else None),
+    }

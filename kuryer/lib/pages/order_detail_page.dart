@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../core/format.dart';
@@ -5,6 +7,7 @@ import '../core/theme.dart';
 import '../models/order.dart';
 import '../services/api.dart';
 import '../services/cache.dart';
+import '../services/rate_prompt.dart';
 import '../widgets/common.dart';
 import '../widgets/skeleton.dart';
 import '../widgets/toast.dart';
@@ -80,7 +83,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
           {'order_item_id': item.id, 'quantity': qty}
         ]
       });
-      toast.success("Miqdor yangilandi ✅");
+      toast.success("Miqdor yangilandi ✅ — mijozga yangi chek yuborildi");
       _res.refresh();
       if (mounted) setState(() => _editingItem = null);
     } catch (_) {
@@ -99,7 +102,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
       toast.success(
         status == 'accepted'
             ? 'Buyurtma qabul qilindi ✅'
-            : 'Yetkazish boshlandi 🛵 — mijozga ETA yuborildi',
+            : 'Yetkazish boshlandi 🛵 — mijozga chek + ETA yuborildi',
       );
       _res.refresh();
     } catch (_) {
@@ -117,6 +120,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
       await api.post('/courier/orders/${order.id}/delivered', {});
       toast.success('Buyurtma yetkazildi ✅');
       _res.refresh();
+      if (mounted) unawaited(ratePrompt.maybeShowAfterDelivery(context));
     } catch (_) {
       toast.error("Yakunlab bo'lmadi. Qayta urinib ko'ring.");
     } finally {
@@ -260,7 +264,11 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
   }
 
   Widget _content(Order order) {
-    final maps = mapsUrl(order.lat, order.lng);
+    final hasNav = canNavigate(
+      lat: order.lat,
+      lng: order.lng,
+      address: order.addressLine,
+    );
     final dist = distanceLabel(order.distanceKm);
     final eta = etaLabel(order.etaMinutes);
 
@@ -373,14 +381,19 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                   ],
                 ]),
               ],
-              if (maps != null) ...[
-                const SizedBox(height: 10),
-                GhostButton(
+              if (hasNav) ...[
+                const SizedBox(height: 12),
+                AppButton(
                   label: 'Navigatsiya',
                   icon: Icons.navigation_outlined,
                   expand: true,
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                  onPressed: () => launchExternal(maps),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  onPressed: () => showNavigationChooser(
+                    context,
+                    lat: order.lat,
+                    lng: order.lng,
+                    address: order.addressLine,
+                  ),
                 ),
               ],
             ],

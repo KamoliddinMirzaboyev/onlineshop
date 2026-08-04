@@ -19,7 +19,7 @@ class BusinessOut(BaseModel):
 class BusinessCreateIn(BaseModel):
     name: str
     username: str
-    password: str
+    password: str = Field(min_length=6, max_length=128)
     phone: str | None = None
 
 

@@ -163,9 +163,22 @@ def notify_new_order(
     )
 
     # Shu do'kon kuryerlariga — yangi buyurtma mavjud (birinchi qabul qilgan oladi).
+    # Courier PWA serverda /courier/ ostida joylashgan.
+    title = f"🆕 Yangi buyurtma № {order.number}"
+    body = f"{order.total:,} so'm · {order.address_line}"
     webpush.notify_all_couriers(
-        f"🆕 Yangi buyurtma № {order.number}",
-        f"{order.total:,} so'm · {order.address_line}",
+        title,
+        body,
+        order.restaurant_id,
+        url="/courier/orders",
+        tag=f"neworder-{order.id}",
+    )
+    # Native kuryer APK (FCM) — app yopiq / ekran o'chiq bo'lsa ham.
+    from app.services import fcm
+
+    fcm.notify_all_couriers(
+        title,
+        body,
         order.restaurant_id,
         url="/orders",
         tag=f"neworder-{order.id}",
@@ -173,11 +186,22 @@ def notify_new_order(
 
 
 def notify_courier_assigned(order: Order, courier_admin_id: int) -> None:
-    """Push to the assigned courier's app (web push)."""
+    """Push to the assigned courier (web push + FCM)."""
+    title = f"🛵 Yangi buyurtma № {order.number}"
+    body = f"{order.total:,} so'm · {order.address_line}"
     webpush.notify_courier(
         courier_admin_id,
-        f"🛵 Yangi buyurtma № {order.number}",
-        f"{order.total:,} so'm · {order.address_line}",
+        title,
+        body,
+        url=f"/courier/orders/{order.id}",
+        tag=f"assign-{order.id}",
+    )
+    from app.services import fcm
+
+    fcm.notify_courier(
+        courier_admin_id,
+        title,
+        body,
         url=f"/orders/{order.id}",
         tag=f"assign-{order.id}",
     )
@@ -233,20 +257,64 @@ def notify_delivering_eta(
     courier_name: str | None = None,
     courier_phone: str | None = None,
     lang: str | None = "uz",
+    receipt_png: bytes | None = None,
 ) -> None:
-    """Kuryer 'yetkazilmoqda' — ETA + masofa + kuryer, mijoz tilida."""
+    """Kuryer 'yetkazilmoqda' — ETA + masofa + kuryer + (ixtiyoriy) yangilangan chek."""
     l = _lang(lang)
+    total = int(order.total or 0)
     if l == "ru":
         lines = [f"🛵 <b>Ваш заказ в пути · № {order.number}</b>"]
         if eta_minutes:
             lines.append(f"⏱ Ориентировочно через <b>{eta_minutes} мин</b>")
         if distance_km:
             lines.append(f"📍 Расстояние: ~{distance_km:g} км")
+        lines.append(f"💳 Итого: <b>{total:,} сум</b>".replace(",", " "))
+        receipt_caption = f"🧾 Актуальный чек · № {order.number} · {total:,} сум".replace(",", " ")
     else:
         lines = [f"🛵 <b>Buyurtmangiz yo'lda · № {order.number}</b>"]
         if eta_minutes:
             lines.append(f"⏱ Taxminan <b>{eta_minutes} daqiqada</b> yetkaziladi")
         if distance_km:
             lines.append(f"📍 Masofa: ~{distance_km:g} km")
+        lines.append(f"💳 Jami: <b>{total:,} so'm</b>".replace(",", " "))
+        receipt_caption = f"🧾 Yangilangan chek · № {order.number} · {total:,} so'm".replace(",", " ")
     lines.extend(_courier_block(l, courier_name, courier_phone))
-    _send(user_telegram_id, "\n".join(lines))
+    text = "\n".join(lines)
+
+    # Avval yangilangan chek (miqdor/summa o'zgargan bo'lishi mumkin), keyin ETA matni.
+    if receipt_png:
+        _send_photo(user_telegram_id, receipt_png, caption=receipt_caption[:1024])
+        _send(user_telegram_id, text)
+    else:
+        _send(user_telegram_id, text)
+
+
+def notify_order_adjusted(
+    order: Order,
+    user_telegram_id: int,
+    lang: str | None = "uz",
+    receipt_png: bytes | None = None,
+) -> None:
+    """Kuryer miqdorni tahrirlaganda — mijozga yangi chek + summa."""
+    l = _lang(lang)
+    total = int(order.total or 0)
+    if l == "ru":
+        text = (
+            f"✏️ <b>Заказ обновлён · № {order.number}</b>\n"
+            f"Количество/состав изменены курьером.\n"
+            f"💳 Новая сумма: <b>{total:,} сум</b>".replace(",", " ")
+        )
+        caption = f"🧾 Обновлённый чек · № {order.number} · {total:,} сум".replace(",", " ")
+    else:
+        text = (
+            f"✏️ <b>Buyurtma yangilandi · № {order.number}</b>\n"
+            f"Kuryer miqdor/tarkibni tahrirladi.\n"
+            f"💳 Yangi summa: <b>{total:,} so'm</b>".replace(",", " ")
+        )
+        caption = f"🧾 Yangilangan chek · № {order.number} · {total:,} so'm".replace(",", " ")
+
+    if receipt_png:
+        _send_photo(user_telegram_id, receipt_png, caption=caption[:1024])
+        _send(user_telegram_id, text)
+    else:
+        _send(user_telegram_id, text)

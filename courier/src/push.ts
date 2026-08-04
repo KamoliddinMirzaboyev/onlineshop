@@ -12,12 +12,10 @@ export const ORDER_ALERT_SOUND_URL = "/order-alert.wav";
 type PushHandler = (p: PushPayload) => void;
 const pushHandlers = new Set<PushHandler>();
 let messageWired = false;
+let swRegisterPromise: Promise<ServiceWorkerRegistration | null> | null = null;
 
 /**
- * Subscribe to push payloads the service worker forwards while the app is open
- * (foreground). The SW suppresses the OS banner when a window is focused and
- * posts the payload here instead, so we can show an in-app toast.
- * Returns an unsubscribe fn.
+ * Subscribe to push payloads the service worker forwards while the app is open.
  */
 export function onPushMessage(cb: PushHandler): () => void {
   pushHandlers.add(cb);
@@ -37,8 +35,59 @@ export function playOrderAlertSound(): void {
   const audio = new Audio(ORDER_ALERT_SOUND_URL);
   audio.volume = 1;
   audio.play().catch(() => {
-    /* Browser autoplay policy can block sound until the user interacts. */
+    /* autoplay policy */
   });
+}
+
+/** OS / SW orqali bildirishnoma (tab yopiq yoki background). */
+export async function showOrderNotification(
+  title: string,
+  body: string,
+  opts?: { url?: string; tag?: string },
+): Promise<void> {
+  if (!("Notification" in window) || Notification.permission !== "granted") return;
+
+  const tag = opts?.tag || `order-${Date.now()}`;
+  const url = opts?.url || "/orders";
+
+  const base = import.meta.env.BASE_URL || "/";
+  const icon = `${base}icon-192.png`.replace(/\/{2,}/g, "/").replace(":/", "://");
+  // Notification click navigates within app basename
+  const notifUrl = url.startsWith("http") ? url : `${base}${url.replace(/^\//, "")}`;
+
+  try {
+    const reg = await ensureRegistration();
+    if (reg) {
+      const opts: NotificationOptions & { renotify?: boolean; vibrate?: number[] } = {
+        body,
+        icon,
+        badge: icon,
+        tag,
+        renotify: true,
+        requireInteraction: true,
+        silent: false,
+        vibrate: [200, 100, 200, 100, 200],
+        data: { url: notifUrl },
+      };
+      await reg.showNotification(title, opts);
+      return;
+    }
+  } catch {
+    /* fall through */
+  }
+
+  try {
+    // eslint-disable-next-line no-new
+    new Notification(title, {
+      body,
+      icon,
+      tag,
+      requireInteraction: true,
+      data: { url: notifUrl },
+    });
+  } catch {
+    /* ignore */
+  }
 }
 
 function urlBase64ToUint8Array(base64: string): Uint8Array {
@@ -54,12 +103,10 @@ export function pushSupported(): boolean {
   return "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
 }
 
-/** iOS Safari only exposes PushManager to a Home Screen–installed (standalone) app. */
 export function isIOS(): boolean {
   return /iphone|ipad|ipod/i.test(navigator.userAgent);
 }
 
-/** True once launched from the Home Screen icon (not a regular Safari/Chrome tab). */
 export function isStandalone(): boolean {
   return (
     window.matchMedia("(display-mode: standalone)").matches ||
@@ -68,49 +115,99 @@ export function isStandalone(): boolean {
 }
 
 export function notifPermission(): NotificationPermission {
-  return pushSupported() ? Notification.permission : "denied";
+  return "Notification" in window ? Notification.permission : "denied";
 }
 
-async function ensureRegistration(): Promise<ServiceWorkerRegistration> {
-  const existing = await navigator.serviceWorker.getRegistration();
-  const reg = existing ?? (await navigator.serviceWorker.register("/sw.js"));
-  // ready can hang if the worker never activates — race with a timeout.
-  return Promise.race([
-    navigator.serviceWorker.ready,
-    new Promise<ServiceWorkerRegistration>((resolve) => setTimeout(() => resolve(reg), 4000)),
-  ]);
+/** SW ni erta ro'yxatdan o'tkazish (main.tsx dan).
+ *  BASE_URL muhim: serverda ilova /courier/ ostida — /sw.js 404 edi.
+ */
+export function registerServiceWorker(): Promise<ServiceWorkerRegistration | null> {
+  if (!("serviceWorker" in navigator)) return Promise.resolve(null);
+  if (!swRegisterPromise) {
+    const base = import.meta.env.BASE_URL || "/";
+    const swUrl = `${base}sw.js`.replace(/\/{2,}/g, "/").replace(":/", "://");
+    // scope: /courier/  (base always ends with / in Vite)
+    swRegisterPromise = navigator.serviceWorker
+      .register(swUrl, { scope: base })
+      .then(async (reg) => {
+        await reg.update().catch(() => {});
+        return reg;
+      })
+      .catch((err) => {
+        console.error("SW register failed", swUrl, err);
+        return null;
+      });
+  }
+  return swRegisterPromise;
+}
+
+async function ensureRegistration(): Promise<ServiceWorkerRegistration | null> {
+  if (!("serviceWorker" in navigator)) return null;
+  const reg = await registerServiceWorker();
+  if (!reg) return null;
+  try {
+    await Promise.race([
+      navigator.serviceWorker.ready,
+      new Promise((r) => setTimeout(r, 5000)),
+    ]);
+  } catch {
+    /* ignore */
+  }
+  return (await navigator.serviceWorker.getRegistration()) ?? reg;
 }
 
 /**
- * Subscribe this courier to web push and register the subscription with the
- * backend (POST /courier/push/subscribe). Returns the resulting permission.
+ * Ruxsat + PushManager subscribe + backendga yozish.
  */
 export async function enablePush(): Promise<NotificationPermission> {
   if (!pushSupported()) return "denied";
-  const perm = await Notification.requestPermission();
+
+  await registerServiceWorker();
+
+  let perm = Notification.permission;
+  if (perm === "default") {
+    perm = await Notification.requestPermission();
+  }
   if (perm !== "granted") return perm;
 
   const reg = await ensureRegistration();
+  if (!reg?.pushManager) throw new Error("Service worker tayyor emas");
+
   const { public_key } = await get<{ public_key: string }>("/courier/push/public-key");
-  if (!public_key) throw new Error("Push kaliti olinmadi");
+  if (!public_key) throw new Error("Push kaliti olinmadi (VAPID)");
 
   let sub = await reg.pushManager.getSubscription();
-  if (!sub) {
-    sub = await reg.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(public_key).buffer as ArrayBuffer,
-    });
+  // Kalit o'zgargan bo'lsa qayta subscribe
+  if (sub) {
+    try {
+      await post("/courier/push/subscribe", sub.toJSON());
+      return "granted";
+    } catch {
+      await sub.unsubscribe().catch(() => {});
+      sub = null;
+    }
   }
+
+  sub = await reg.pushManager.subscribe({
+    userVisibleOnly: true,
+    applicationServerKey: urlBase64ToUint8Array(public_key).buffer as ArrayBuffer,
+  });
   await post("/courier/push/subscribe", sub.toJSON());
   return "granted";
 }
 
-/** Best-effort: re-subscribe if already granted (called after login). */
-export async function syncPush(): Promise<void> {
-  if (!pushSupported() || notifPermission() !== "granted") return;
+/** Login/restart: granted bo'lsa qayta yozish; default bo'lsa ruxsat so'rash. */
+export async function syncPush(): Promise<NotificationPermission | "unsupported"> {
+  if (!pushSupported()) return "unsupported";
   try {
-    await enablePush();
+    if (Notification.permission === "denied") return "denied";
+    return await enablePush();
   } catch {
-    /* ignore */
+    return notifPermission();
   }
+}
+
+/** Backend orqali test push. */
+export async function testPush(): Promise<void> {
+  await post("/courier/push/test", {});
 }

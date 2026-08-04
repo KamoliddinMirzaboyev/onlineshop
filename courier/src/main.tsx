@@ -4,7 +4,11 @@ import { BrowserRouter, useNavigate } from "react-router-dom";
 import App from "./App";
 import PushBridge from "./components/PushBridge";
 import { ToastProvider } from "./components/Toast";
+import { registerServiceWorker } from "./push";
 import "./index.css";
+
+// SW erta — push ishlashi uchun muhim
+void registerServiceWorker();
 
 function Root() {
   const navigate = useNavigate();

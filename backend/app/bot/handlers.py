@@ -145,10 +145,20 @@ async def on_contact(message: Message) -> None:
     if not message.from_user: return
     if not message.contact: return
     contact = message.contact
-    if contact.user_id == message.from_user.id:
-        repo.set_phone(message.from_user.id, contact.phone_number)
-        user = repo.get_or_create_user(message.from_user.id, message.from_user.first_name, message.from_user.username)
-        await message.answer(t(user.language, "phone_saved"), reply_markup=main_menu(user.language))
+    user = repo.get_or_create_user(
+        message.from_user.id, message.from_user.first_name, message.from_user.username
+    )
+    if contact.user_id != message.from_user.id:
+        await message.answer(t(user.language, "phone_own"))
+        return
+    ok = repo.set_phone(message.from_user.id, contact.phone_number)
+    if not ok:
+        await message.answer(t(user.language, "phone_taken"), reply_markup=main_menu(user.language))
+        return
+    user = repo.get_or_create_user(
+        message.from_user.id, message.from_user.first_name, message.from_user.username
+    )
+    await message.answer(t(user.language, "phone_saved"), reply_markup=main_menu(user.language))
 
 
 @router.message(F.location)
@@ -162,9 +172,18 @@ async def on_location(message: Message) -> None:
     if not message.location: return
     lat = message.location.latitude
     lng = message.location.longitude
-    repo.set_order_location(order.id, lat, lng)
-    await message.answer(
-        t(user.language, "location_saved", number=order.number),
-        reply_markup=ReplyKeyboardRemove(),
-    )
+    ok, err = repo.set_order_location(order.id, lat, lng)
+    if not ok:
+        await message.answer(t(user.language, "no_pending_order"), reply_markup=ReplyKeyboardRemove())
+        return
+    if err == "out_of_zone":
+        await message.answer(
+            t(user.language, "location_out_of_zone", number=order.number),
+            reply_markup=ReplyKeyboardRemove(),
+        )
+    else:
+        await message.answer(
+            t(user.language, "location_saved", number=order.number),
+            reply_markup=ReplyKeyboardRemove(),
+        )
     notify_location_update(order.number, lat, lng)

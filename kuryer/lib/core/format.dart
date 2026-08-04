@@ -89,10 +89,43 @@ const _paymentLabelMap = {
 
 String paymentLabel(String? m) => m == null ? '—' : (_paymentLabelMap[m] ?? m);
 
-/// Yandex Maps navigation link (when lat/lng present).
-String? mapsUrl(double? lat, double? lng) => (lat != null && lng != null)
-    ? 'https://yandex.com/maps/?rtext=~$lat,$lng&rtt=auto'
-    : null;
+/// Legacy — Yandex Maps (web). Prefer [googleMapsNavUrl] / [yandexNaviUrl].
+String? mapsUrl(double? lat, double? lng) => yandexMapsUrl(lat, lng);
+
+/// Google Maps marshrut (avtomobil).
+String? googleMapsNavUrl({double? lat, double? lng, String? address}) {
+  if (lat != null && lng != null) {
+    return 'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng&travelmode=driving';
+  }
+  final a = address?.trim();
+  if (a != null && a.isNotEmpty) {
+    return 'https://www.google.com/maps/dir/?api=1&destination=${Uri.encodeComponent(a)}&travelmode=driving';
+  }
+  return null;
+}
+
+/// Yandex Navigator deep link (ilova o'rnatilgan bo'lsa).
+String? yandexNaviUrl({double? lat, double? lng}) {
+  if (lat == null || lng == null) return null;
+  return 'yandexnavi://build_route_on_map?lat_to=$lat&lon_to=$lng';
+}
+
+/// Yandex Maps web / ilova (manzil yoki koordinata).
+String? yandexMapsUrl(double? lat, double? lng, {String? address}) {
+  if (lat != null && lng != null) {
+    return 'https://yandex.com/maps/?rtext=~$lat,$lng&rtt=auto';
+  }
+  final a = address?.trim();
+  if (a != null && a.isNotEmpty) {
+    return 'https://yandex.com/maps/?text=${Uri.encodeComponent(a)}';
+  }
+  return null;
+}
+
+bool canNavigate({double? lat, double? lng, String? address}) {
+  if (lat != null && lng != null) return true;
+  return address != null && address.trim().isNotEmpty;
+}
 
 /// "1 kg", "3 dona"
 String qtyUnit(num quantity, String? unit) {

@@ -36,14 +36,21 @@ def seed() -> None:
 
         # ── bootstrap superadmin ──
         if not db.scalar(select(AdminUser).where(AdminUser.username == settings.first_admin_username)):
-            db.add(AdminUser(
-                username=settings.first_admin_username,
-                hashed_password=hash_password(settings.first_admin_password),
-                role=AdminRole.superadmin,
-                restaurant_id=restaurant.id,
-            ))
-            db.commit()
-            print(f"Created superadmin '{settings.first_admin_username}'.")
+            pwd = (settings.first_admin_password or "").strip()
+            if len(pwd) < 8:
+                print(
+                    f"Skip superadmin '{settings.first_admin_username}': "
+                    "FIRST_ADMIN_PASSWORD bo'sh yoki 8 belgidan qisqa."
+                )
+            else:
+                db.add(AdminUser(
+                    username=settings.first_admin_username,
+                    hashed_password=hash_password(pwd),
+                    role=AdminRole.superadmin,
+                    restaurant_id=restaurant.id,
+                ))
+                db.commit()
+                print(f"Created superadmin '{settings.first_admin_username}'.")
 
         # ── bootstrap platform superadmin (bizning akkaunt) ──
         if not db.scalar(
@@ -51,12 +58,19 @@ def seed() -> None:
                 PlatformAdmin.username == settings.first_platform_username
             )
         ):
-            db.add(PlatformAdmin(
-                username=settings.first_platform_username,
-                hashed_password=hash_password(settings.first_platform_password),
-            ))
-            db.commit()
-            print(f"Created platform admin '{settings.first_platform_username}'.")
+            pwd = (settings.first_platform_password or "").strip()
+            if len(pwd) < 8:
+                print(
+                    f"Skip platform admin '{settings.first_platform_username}': "
+                    "FIRST_PLATFORM_PASSWORD bo'sh yoki 8 belgidan qisqa."
+                )
+            else:
+                db.add(PlatformAdmin(
+                    username=settings.first_platform_username,
+                    hashed_password=hash_password(pwd),
+                ))
+                db.commit()
+                print(f"Created platform admin '{settings.first_platform_username}'.")
 
 
 if __name__ == "__main__":

@@ -23,4 +23,6 @@ class AdminUser(Base):
     lat: Mapped[float | None] = mapped_column(Float)
     lng: Mapped[float | None] = mapped_column(Float)
     last_location_update: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Native Android (FCM) push token — kuryer APK; Web Push alohida jadvalda.
+    fcm_token: Mapped[str | None] = mapped_column(String(512))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

@@ -7,8 +7,22 @@
     <link rel="icon" type="image/png" href="/favicon.png" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-    <link rel="dns-prefetch" href="https://allfoodapi.webportfolio.uz" />
-    <link rel="preconnect" href="https://allfoodapi.webportfolio.uz" crossorigin />
+    <link rel="dns-prefetch" href="https://api.barakali-bozor.uz" />
+    <link rel="preconnect" href="https://api.barakali-bozor.uz" crossorigin />
+    <!--
+      initData erta capture: Telegram #tgWebAppData hash ni ba'zi WebView/redirect
+      da yo'qotadi. SDK va SPA yuklanishidan OLDIN sessionStorage ga yozamiz.
+    -->
+    <script>
+      (function () {
+        try {
+          var raw = (location.hash || "").replace(/^#/, "") || (location.search || "").replace(/^\?/, "");
+          if (!raw || raw.indexOf("tgWebAppData") < 0) return;
+          var data = new URLSearchParams(raw).get("tgWebAppData");
+          if (data) sessionStorage.setItem("__af_tgWebAppData", data);
+        } catch (e) {}
+      })();
+    </script>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
   </head>
   <body>

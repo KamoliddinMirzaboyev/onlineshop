@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../services/api.dart';
 import '../services/cache.dart';
+import '../services/fcm.dart';
 import '../services/location.dart';
 
 /// Auth store — faqat courier rolli akkauntlar.
@@ -44,6 +45,10 @@ class AuthState extends ChangeNotifier {
       }
       _applyMe(me);
       notifyListeners();
+      // Login dan keyin FCM token backendga.
+      try {
+        await fcm.syncToken();
+      } catch (_) {}
     } catch (e) {
       await api.setToken(null);
       this.username = null;
@@ -56,14 +61,20 @@ class AuthState extends ChangeNotifier {
   }
 
   Future<void> logout() async {
-    await locationService.stop();
-    await api.setToken(null);
-    clearCache();
+    try {
+      await fcm.clearToken();
+    } catch (_) {}
+    // Avval sessiyani yopish — UI darhol Login'ga o'tsin.
     username = null;
     name = null;
     phone = null;
     role = null;
+    clearCache();
+    await api.setToken(null);
     notifyListeners();
+    try {
+      await locationService.stop();
+    } catch (_) {}
   }
 
   Future<void> loadMe() async {

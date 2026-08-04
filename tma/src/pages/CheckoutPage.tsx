@@ -1,7 +1,13 @@
 import { MapPin } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { api, cacheAddressLabel, getCoords, peekAddressLabel, peekCoords } from "../api/client";
+import {
+  api,
+  cacheAddressLabel,
+  clearAddressLabel,
+  getCoords,
+  peekAddressLabel,
+} from "../api/client";
 import type { Restaurant } from "../api/types";
 import PageHeader from "../components/PageHeader";
 import { useI18n } from "../i18n";
@@ -84,32 +90,47 @@ export default function CheckoutPage() {
   }, [user?.phone]);
 
   /**
-   * Manzil: avval kesh (ruxsat qayta so'ralmaydi), keyin jim yangilash.
-   * force faqat "Qayta aniqlash" — baribir Telegram ruxsati qayta ochilmaydi.
+   * Manzil + GPS.
+   * force/highAccuracy: har doim yangi GPS (kesh emas).
+   * overwriteText: true — geocode matnni yozadi; false — dirty matn saqlanadi.
    */
-  const fetchLocation = async (force = false) => {
+  const fetchLocation = async (opts?: { force?: boolean; overwriteText?: boolean }) => {
+    const force = opts?.force !== false;
+    const overwriteText = !!opts?.overwriteText;
     if (useCheckoutDraft.getState().locating) return null;
     setLocating(true);
     try {
-      // 0) Saqlangan manzil matni — darhol ko'rsatish
       if (!force) {
         const cachedLabel = peekAddressLabel();
-        if (cachedLabel && !useCheckoutDraft.getState().addressLine) {
-          setAddressLine(cachedLabel);
+        const st = useCheckoutDraft.getState();
+        if (cachedLabel && !st.addressLine) {
+          setAddressLine(cachedLabel, false);
         }
       }
 
-      // 1) Allaqachon bor kesh — ruxsat YO'Q
-      let coords = !force ? peekCoords() : null;
-      if (!coords) {
-        coords = await getCoords(force);
-      }
+      const coords = await getCoords({ force, highAccuracy: true });
       if (!coords) return null;
-      setLocation(coords.lat, coords.lng);
+      setLocation(coords.lat, coords.lng, coords.accuracyM);
+
+      const st = useCheckoutDraft.getState();
+      // Foydalanuvchi tahrirlagan matnni geocode o'chirmasin.
+      if (!overwriteText && st.addressDirty && st.addressLine.trim().length >= 4) {
+        return coords;
+      }
 
       const geo = await reverseGeocodeParts(coords.lat, coords.lng);
-      const line = geo?.label || `${coords.lat.toFixed(5)}, ${coords.lng.toFixed(5)}`;
-      setAddressLine(line);
+      // Geocode tugaguncha user yozgan bo'lishi mumkin — qayta tekshir.
+      const after = useCheckoutDraft.getState();
+      if (!overwriteText && after.addressDirty && after.addressLine.trim().length >= 4) {
+        return coords;
+      }
+      const line =
+        geo?.label ||
+        `${coords.lat.toFixed(5)}, ${coords.lng.toFixed(5)}`;
+      useCheckoutDraft.setState({
+        addressLine: line,
+        addressDirty: overwriteText ? false : after.addressDirty,
+      });
       cacheAddressLabel(line);
       return coords;
     } finally {
@@ -118,12 +139,10 @@ export default function CheckoutPage() {
   };
 
   useEffect(() => {
-    // Keshdagi manzil/coords bo'lsa darhol; ruxsat qayta so'ralmaydi.
+    // Checkout ochilishi: darhol yangi GPS (kesh emas).
     const cached = peekAddressLabel();
-    if (cached && !addressLine.trim()) setAddressLine(cached);
-    const c = peekCoords();
-    if (c && !loc) setLocation(c.lat, c.lng);
-    if (!addressLine.trim() || !cached) void fetchLocation(false);
+    if (cached && !addressLine.trim()) setAddressLine(cached, false);
+    void fetchLocation({ force: true, overwriteText: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -157,15 +176,20 @@ export default function CheckoutPage() {
       return;
     }
 
-    let deliveryLoc = loc;
-    let line = addressLine.trim();
+    // Buyurtma: FAQAT hozir olingan yuqori aniqlikdagi GPS; matn (dirty) saqlanadi.
+    setError(null);
+    const coords = await fetchLocation({ force: true, overwriteText: false });
+    const line = useCheckoutDraft.getState().addressLine.trim() || addressLine.trim();
 
-    if (!isAddressComplete(line) || !deliveryLoc) {
-      // force=false — qayta ruxsat dialogi ochilmasin
-      const coords = await fetchLocation(false);
-      if (coords) deliveryLoc = coords;
-      line = useCheckoutDraft.getState().addressLine.trim() || line;
+    if (!coords) {
+      setError(
+        lang === "uz"
+          ? "Aniq joylashuv olinmadi. GPS ni yoqing va «Qayta aniqlash» ni bosing."
+          : "Точное местоположение не получено. Включите GPS и нажмите «Определить снова».",
+      );
+      return;
     }
+    const deliveryLoc = coords;
 
     if (!isAddressComplete(line)) {
       setError(t.address_required);
@@ -173,7 +197,6 @@ export default function CheckoutPage() {
     }
 
     setSubmitting(true);
-    setError(null);
     try {
       const order = await api.placeOrder({
         restaurant_id: cart.restaurantId,
@@ -182,13 +205,14 @@ export default function CheckoutPage() {
           quantity: l.quantity,
         })),
         address_line: line,
-        lat: deliveryLoc?.lat ?? undefined,
-        lng: deliveryLoc?.lng ?? undefined,
+        lat: deliveryLoc.lat,
+        lng: deliveryLoc.lng,
         phone,
         comment: comment.trim() || undefined,
         payment_method: "cash",
       });
       haptic("medium");
+      clearAddressLabel();
       cart.clear();
       resetDraft();
       nav(`/orders/${order.id}?placed=1`, { replace: true });
@@ -218,41 +242,64 @@ export default function CheckoutPage() {
           />
         </div>
 
-        {/* Manzil — faqat avtomatik aniqlangan, foydalanuvchi tasdiqlaydi */}
+        {/* Manzil: GPS avto + matn tahrirlash (uy raqami aniq bo'lsin) */}
         <div className="space-y-2">
           <div className="flex items-center justify-between px-1">
             <label className="text-sm text-slate-400 font-medium">{t.address}</label>
             <button
               type="button"
               disabled={locating}
-              onClick={() => void fetchLocation(true)}
+              onClick={() => void fetchLocation({ force: true, overwriteText: true })}
               className="text-xs font-medium text-brand disabled:opacity-50"
             >
               {locating ? t.address_locating : t.address_refresh}
             </button>
           </div>
 
-          <div className="rounded-[16px] bg-[#F4F5F7] px-4 py-4">
+          <div className="rounded-[16px] bg-[#F4F5F7] px-4 py-3">
             {locating && !addressLine ? (
-              <p className="text-base text-slate-400 animate-pulse">{t.address_locating}</p>
-            ) : addressLine ? (
+              <p className="text-base text-slate-400 animate-pulse py-1">{t.address_locating}</p>
+            ) : (
               <div className="flex gap-3 items-start">
-                <MapPin size={20} className="text-brand shrink-0 mt-0.5" />
-                <div className="min-w-0">
-                  <p className="text-[11px] text-slate-400 mb-1">{t.address_auto}</p>
-                  <p className="text-base text-slate-900 font-medium leading-snug">{addressLine}</p>
+                <MapPin size={20} className="text-brand shrink-0 mt-2.5" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-[11px] text-slate-400 mb-1">
+                    {loc
+                      ? `${t.address_auto} · ${loc.lat.toFixed(6)}, ${loc.lng.toFixed(6)}`
+                      : t.address_auto}
+                  </p>
+                  <textarea
+                    value={addressLine}
+                    onChange={(e) => setAddressLine(e.target.value, true)}
+                    rows={2}
+                    placeholder={t.address_ph}
+                    className="w-full resize-none bg-transparent text-base text-slate-900 font-medium leading-snug outline-none placeholder:text-slate-400 placeholder:font-normal"
+                  />
+                  {loc?.accuracyM != null && (
+                    <p
+                      className={`text-[11px] mt-1.5 font-medium ${
+                        loc.accuracyM <= 25
+                          ? "text-emerald-600"
+                          : loc.accuracyM <= 50
+                            ? "text-amber-600"
+                            : "text-rose-500"
+                      }`}
+                    >
+                      {loc.accuracyM <= 25
+                        ? `✓ ${t.address_accuracy_good} (±${Math.round(loc.accuracyM)} m)`
+                        : loc.accuracyM <= 50
+                          ? `~ ${t.address_accuracy_ok} (±${Math.round(loc.accuracyM)} m)`
+                          : `! ${t.address_accuracy_weak} (±${Math.round(loc.accuracyM)} m)`}
+                    </p>
+                  )}
                 </div>
               </div>
-            ) : (
-              <p className="text-base text-slate-400">{t.address_required}</p>
             )}
           </div>
 
-          {addressLine && (
-            <p className="text-xs text-amber-700/80 px-1 leading-snug">
-              {t.address_confirm}
-            </p>
-          )}
+          <p className="text-xs text-amber-700/80 px-1 leading-snug">
+            {t.address_confirm}
+          </p>
         </div>
 
         <div className="space-y-2">

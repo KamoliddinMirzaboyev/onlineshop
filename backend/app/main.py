@@ -5,7 +5,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.api.routes import (
     addresses, admin, admin_auth, auth, business, business_auth, catalog, courier,
-    orders, platform, platform_auth, uploads,
+    geo_route, orders, platform, platform_auth, uploads,
 )
 from app.api.routes.uploads import UPLOAD_DIR
 from app.core.config import settings
@@ -37,11 +37,32 @@ _INSECURE_DEFAULTS = {
     "first_admin_password": "admin12345",
     "first_platform_password": "platform12345",
 }
+_WEAK_SECRETS = {
+    "change-me",
+    "change-me-to-a-long-random-string",
+    "changeme",
+    "secret",
+    "allfoods",
+}
 if settings.environment == "production":
     leaked = [
         name for name, default in _INSECURE_DEFAULTS.items()
         if getattr(settings, name) == default
     ]
+    if not settings.secret_key or len(settings.secret_key) < 32:
+        leaked.append("secret_key(too_short)")
+    if settings.secret_key in _WEAK_SECRETS:
+        leaked.append("secret_key(weak)")
+    if not settings.bot_token or settings.bot_token in _WEAK_SECRETS or ":" not in settings.bot_token:
+        leaked.append("bot_token(invalid)")
+    # Bootstrap parollar: bo'sh yoki juda qisqa bo'lsa seed xavfli — ogohlantirish.
+    # Mavjud deploy'larda FIRST_* bo'sh bo'lishi mumkin (allaqachon yaratilgan).
+    if settings.first_admin_password and len(settings.first_admin_password) < 6:
+        leaked.append("first_admin_password(weak)")
+    if settings.first_platform_password and len(settings.first_platform_password) < 6:
+        leaked.append("first_platform_password(weak)")
+    # Postgres paroli docker ichki tarmoqda — hostga ochilmasa weak default
+    # production'ni to'xtatmasin (faqat secret_key/bot_token majburiy).
     if leaked:
         raise RuntimeError(
             "Production'da default (zaif) qiymatlar ishlatilmoqda — "
@@ -52,10 +73,12 @@ app = FastAPI(title="Barakali Bozor API", version="1.0.0", docs_url="/docs" if s
 app.add_middleware(SecurityHeadersMiddleware)
 
 if settings.environment == "production":
-    # Faqat aniq ro'yxatdagi origin'lar (TMA_URL/ADMIN_URL/COURIER_URL + .env).
+    # Aniq origin'lar + barcha barakali-bozor.uz subdomainlari
+    # (Telegram WebView ba'zan origin variantlarini yuboradi).
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
+        allow_origin_regex=r"https://([a-z0-9-]+\.)?barakali-bozor\.uz",
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -73,6 +96,7 @@ else:
 api = APIRouter(prefix="/api")
 api.include_router(auth.router)
 api.include_router(catalog.router)
+api.include_router(geo_route.router)
 api.include_router(addresses.router)
 api.include_router(orders.router)
 api.include_router(admin_auth.router)

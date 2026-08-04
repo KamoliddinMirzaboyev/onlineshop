@@ -27,7 +27,7 @@ export default function ProductCard({ product }: { product: Product }) {
   };
 
   return (
-    <div className="flex h-full flex-col rounded-2xl bg-white shadow-[0_2px_12px_rgba(15,23,42,0.06)] border border-black/[0.04] overflow-hidden">
+    <div className="flex h-full flex-col rounded-2xl bg-white shadow-[0_2px_12px_rgba(15,23,42,0.06)] border border-slate-200/80 overflow-hidden">
       <div className="relative w-full aspect-square shrink-0 bg-[#F3F4F6] overflow-hidden">
         {product.image_url ? (
           <OptimizedImage

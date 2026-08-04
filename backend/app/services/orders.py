@@ -9,11 +9,13 @@ from sqlalchemy.orm import Session, selectinload
 
 from sqlalchemy import select
 
+from app.core.phone import normalize_phone
 from app.models import Address, DeliveryZone, Order, OrderItem, Product, Restaurant, User
 from app.models.enums import OrderStatus, PaymentMethod, PaymentStatus
 from app.schemas.order import OrderCreateIn
 from app.services.geo import (
     distance_to_user,
+    is_weak_address_line,
     is_within_zone,
     reverse_geocode,
     zone_is_configured,
@@ -143,13 +145,24 @@ def create_order(db: Session, user: User, data: OrderCreateIn) -> Order:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Cart is empty")
 
     # resolve delivery target
-    address_line = data.address_line
+    address_line = (data.address_line or "").strip() or None
     lat, lng = data.lat, data.lng
     if data.address_id:
         addr = db.get(Address, data.address_id)
         if not addr or addr.user_id != user.id:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "Address not found")
         address_line, lat, lng = addr.address_line, addr.lat, addr.lng
+        address_line = (address_line or "").strip() or None
+    if lat is not None and lng is not None:
+        # Zaif/koordinata-only matn yoki bo'sh — server multi-source geocode
+        if is_weak_address_line(address_line):
+            geo_line = reverse_geocode(lat, lng)
+            if geo_line:
+                address_line = geo_line
+            elif not address_line:
+                address_line = f"📍 {lat:.5f}, {lng:.5f}"
+        # Foydalanuvchi matn yozgan, lekin geocode yaxshiroq mahalla/ko'cha bersa —
+        # faqat zaif bo'lsa almashtiramiz (yuqorida). Aniq matn saqlanadi.
     if not address_line:
         if lat is None or lng is None:
             raise HTTPException(
@@ -157,6 +170,13 @@ def create_order(db: Session, user: User, data: OrderCreateIn) -> Order:
                 "Yetkazib berish uchun joylashuvni yuboring",
             )
         address_line = reverse_geocode(lat, lng) or f"📍 {lat:.5f}, {lng:.5f}"
+
+    phone = normalize_phone(data.phone) or normalize_phone(user.phone)
+    if not phone:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "Telefon raqami majburiy",
+        )
 
     zone = db.scalar(
         select(DeliveryZone)
@@ -236,7 +256,7 @@ def create_order(db: Session, user: User, data: OrderCreateIn) -> Order:
                 address_line=address_line,
                 lat=lat,
                 lng=lng,
-                phone=data.phone or user.phone,
+                phone=phone,
                 comment=data.comment,
                 distance_km=distance_km,
                 items=[
@@ -285,22 +305,39 @@ def create_order(db: Session, user: User, data: OrderCreateIn) -> Order:
 
 
 def cancel_order(db: Session, order: Order) -> Order:
-    """Buyurtmani bekor qiladi, zaxirani qaytaradi, to'lovni refunded belgilaydi."""
-    ensure_transition(order.status, OrderStatus.cancelled)
+    """Buyurtmani bekor qiladi, zaxirani qaytaradi (atomik — double-cancel stock shishmaydi)."""
     if order.status == OrderStatus.cancelled:
         return order
+    ensure_transition(order.status, OrderStatus.cancelled)
 
-    # items yuklangan bo'lishi shart
-    if not order.items:
-        order = db.scalar(
-            select(Order)
-            .where(Order.id == order.id)
-            .options(selectinload(Order.items))
-        ) or order
+    # Atomik: faqat bir marta cancelled bo'ladi (concurrent cancel → bitta stock restore).
+    result = db.execute(
+        update(Order)
+        .where(
+            Order.id == order.id,
+            Order.status.notin_((OrderStatus.cancelled, OrderStatus.delivered)),
+        )
+        .values(status=OrderStatus.cancelled)
+    )
+    if result.rowcount == 0:
+        db.refresh(order)
+        if order.status == OrderStatus.cancelled:
+            return order
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "Buyurtmani bekor qilib bo'lmadi (holat o'zgargan)",
+        )
+
+    order = db.scalar(
+        select(Order)
+        .where(Order.id == order.id)
+        .options(selectinload(Order.items))
+    ) or order
 
     restore_order_stock(db, order)
     if order.payment_status == PaymentStatus.paid:
         order.payment_status = PaymentStatus.refunded
+    # status allaqachon UPDATE bilan cancelled
     order.status = OrderStatus.cancelled
     db.commit()
     db.refresh(order)

@@ -53,15 +53,34 @@ void main() {
     });
   });
 
-  group('mapsUrl', () {
-    test('generates Yandex Maps URL', () {
+  group('mapsUrl / navigation', () {
+    test('yandex maps URL from coords', () {
       final url = mapsUrl(41.3, 69.2);
       expect(url, contains('yandex.com/maps'));
       expect(url, contains('rtext=~41.3,69.2'));
     });
 
+    test('google maps nav URL', () {
+      final url = googleMapsNavUrl(lat: 41.3, lng: 69.2);
+      expect(url, contains('google.com/maps'));
+      expect(url, contains('destination=41.3,69.2'));
+    });
+
+    test('yandex navi deep link', () {
+      final url = yandexNaviUrl(lat: 41.3, lng: 69.2);
+      expect(url, startsWith('yandexnavi://'));
+      expect(url, contains('lat_to=41.3'));
+    });
+
     test('returns null if lat/lng missing', () {
       expect(mapsUrl(null, null), isNull);
+      expect(googleMapsNavUrl(), isNull);
+      expect(yandexNaviUrl(), isNull);
+    });
+
+    test('canNavigate with address only', () {
+      expect(canNavigate(address: 'Fargona'), isTrue);
+      expect(canNavigate(), isFalse);
     });
   });
 

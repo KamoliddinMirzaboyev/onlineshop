@@ -1,4 +1,4 @@
-const BASE = import.meta.env.VITE_API_URL ?? "https://allfoodapi.webportfolio.uz/api";
+const BASE = import.meta.env.VITE_API_URL ?? "https://api.barakali-bozor.uz/api";
 
 let token: string | null = localStorage.getItem("af_admin_token");
 
@@ -41,13 +41,46 @@ export const patch = <T>(p: string, body: unknown) =>
   api<T>(p, { method: "PATCH", body: JSON.stringify(body) });
 export const del = (p: string) => api<void>(p, { method: "DELETE" });
 
-// Rasm faylini yuklash (multipart). Content-Type ni brauzer o'zi qo'yadi.
-export async function uploadImage(file: File): Promise<string> {
-  const form = new FormData();
-  form.append("file", file);
-  const headers: Record<string, string> = {};
-  if (token) headers.Authorization = `Bearer ${token}`;
-  const res = await fetch(`${BASE}/admin/upload`, { method: "POST", body: form, headers });
-  if (!res.ok) throw new Error(`${res.status}: ${await res.text()}`);
-  return (await res.json()).url as string;
+// Rasm faylini yuklash (multipart). onProgress 0–100.
+export function uploadImage(
+  file: File,
+  onProgress?: (percent: number) => void,
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `${BASE}/admin/upload`);
+    if (token) xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+
+    xhr.upload.onprogress = (e) => {
+      if (!onProgress || !e.lengthComputable) return;
+      onProgress(Math.min(99, Math.round((e.loaded / e.total) * 100)));
+    };
+
+    xhr.onload = () => {
+      if (xhr.status === 401) {
+        setToken(null);
+        location.href = "/login";
+        reject(new Error("Unauthorized"));
+        return;
+      }
+      if (xhr.status < 200 || xhr.status >= 300) {
+        reject(new Error(`${xhr.status}: ${xhr.responseText.slice(0, 120)}`));
+        return;
+      }
+      try {
+        const data = JSON.parse(xhr.responseText) as { url: string };
+        onProgress?.(100);
+        resolve(data.url);
+      } catch {
+        reject(new Error("Server javobi o'qilmadi"));
+      }
+    };
+
+    xhr.onerror = () => reject(new Error("Tarmoq xatosi — qayta urinib ko'ring"));
+    xhr.onabort = () => reject(new Error("Yuklash bekor qilindi"));
+
+    const form = new FormData();
+    form.append("file", file);
+    xhr.send(form);
+  });
 }

@@ -87,6 +87,8 @@ _ADMIN_USER_COLUMNS = (
     "ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS lat DOUBLE PRECISION",
     "ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS lng DOUBLE PRECISION",
     "ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS last_location_update TIMESTAMPTZ",
+    # Native kuryer APK push (Firebase Cloud Messaging).
+    "ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS fcm_token VARCHAR(512)",
 )
 # Do'kon sozlamalari: manzil, ega, telefonlar (JSONB array), ijtimoiy tarmoq (JSONB obyekt).
 _STORE_COLUMNS = (
@@ -192,6 +194,27 @@ def main(engine=engine) -> None:
                     {"rid": first_restaurant[0]},
                 )
             conn.execute(text(f"ALTER TABLE {table} ALTER COLUMN restaurant_id SET NOT NULL"))
+
+        # Phone unique (NULL ruxsat — faqat telegram userlar). Dublikatlarni
+        # eng kichik id saqlab, qolganlarini NULL qilamiz (keyin index).
+        try:
+            conn.execute(text(
+                """
+                UPDATE users u SET phone = NULL
+                WHERE u.phone IS NOT NULL AND u.phone <> ''
+                  AND u.id NOT IN (
+                    SELECT MIN(id) FROM users
+                    WHERE phone IS NOT NULL AND phone <> ''
+                    GROUP BY phone
+                  )
+                """
+            ))
+            conn.execute(text(
+                "CREATE UNIQUE INDEX IF NOT EXISTS uq_users_phone_not_null "
+                "ON users (phone) WHERE phone IS NOT NULL AND phone <> ''"
+            ))
+        except Exception as e:  # noqa: BLE001
+            print(f"phone unique index skip: {e}")
     print("Tables created / verified.")
 
 
