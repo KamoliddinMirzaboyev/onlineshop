@@ -51,7 +51,12 @@ TEXTS = {
             "Buyurtma berish uchun ilovani oching 👇"
         ),
         "phone_own": "❗️ Iltimos, o'zingizning raqamingizni yuboring.",
+        "phone_taken": "❗️ Bu telefon raqami boshqa akkauntga bog'langan. Boshqa raqam yuboring yoki qo'llab-quvvatlashga yozing.",
         "location_saved": "✅ Joylashuvingiz qabul qilindi.\nBuyurtma №{number} yetkaziladi.",
+        "location_out_of_zone": (
+            "⚠️ Joylashuv qabul qilindi, lekin yetkazish hududidan tashqarida ko'rinadi.\n"
+            "Buyurtma №{number} — operator bog'lanadi."
+        ),
         "no_pending_order": "Faol buyurtma topilmadi.",
         "blocked": f"⛔️ Akkauntingiz bloklangan.\nQo'llab-quvvatlash: {SUPPORT_HANDLE}",
         "offer_chunk": "📄 Ommaviy oferta ({n}/{total})",
@@ -102,7 +107,12 @@ TEXTS = {
             "Откройте приложение, чтобы сделать заказ 👇"
         ),
         "phone_own": "❗️ Пожалуйста, отправьте свой собственный номер.",
+        "phone_taken": "❗️ Этот номер уже привязан к другому аккаунту. Отправьте другой или напишите в поддержку.",
         "location_saved": "✅ Геолокация принята.\nЗаказ №{number} будет доставлен.",
+        "location_out_of_zone": (
+            "⚠️ Геолокация принята, но адрес вне зоны доставки.\n"
+            "Заказ №{number} — с вами свяжется оператор."
+        ),
         "no_pending_order": "Активный заказ не найден.",
         "blocked": f"⛔️ Ваш аккаунт заблокирован.\nПоддержка: {SUPPORT_HANDLE}",
         "offer_chunk": "📄 Публичная оферта ({n}/{total})",

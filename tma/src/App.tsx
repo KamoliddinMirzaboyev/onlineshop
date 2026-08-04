@@ -1,5 +1,5 @@
 import { AnimatePresence } from "framer-motion";
-import { useEffect } from "react";
+import { useEffect, type ReactNode } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { getCoords } from "./api/client";
 import BottomNav from "./components/BottomNav";
@@ -15,6 +15,35 @@ import OrdersPage from "./pages/OrdersPage";
 import ProfilePage from "./pages/ProfilePage";
 import SearchPage from "./pages/SearchPage";
 import { useAuth } from "./store/auth";
+import { useI18n } from "./i18n";
+
+function AuthGate({ children }: { children: ReactNode }) {
+  const user = useAuth((s) => s.user);
+  const error = useAuth((s) => s.error);
+  const login = useAuth((s) => s.login);
+  const { lang } = useI18n();
+
+  if (!user) {
+    return (
+      <div className="min-h-full flex flex-col items-center justify-center gap-4 px-6 py-16 text-center">
+        <p className="text-tg-hint text-sm leading-relaxed max-w-sm">
+          {error ||
+            (lang === "uz"
+              ? "Kirish talab qilinadi"
+              : "Требуется вход")}
+        </p>
+        <button
+          type="button"
+          onClick={() => void login()}
+          className="bg-brand text-white font-medium px-6 py-3 rounded-2xl active:scale-95 transition"
+        >
+          {lang === "uz" ? "Qayta urinish" : "Повторить"}
+        </button>
+      </div>
+    );
+  }
+  return <>{children}</>;
+}
 
 function AppRoutes() {
   // Nested sahifada Telegram/Android Back → SPA ichida orqaga (TMA yopilmaydi).
@@ -27,10 +56,38 @@ function AppRoutes() {
         <Route path="/category/:id" element={<CategoryPage />} />
         <Route path="/search" element={<SearchPage />} />
         <Route path="/cart" element={<CartPage />} />
-        <Route path="/checkout" element={<CheckoutPage />} />
-        <Route path="/orders" element={<OrdersPage />} />
-        <Route path="/orders/:id" element={<OrderDetailPage />} />
-        <Route path="/profile" element={<ProfilePage />} />
+        <Route
+          path="/checkout"
+          element={
+            <AuthGate>
+              <CheckoutPage />
+            </AuthGate>
+          }
+        />
+        <Route
+          path="/orders"
+          element={
+            <AuthGate>
+              <OrdersPage />
+            </AuthGate>
+          }
+        />
+        <Route
+          path="/orders/:id"
+          element={
+            <AuthGate>
+              <OrderDetailPage />
+            </AuthGate>
+          }
+        />
+        <Route
+          path="/profile"
+          element={
+            <AuthGate>
+              <ProfilePage />
+            </AuthGate>
+          }
+        />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       <BottomNav />
@@ -39,20 +96,39 @@ function AppRoutes() {
 }
 
 export default function App() {
-  const { ready, login } = useAuth();
+  const { ready, login, error, user } = useAuth();
 
   useEffect(() => {
-    login();
+    void login();
     // Do'kon va joylashuv parallel — joylashuv sekin bo'lsa ham katalog ochiladi.
-    // getCoords birinchi marta Telegram ruxsat so'raydi; keyin kesh.
     void prefetchStore();
     void getCoords();
   }, [login]);
 
+  // Auth muvaffaqiyatsiz — splash o'rniga xato + retry (katalog ochilmaydi agar kerak).
+  // Katalog public, lekin user yo'q bo'lsa ham Home ochilishi mumkin (faqat error banner).
+  const showApp = ready;
+
   return (
     <>
       <AnimatePresence>{!ready && <Splash />}</AnimatePresence>
-      {ready && <AppRoutes />}
+      {showApp && (
+        <>
+          {error && !user && (
+            <div className="sticky top-0 z-50 bg-rose-50 border-b border-rose-100 px-4 py-2.5 flex items-center justify-between gap-3">
+              <p className="text-xs text-rose-700 leading-snug flex-1">{error}</p>
+              <button
+                type="button"
+                onClick={() => void login()}
+                className="shrink-0 text-xs font-semibold text-brand"
+              >
+                Retry
+              </button>
+            </div>
+          )}
+          <AppRoutes />
+        </>
+      )}
     </>
   );
 }

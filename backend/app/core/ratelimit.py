@@ -9,11 +9,28 @@ from fastapi import HTTPException, Request, status
 from app.core.redis import redis_client
 
 
+def _client_ip(request: Request) -> str:
+    """Proxy ortida haqiqiy klient IP.
+
+    Faqat birinchi X-Forwarded-For (eng ishonchli chain boshi) yoki X-Real-IP.
+    Trusted proxy bo'lmasa ham — reverse proxy odatda o'zi yozadi.
+    """
+    xff = request.headers.get("x-forwarded-for")
+    if xff:
+        first = xff.split(",")[0].strip()
+        if first:
+            return first
+    real = request.headers.get("x-real-ip")
+    if real and real.strip():
+        return real.strip()
+    return request.client.host if request.client else "unknown"
+
+
 def rate_limiter(prefix: str, limit: int, window_seconds: int):
     """IP bo'yicha `window_seconds` ichida `limit` martadan ko'p so'rovni rad etadi."""
 
     def dependency(request: Request) -> None:
-        ip = request.client.host if request.client else "unknown"
+        ip = _client_ip(request)
         key = f"rl:{prefix}:{ip}"
         try:
             count = redis_client.incr(key)
@@ -22,6 +39,7 @@ def rate_limiter(prefix: str, limit: int, window_seconds: int):
         except Exception:
             return  # Redis yo'q — fail-open
         from typing import cast
+
         if cast(int, count) > limit:
             raise HTTPException(
                 status.HTTP_429_TOO_MANY_REQUESTS,

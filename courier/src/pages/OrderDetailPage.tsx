@@ -60,7 +60,7 @@ export default function OrderDetailPage() {
       toast.success(
         status === "accepted"
           ? "Buyurtma qabul qilindi ✅"
-          : "Yetkazish boshlandi 🛵 — mijozga ETA yuborildi"
+          : "Yetkazish boshlandi 🛵 — mijozga chek + ETA yuborildi"
       );
       refresh();
     } catch {

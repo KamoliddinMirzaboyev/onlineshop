@@ -194,6 +194,27 @@ def main(engine=engine) -> None:
                     {"rid": first_restaurant[0]},
                 )
             conn.execute(text(f"ALTER TABLE {table} ALTER COLUMN restaurant_id SET NOT NULL"))
+
+        # Phone unique (NULL ruxsat — faqat telegram userlar). Dublikatlarni
+        # eng kichik id saqlab, qolganlarini NULL qilamiz (keyin index).
+        try:
+            conn.execute(text(
+                """
+                UPDATE users u SET phone = NULL
+                WHERE u.phone IS NOT NULL AND u.phone <> ''
+                  AND u.id NOT IN (
+                    SELECT MIN(id) FROM users
+                    WHERE phone IS NOT NULL AND phone <> ''
+                    GROUP BY phone
+                  )
+                """
+            ))
+            conn.execute(text(
+                "CREATE UNIQUE INDEX IF NOT EXISTS uq_users_phone_not_null "
+                "ON users (phone) WHERE phone IS NOT NULL AND phone <> ''"
+            ))
+        except Exception as e:  # noqa: BLE001
+            print(f"phone unique index skip: {e}")
     print("Tables created / verified.")
 
 

@@ -49,14 +49,35 @@ class StoreProvider extends ChangeNotifier {
     try {
       final position = await _resolvePosition();
       if (position == null) {
-        error = false;
-        store = null;
+        // GPS yo'q — default do'kon (katalog ochiq).
+        try {
+          final res = await api.get('/restaurants/default');
+          store = RestaurantDetail.fromJson(res);
+        } catch (_) {
+          store = null;
+          error = true;
+        }
         return;
       }
       final lat = position.latitude;
       final lng = position.longitude;
-      final res = await api.get('/restaurants/nearest?lat=$lat&lng=$lng');
-      store = RestaurantDetail.fromJson(res);
+      try {
+        final res = await api.get('/restaurants/nearest?lat=$lat&lng=$lng');
+        store = RestaurantDetail.fromJson(res);
+      } catch (e) {
+        if (e.toString().contains('OUT_OF_RANGE')) {
+          outOfRange = true;
+          store = null;
+        } else {
+          // Tarmoq xatosi — default fallback (hudud emas).
+          try {
+            final res = await api.get('/restaurants/default');
+            store = RestaurantDetail.fromJson(res);
+          } catch (_) {
+            error = true;
+          }
+        }
+      }
     } catch (e) {
       if (e.toString().contains('OUT_OF_RANGE')) {
         outOfRange = true;

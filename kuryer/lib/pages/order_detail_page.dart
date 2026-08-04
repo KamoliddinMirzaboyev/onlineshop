@@ -83,7 +83,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
           {'order_item_id': item.id, 'quantity': qty}
         ]
       });
-      toast.success("Miqdor yangilandi ✅");
+      toast.success("Miqdor yangilandi ✅ — mijozga yangi chek yuborildi");
       _res.refresh();
       if (mounted) setState(() => _editingItem = null);
     } catch (_) {
@@ -102,7 +102,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
       toast.success(
         status == 'accepted'
             ? 'Buyurtma qabul qilindi ✅'
-            : 'Yetkazish boshlandi 🛵 — mijozga ETA yuborildi',
+            : 'Yetkazish boshlandi 🛵 — mijozga chek + ETA yuborildi',
       );
       _res.refresh();
     } catch (_) {

@@ -5,7 +5,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.api.routes import (
     addresses, admin, admin_auth, auth, business, business_auth, catalog, courier,
-    orders, platform, platform_auth, uploads,
+    geo_route, orders, platform, platform_auth, uploads,
 )
 from app.api.routes.uploads import UPLOAD_DIR
 from app.core.config import settings
@@ -37,11 +37,30 @@ _INSECURE_DEFAULTS = {
     "first_admin_password": "admin12345",
     "first_platform_password": "platform12345",
 }
+_WEAK_SECRETS = {
+    "change-me",
+    "change-me-to-a-long-random-string",
+    "changeme",
+    "secret",
+    "allfoods",
+}
 if settings.environment == "production":
     leaked = [
         name for name, default in _INSECURE_DEFAULTS.items()
         if getattr(settings, name) == default
     ]
+    if not settings.secret_key or len(settings.secret_key) < 32:
+        leaked.append("secret_key(too_short)")
+    if settings.secret_key in _WEAK_SECRETS:
+        leaked.append("secret_key(weak)")
+    if not settings.bot_token or settings.bot_token in _WEAK_SECRETS or ":" not in settings.bot_token:
+        leaked.append("bot_token(invalid)")
+    if not (settings.first_admin_password or "").strip() or len(settings.first_admin_password) < 8:
+        leaked.append("first_admin_password(weak_or_empty)")
+    if not (settings.first_platform_password or "").strip() or len(settings.first_platform_password) < 8:
+        leaked.append("first_platform_password(weak_or_empty)")
+    if settings.postgres_password in {"allfoods", "postgres", "password", ""}:
+        leaked.append("postgres_password(weak)")
     if leaked:
         raise RuntimeError(
             "Production'da default (zaif) qiymatlar ishlatilmoqda — "
@@ -75,6 +94,7 @@ else:
 api = APIRouter(prefix="/api")
 api.include_router(auth.router)
 api.include_router(catalog.router)
+api.include_router(geo_route.router)
 api.include_router(addresses.router)
 api.include_router(orders.router)
 api.include_router(admin_auth.router)

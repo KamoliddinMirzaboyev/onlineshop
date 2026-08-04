@@ -17,6 +17,58 @@ export function setToken(t: string) {
   localStorage.setItem("af_token", t);
 }
 
+export function clearToken() {
+  token = null;
+  try {
+    localStorage.removeItem("af_token");
+  } catch {
+    /* ignore */
+  }
+}
+
+const FETCH_TIMEOUT_MS = 15_000;
+/** 401 da bir marta qayta-auth (tsikl oldini olish). */
+let reauthInFlight: Promise<boolean> | null = null;
+
+async function tryReauth(): Promise<boolean> {
+  if (reauthInFlight) return reauthInFlight;
+  reauthInFlight = (async () => {
+    try {
+      const { getInitData } = await import("../telegram");
+      const initData = getInitData();
+      if (!initData) {
+        clearToken();
+        return false;
+      }
+      const controller = new AbortController();
+      const timer = window.setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+      try {
+        const res = await fetch(`${BASE}/auth/telegram`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ init_data: initData }),
+          signal: controller.signal,
+        });
+        if (!res.ok) {
+          clearToken();
+          return false;
+        }
+        const body = (await res.json()) as { token: { access_token: string } };
+        setToken(body.token.access_token);
+        return true;
+      } finally {
+        window.clearTimeout(timer);
+      }
+    } catch {
+      clearToken();
+      return false;
+    } finally {
+      reauthInFlight = null;
+    }
+  })();
+  return reauthInFlight;
+}
+
 // ── Joylashuv kesh (sessiya + xotira) ─────────────────────────────
 // Katalog (do'kon tanlash) uchun qisqa kesh OK.
 // Checkout: force + highAccuracy — eski kesh yuborilmasin.
@@ -40,8 +92,10 @@ export type GetCoordsOpts = {
   highAccuracy?: boolean;
 };
 
-/** Checkout: shu metrdan yomon aniqlikni qayta urinish */
-const MAX_ACCEPT_ACCURACY_M = 80;
+/** Checkout: shu metrdan yomon aniqlikni qayta urinish / multi-sample */
+const MAX_ACCEPT_ACCURACY_M = 50;
+/** Ideal GPS (bino darajasi) */
+const GOOD_ACCURACY_M = 25;
 
 let coordsCache: Coords | null | undefined;
 let coordsPromise: Promise<Coords | null> | null = null;
@@ -187,14 +241,63 @@ function browserCoords(
 }
 
 /**
- * Yuqori aniqlik: Telegram + brauzer GPS parallel, eng aniq (kichik accuracyM) g'olib.
- * Yomon aniqlik bo'lsa qayta urinadi.
+ * Brauzer watchPosition — bir necha sekund ichida eng aniq fixni oladi.
+ * getCurrentPosition ba'zan eski/wifi fix qaytaradi.
+ */
+function watchBestBrowserCoords(windowMs: number): Promise<Coords | null> {
+  if (!navigator.geolocation) return Promise.resolve(null);
+  return new Promise((resolve) => {
+    let best: Coords | null = null;
+    let watchId = -1;
+    const done = () => {
+      if (watchId >= 0) {
+        try {
+          navigator.geolocation.clearWatch(watchId);
+        } catch {
+          /* ignore */
+        }
+      }
+      resolve(best);
+    };
+    const timer = window.setTimeout(done, windowMs);
+    try {
+      watchId = navigator.geolocation.watchPosition(
+        (pos) => {
+          const acc = pos.coords.accuracy;
+          const c: Coords = {
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+            accuracyM: typeof acc === "number" && acc > 0 ? acc : undefined,
+            at: Date.now(),
+          };
+          best = pickBest(best, c);
+          // Yetarli aniq — darhol to'xtatish
+          if (c.accuracyM != null && c.accuracyM <= GOOD_ACCURACY_M) {
+            window.clearTimeout(timer);
+            done();
+          }
+        },
+        () => {
+          /* xato — timer tugaguncha kutamiz */
+        },
+        { enableHighAccuracy: true, maximumAge: 0, timeout: windowMs },
+      );
+    } catch {
+      window.clearTimeout(timer);
+      resolve(null);
+    }
+  });
+}
+
+/**
+ * Yuqori aniqlik: Telegram + brauzer GPS + watch multi-sample.
+ * Eng kichik accuracyM g'olib.
  */
 async function fetchHighAccuracyCoords(): Promise<Coords | null> {
   const attempt = async (): Promise<Coords | null> => {
     const tgP = isTelegramDesktopLike()
       ? Promise.resolve(null as Coords | null)
-      : requestTelegramLocation({ timeoutMs: 12_000, requireFresh: true }).then((r) =>
+      : requestTelegramLocation({ timeoutMs: 14_000, requireFresh: true }).then((r) =>
           r.status === "ok"
             ? {
                 lat: r.lat,
@@ -205,23 +308,26 @@ async function fetchHighAccuracyCoords(): Promise<Coords | null> {
             : null,
         );
 
-    // Silent: ruxsat dialogini qayta ochmaslik (Telegram ruxsati asosiy).
-    // Desktopda silent=false.
     const silentBrowser = !isTelegramDesktopLike();
-    const browserP = browserCoords(12_000, silentBrowser, true);
+    // Parallel: bitta getCurrentPosition + 4s watch (eng aniq)
+    const browserP = Promise.all([
+      browserCoords(12_000, silentBrowser, true),
+      silentBrowser || isTelegramDesktopLike()
+        ? watchBestBrowserCoords(isTelegramDesktopLike() ? 5000 : 4000)
+        : Promise.resolve(null),
+    ]).then(([a, b]) => pickBest(a, b));
 
     const [tg, browser] = await Promise.all([tgP, browserP]);
     return pickBest(tg, browser);
   };
 
   let best = await attempt();
-  // Juda noaniq (tarmoq/wifi) → bir marta yana, uzoqroq GPS.
-  if (best && best.accuracyM != null && best.accuracyM > MAX_ACCEPT_ACCURACY_M) {
+  // Noaniq → ikkinchi urinish (GPS isinishi)
+  if (!best || (best.accuracyM != null && best.accuracyM > MAX_ACCEPT_ACCURACY_M)) {
     const again = await attempt();
     best = pickBest(best, again);
   }
-  // Hali yomon bo'lsa ham eng yaxshisini qaytaramiz (hech narsa yo'qdan yaxshi),
-  // lekin accuracyM saqlanadi — UI ko'rsatishi mumkin.
+  // Hali yomon bo'lsa ham eng yaxshisini qaytaramiz
   return best;
 }
 
@@ -344,14 +450,43 @@ export function peekCoords(): Coords | null {
   return readStoredCoords();
 }
 
-async function req<T>(path: string, opts: RequestInit = {}): Promise<T> {
+async function req<T>(
+  path: string,
+  opts: RequestInit = {},
+  _retried = false,
+): Promise<T> {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     ...(opts.headers as Record<string, string>),
   };
   if (token) headers.Authorization = `Bearer ${token}`;
 
-  const res = await fetch(`${BASE}${path}`, { ...opts, headers });
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  // Caller signal + timeout birlashtirish
+  const external = opts.signal;
+  if (external) {
+    if (external.aborted) controller.abort();
+    else external.addEventListener("abort", () => controller.abort(), { once: true });
+  }
+
+  let res: Response;
+  try {
+    res = await fetch(`${BASE}${path}`, { ...opts, headers, signal: controller.signal });
+  } catch (e) {
+    if (e instanceof DOMException && e.name === "AbortError") {
+      throw new Error("Tarmoq vaqti tugadi. Qayta urinib ko'ring.");
+    }
+    throw new Error("Tarmoq xatosi. Internetni tekshiring.");
+  } finally {
+    window.clearTimeout(timer);
+  }
+
+  if (res.status === 401 && !_retried && !path.startsWith("/auth/")) {
+    const ok = await tryReauth();
+    if (ok) return req<T>(path, opts, true);
+  }
+
   if (!res.ok) {
     const body = await res.text();
     throw new Error(`${res.status}: ${body}`);
@@ -375,8 +510,8 @@ export const api = {
     req<Restaurant[]>(`/restaurants${q ? `?q=${encodeURIComponent(q)}` : ""}`),
   restaurant: (id: number) => req<RestaurantDetail>(`/restaurants/${id}`),
 
-  // faol do'kon — joylashuv bo'lsa eng yaqin; bo'lmasa default.
-  // Joylashuv hech qachon katalogni bloklamaydi.
+  // faol do'kon — joylashuv bo'lsa eng yaqin; OUT_OF_RANGE yutilmaydi.
+  // GPS yo'q — default do'kon (katalog ochiq qoladi).
   store: async (opts?: { forceCoords?: boolean }): Promise<RestaurantDetail | null> => {
     const loadDefault = () => req<RestaurantDetail>("/restaurants/default");
 
@@ -387,18 +522,18 @@ export const api = {
           `/restaurants/nearest?lat=${coords.lat}&lng=${coords.lng}`,
         );
       } catch (e) {
+        if (e instanceof Error && e.message.includes("OUT_OF_RANGE")) {
+          throw new OutOfRangeError();
+        }
+        // Tarmoq/server xatosi — default fallback (hudud emas).
         try {
           return await loadDefault();
         } catch {
-          if (e instanceof Error && e.message.includes("OUT_OF_RANGE")) {
-            throw new OutOfRangeError();
-          }
           throw e;
         }
       }
     }
 
-    // GPS yo'q / o'chiq — baribir default do'konni ochamiz.
     return await loadDefault();
   },
 

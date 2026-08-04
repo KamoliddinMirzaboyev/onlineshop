@@ -92,20 +92,31 @@ async def onboard_lang(cb: CallbackQuery, state: FSMContext) -> None:
 @router.message(StateFilter(Onboarding.phone), F.contact)
 async def onboard_phone(message: Message, state: FSMContext) -> None:
     if not message.from_user or not message.contact: return
-    if not message.contact: return
     contact = message.contact
     if contact.user_id != message.from_user.id:
         user = repo.get_or_create_user(message.from_user.id, None, None)
         await message.answer(t(user.language, "phone_own"))
         return
-    repo.set_phone(message.from_user.id, contact.phone_number)
+    ok = repo.set_phone(message.from_user.id, contact.phone_number)
     user = repo.get_or_create_user(message.from_user.id, None, None)
+    if not ok:
+        await message.answer(t(user.language, "phone_taken"), reply_markup=_phone_kb(user.language))
+        return
     data = await state.get_data()
     await _delete_id(message.bot, message.chat.id, data.get("prompt_id"))  # phone prompt
     await _delete(message)  # user's shared contact
     await state.set_state(Onboarding.name)
     msg = await message.answer(t(user.language, "ask_name"), reply_markup=ReplyKeyboardRemove())
     await state.update_data(prompt_id=msg.message_id)
+
+
+@router.message(StateFilter(Onboarding.phone))
+async def onboard_phone_hint(message: Message, state: FSMContext) -> None:
+    """Matn yoki boshqa xabar — contact tugmasini qayta ko'rsat."""
+    if not message.from_user:
+        return
+    user = repo.get_or_create_user(message.from_user.id, None, None)
+    await message.answer(t(user.language, "phone_ask"), reply_markup=_phone_kb(user.language))
 
 
 @router.message(StateFilter(Onboarding.name), F.text)

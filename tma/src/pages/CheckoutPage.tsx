@@ -91,35 +91,46 @@ export default function CheckoutPage() {
 
   /**
    * Manzil + GPS.
-   * force/highAccuracy: har doim yangi GPS (kesh emas) — buyurtmaga aniq joy yuborish.
-   * keepText: foydalanuvchi tahrirlagan matnni saqlab qolish.
+   * force/highAccuracy: har doim yangi GPS (kesh emas).
+   * overwriteText: true — geocode matnni yozadi; false — dirty matn saqlanadi.
    */
-  const fetchLocation = async (opts?: { force?: boolean; keepText?: boolean }) => {
-    const force = opts?.force !== false; // checkout default: yangi GPS
-    const keepText = !!opts?.keepText;
+  const fetchLocation = async (opts?: { force?: boolean; overwriteText?: boolean }) => {
+    const force = opts?.force !== false;
+    const overwriteText = !!opts?.overwriteText;
     if (useCheckoutDraft.getState().locating) return null;
     setLocating(true);
     try {
       if (!force) {
         const cachedLabel = peekAddressLabel();
-        if (cachedLabel && !useCheckoutDraft.getState().addressLine) {
-          setAddressLine(cachedLabel);
+        const st = useCheckoutDraft.getState();
+        if (cachedLabel && !st.addressLine) {
+          setAddressLine(cachedLabel, false);
         }
       }
 
-      const prevLine = useCheckoutDraft.getState().addressLine.trim();
       const coords = await getCoords({ force, highAccuracy: true });
       if (!coords) return null;
-      setLocation(coords.lat, coords.lng);
+      setLocation(coords.lat, coords.lng, coords.accuracyM);
 
-      // Foydalanuvchi matnni tahrirlagan bo'lsa — geocode bilan yozib yubormaymiz.
-      if (keepText && prevLine.length >= 4) {
+      const st = useCheckoutDraft.getState();
+      // Foydalanuvchi tahrirlagan matnni geocode o'chirmasin.
+      if (!overwriteText && st.addressDirty && st.addressLine.trim().length >= 4) {
         return coords;
       }
 
       const geo = await reverseGeocodeParts(coords.lat, coords.lng);
-      const line = geo?.label || `${coords.lat.toFixed(5)}, ${coords.lng.toFixed(5)}`;
-      setAddressLine(line);
+      // Geocode tugaguncha user yozgan bo'lishi mumkin — qayta tekshir.
+      const after = useCheckoutDraft.getState();
+      if (!overwriteText && after.addressDirty && after.addressLine.trim().length >= 4) {
+        return coords;
+      }
+      const line =
+        geo?.label ||
+        `${coords.lat.toFixed(5)}, ${coords.lng.toFixed(5)}`;
+      useCheckoutDraft.setState({
+        addressLine: line,
+        addressDirty: overwriteText ? false : after.addressDirty,
+      });
       cacheAddressLabel(line);
       return coords;
     } finally {
@@ -130,8 +141,8 @@ export default function CheckoutPage() {
   useEffect(() => {
     // Checkout ochilishi: darhol yangi GPS (kesh emas).
     const cached = peekAddressLabel();
-    if (cached && !addressLine.trim()) setAddressLine(cached);
-    void fetchLocation({ force: true, keepText: false });
+    if (cached && !addressLine.trim()) setAddressLine(cached, false);
+    void fetchLocation({ force: true, overwriteText: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -165,9 +176,9 @@ export default function CheckoutPage() {
       return;
     }
 
-    // Buyurtma: FAQAT hozir olingan yuqori aniqlikdagi GPS (eski kesh mumkin emas).
+    // Buyurtma: FAQAT hozir olingan yuqori aniqlikdagi GPS; matn (dirty) saqlanadi.
     setError(null);
-    const coords = await fetchLocation({ force: true, keepText: true });
+    const coords = await fetchLocation({ force: true, overwriteText: false });
     const line = useCheckoutDraft.getState().addressLine.trim() || addressLine.trim();
 
     if (!coords) {
@@ -238,7 +249,7 @@ export default function CheckoutPage() {
             <button
               type="button"
               disabled={locating}
-              onClick={() => void fetchLocation({ force: true, keepText: false })}
+              onClick={() => void fetchLocation({ force: true, overwriteText: true })}
               className="text-xs font-medium text-brand disabled:opacity-50"
             >
               {locating ? t.address_locating : t.address_refresh}
@@ -259,11 +270,28 @@ export default function CheckoutPage() {
                   </p>
                   <textarea
                     value={addressLine}
-                    onChange={(e) => setAddressLine(e.target.value)}
+                    onChange={(e) => setAddressLine(e.target.value, true)}
                     rows={2}
                     placeholder={t.address_ph}
                     className="w-full resize-none bg-transparent text-base text-slate-900 font-medium leading-snug outline-none placeholder:text-slate-400 placeholder:font-normal"
                   />
+                  {loc?.accuracyM != null && (
+                    <p
+                      className={`text-[11px] mt-1.5 font-medium ${
+                        loc.accuracyM <= 25
+                          ? "text-emerald-600"
+                          : loc.accuracyM <= 50
+                            ? "text-amber-600"
+                            : "text-rose-500"
+                      }`}
+                    >
+                      {loc.accuracyM <= 25
+                        ? `✓ ${t.address_accuracy_good} (±${Math.round(loc.accuracyM)} m)`
+                        : loc.accuracyM <= 50
+                          ? `~ ${t.address_accuracy_ok} (±${Math.round(loc.accuracyM)} m)`
+                          : `! ${t.address_accuracy_weak} (±${Math.round(loc.accuracyM)} m)`}
+                    </p>
+                  )}
                 </div>
               </div>
             )}
