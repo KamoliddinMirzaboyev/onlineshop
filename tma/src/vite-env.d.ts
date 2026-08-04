@@ -66,5 +66,8 @@ interface TelegramLocationManager {
 }
 
 interface Window {
-  Telegram?: { WebApp: TelegramWebApp };
+  Telegram?: {
+    WebApp: TelegramWebApp;
+    WebView?: { initParams?: { tgWebAppData?: string; [key: string]: unknown } };
+  };
 }

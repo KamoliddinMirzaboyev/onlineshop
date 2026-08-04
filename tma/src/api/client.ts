@@ -36,10 +36,9 @@ async function tryReauth(): Promise<boolean> {
     try {
       const { getInitData } = await import("../telegram");
       const initData = getInitData();
-      if (!initData) {
-        clearToken();
-        return false;
-      }
+      // initData yo'q bo'lsa tokenni o'chirmaymiz — boshqa so'rov /me bilan
+      // hali ishlashi mumkin; faqat Telegram qayta-auth imkonsiz.
+      if (!initData) return false;
       const controller = new AbortController();
       const timer = window.setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
       try {
@@ -502,6 +501,8 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ init_data }),
     }),
+  /** Mavjud JWT bilan foydalanuvchi — initData yo'q sessiya restore. */
+  me: () => req<User>("/auth/me"),
   updateMe: (data: Partial<Pick<User, "first_name" | "phone">>) =>
     req<User>("/auth/me", { method: "PATCH", body: JSON.stringify(data) }),
 

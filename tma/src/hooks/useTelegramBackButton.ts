@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { goBack, isNestedPath } from "../lib/navBack";
-import { tg } from "../telegram";
+import { getWebApp } from "../telegram";
 
 /**
  * Telegram native BackButton + Android tizim "orqaga":
@@ -16,7 +16,7 @@ export function useTelegramBackButton(): void {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const btn = tg?.BackButton;
+    const btn = getWebApp()?.BackButton;
     if (!btn) return;
 
     const nested = isNestedPath(pathname);
@@ -39,7 +39,7 @@ export function useTelegramBackButton(): void {
   useEffect(() => {
     return () => {
       try {
-        tg?.BackButton?.hide();
+        getWebApp()?.BackButton?.hide();
       } catch {
         /* ignore */
       }

@@ -61,9 +61,11 @@ def verify_telegram_init_data(init_data: str, max_age_seconds: int = 86400) -> d
     received_hash = parsed.pop("hash", None)
     if not received_hash:
         return None
-    # Bot API 8+: Ed25519 `signature` HMAC data-check-string ga kirmaydi.
-    parsed.pop("signature", None)
 
+    # HMAC data-check-string: barcha maydonlar (signature HAM), faqat hash chiqariladi.
+    # Ed25519 `signature` faqat third-party validate3rd da alohida — bot-token HMAC dan
+    # olib tashlanmaydi (@telegram-apps/init-data-node validateFp).
+    # 19ea485 dagi pop(signature) real Telegram initData ni buzardi → 401.
     data_check_string = "\n".join(
         f"{k}={v}" for k, v in sorted(parsed.items())
     )
@@ -75,7 +77,17 @@ def verify_telegram_init_data(init_data: str, max_age_seconds: int = 86400) -> d
     ).hexdigest()
 
     if not hmac.compare_digest(computed_hash, received_hash):
-        return None
+        # Ba'zi eski klientlar signature ni hash ga kiritmasligi mumkin — fallback.
+        if "signature" in parsed:
+            without_sig = {k: v for k, v in parsed.items() if k != "signature"}
+            alt = "\n".join(f"{k}={v}" for k, v in sorted(without_sig.items()))
+            alt_hash = hmac.new(
+                secret_key, alt.encode(), hashlib.sha256
+            ).hexdigest()
+            if not hmac.compare_digest(alt_hash, received_hash):
+                return None
+        else:
+            return None
 
     # freshness: auth_date majburiy
     auth_date_raw = parsed.get("auth_date")
