@@ -98,12 +98,23 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
     if (order == null) return;
     setState(() => _updating = true);
     try {
-      await api.patch('/courier/orders/${order.id}', {'status': status});
-      toast.success(
-        status == 'accepted'
-            ? 'Buyurtma qabul qilindi ✅'
-            : 'Yetkazish boshlandi 🛵 — mijozga chek + ETA yuborildi',
-      );
+      if (status == 'delivering') {
+        // Barcha accepted lar bir reysda optimal tartibda.
+        final res = await api.post('/courier/route/start', {
+          'order_ids': null,
+        }) as Map<String, dynamic>;
+        final n = (res['orders'] as List?)?.length ?? 1;
+        final km = res['total_distance_km'];
+        final kmLabel = km is num ? ' · ~${km.toStringAsFixed(1)} km' : '';
+        toast.success(
+          n > 1
+              ? 'Marshrut tuzildi 🛵 — $n ta stop$kmLabel'
+              : 'Yetkazish boshlandi 🛵 — mijozga chek + ETA$kmLabel',
+        );
+      } else {
+        await api.patch('/courier/orders/${order.id}', {'status': status});
+        toast.success('Buyurtma qabul qilindi ✅');
+      }
       _res.refresh();
     } catch (_) {
       toast.error("Holatni o'zgartirib bo'lmadi. Qayta urinib ko'ring.");
@@ -450,9 +461,33 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
           ),
         if (order.status == 'accepted')
           _BigButton(
-            label: _updating ? '…' : '🛵  Yetkazishni boshlash',
+            label: _updating
+                ? '…'
+                : '🛵  Yetkazishni boshlash (optimal marshrut)',
             color: AppColors.blue600,
             onPressed: _updating ? null : () => _setStatus('delivering'),
+          ),
+        if (order.status == 'delivering' && order.routeSequence != null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEFF6FF),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFBFDBFE)),
+              ),
+              child: Text(
+                'Marshrutdagi tartib: #${order.routeSequence}'
+                '${order.routeLegKm != null ? ' · oldingi stopdan ~${order.routeLegKm!.toStringAsFixed(1)} km' : ''}',
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF1E40AF),
+                ),
+              ),
+            ),
           ),
         if (order.status == 'delivering')
           _BigButton(

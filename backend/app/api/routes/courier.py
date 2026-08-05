@@ -13,7 +13,15 @@ from app.api.deps import get_current_admin
 from app.core.security import create_access_token, decode_token
 from app.core.config import settings
 from app.core.db import get_db
-from app.models import AdminUser, Order, OrderItem, PushSubscription, User
+from app.models import (
+    AdminUser,
+    DeliveryZone,
+    Order,
+    OrderItem,
+    PushSubscription,
+    Restaurant,
+    User,
+)
 from app.models.enums import AdminRole, OrderStatus
 from app.schemas.admin import PushSubscriptionIn
 from app.schemas.courier import (
@@ -22,11 +30,13 @@ from app.schemas.courier import (
     EarningsDay,
     EarningsOut,
     OrderAdjustIn,
+    RouteStartIn,
     StatBucket,
     LocationUpdateIn,
 )
 from app.schemas.order import OrderOut, OrderStatusUpdate
 from app.services.eta import estimate_minutes
+from app.services.geo import shop_origin
 from app.services.notify import (
     notify_delivering_eta,
     notify_order_adjusted,
@@ -39,6 +49,7 @@ from app.services.orders import (
     restore_stock_atomic,
 )
 from app.services.receipt import render_receipt
+from app.services.route_optimize import RouteStop, optimize_route
 from app.services import webpush
 from app.services.events import courier_events
 
@@ -181,7 +192,11 @@ def courier_orders(
                 Order.assigned_courier_id.is_(None),
             ),
         )
-        .order_by(Order.created_at.asc())
+        # Marshrut tartibi (delivering) birinchi, keyin qabul/yangi.
+        .order_by(
+            Order.route_sequence.asc().nulls_last(),
+            Order.created_at.asc(),
+        )
         .options(selectinload(Order.items), selectinload(Order.assigned_courier))
     )
     return db.scalars(stmt).all()
@@ -300,6 +315,168 @@ def courier_adjust_order(
     return order
 
 
+def _depot_for_courier(db: Session, courier: AdminUser) -> tuple[float, float] | None:
+    """Do'kon origin: restaurant.lat/lng yoki zona markazi."""
+    restaurant = db.get(Restaurant, courier.restaurant_id) if courier.restaurant_id else None
+    zone = None
+    if courier.restaurant_id:
+        zone = db.scalar(
+            select(DeliveryZone).where(
+                DeliveryZone.restaurant_id == courier.restaurant_id,
+                DeliveryZone.is_active.is_(True),
+            )
+        )
+    return shop_origin(restaurant, zone)
+
+
+def _load_accepted_orders(
+    db: Session,
+    courier: AdminUser,
+    order_ids: list[int] | None,
+) -> list[Order]:
+    stmt = (
+        select(Order)
+        .where(
+            Order.assigned_courier_id == courier.id,
+            Order.restaurant_id == courier.restaurant_id,
+            Order.status == OrderStatus.accepted,
+        )
+        .options(selectinload(Order.items), selectinload(Order.assigned_courier))
+        .order_by(Order.created_at.asc())
+    )
+    orders = list(db.scalars(stmt).all())
+    if order_ids:
+        want = set(order_ids)
+        orders = [o for o in orders if o.id in want]
+        missing = want - {o.id for o in orders}
+        if missing:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                "Ba'zi buyurtmalar accepted emas yoki sizga biriktirilmagan",
+            )
+    if not orders:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "Yo'lga chiqish uchun accepted buyurtma yo'q",
+        )
+    if len(orders) > 8:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "Bir reysda max 8 ta buyurtma — avval ba'zilarini yetkazing",
+        )
+    return orders
+
+
+def _start_route_for_orders(
+    db: Session,
+    courier: AdminUser,
+    orders: list[Order],
+    background: BackgroundTasks,
+) -> tuple[str, float, list[Order]]:
+    """Accepted → delivering + optimal route_sequence. Notify har bir mijozga."""
+    depot = _depot_for_courier(db, courier)
+    stops = [RouteStop(order_id=o.id, lat=o.lat, lng=o.lng) for o in orders]
+    optimized = optimize_route(depot, stops)
+
+    by_id = {o.id: o for o in orders}
+    now = datetime.now(timezone.utc)
+    cumulative_km = 0.0
+    started: list[Order] = []
+
+    for seq, (oid, leg) in enumerate(
+        zip(optimized.order_ids, optimized.leg_km), start=1
+    ):
+        order = by_id[oid]
+        ensure_transition(order.status, OrderStatus.delivering)
+        cumulative_km += leg
+        eta = estimate_minutes(db, cumulative_km if cumulative_km > 0 else order.distance_km)
+
+        transitioned = db.execute(
+            update(Order)
+            .where(Order.id == order.id, Order.status == OrderStatus.accepted)
+            .values(
+                status=OrderStatus.delivering,
+                delivering_started_at=now,
+                eta_minutes=eta,
+                route_group_id=optimized.route_group_id,
+                route_sequence=seq,
+                route_leg_km=leg,
+            )
+        )
+        if transitioned.rowcount == 0:
+            db.rollback()
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                f"Buyurtma №{order.number} holati o'zgargan — qayta urinib ko'ring",
+            )
+        order.status = OrderStatus.delivering
+        order.delivering_started_at = now
+        order.eta_minutes = eta
+        order.route_group_id = optimized.route_group_id
+        order.route_sequence = seq
+        order.route_leg_km = leg
+        started.append(order)
+
+    db.commit()
+
+    # Refresh + notifications
+    result: list[Order] = []
+    for order in started:
+        full = db.scalar(
+            select(Order)
+            .where(Order.id == order.id)
+            .options(selectinload(Order.items), selectinload(Order.assigned_courier))
+        ) or order
+        result.append(full)
+        customer = db.get(User, full.user_id)
+        user_tg = customer.telegram_id if customer else None
+        user_lang = (customer.language if customer else None) or "uz"
+        if user_tg:
+            receipt_png = None
+            try:
+                receipt_png = render_receipt(full)
+            except Exception:
+                receipt_png = None
+            background.add_task(
+                notify_delivering_eta,
+                full,
+                user_tg,
+                full.eta_minutes,
+                full.distance_km,
+                courier.name,
+                courier.phone,
+                user_lang,
+                receipt_png,
+            )
+
+    if result:
+        courier_events.publish(
+            {"type": "orders_updated", "restaurant_id": result[0].restaurant_id}
+        )
+    return optimized.route_group_id, optimized.total_km, result
+
+
+@router.post("/route/start")
+def courier_start_route(
+    data: RouteStartIn,
+    background: BackgroundTasks,
+    courier: AdminUser = Depends(get_current_courier),
+    db: Session = Depends(get_db),
+):
+    """Yig'ilgan (accepted) buyurtmalarni optimal marshrut tartibida yo'lga chiqaradi.
+
+    Ombor → eng qisqa stop ketma-ketligi (TSP). Har bir buyurtmaga
+    route_sequence, route_group_id, ETA beriladi.
+    """
+    orders = _load_accepted_orders(db, courier, data.order_ids)
+    group_id, total_km, started = _start_route_for_orders(db, courier, orders, background)
+    return {
+        "route_group_id": group_id,
+        "total_distance_km": total_km,
+        "orders": [OrderOut.model_validate(o) for o in started],
+    }
+
+
 @router.patch("/orders/{order_id}", response_model=OrderOut)
 def courier_update_order(
     order_id: int,
@@ -349,6 +526,27 @@ def courier_update_order(
     elif order.assigned_courier_id != courier.id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Order not found")
 
+    # Yetkazish: shu kuryerning BARCHA accepted buyurtmalarini optimal marshrut bilan
+    # birga yo'lga chiqaradi (bitta-bitta emas — yoqilg'i tejam).
+    if data.status == OrderStatus.delivering:
+        if order.assigned_courier_id != courier.id:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Order not found")
+        # Faqat accepted → delivering; barcha accepted lar bir reysda optimal tartibda.
+        ensure_transition(order.status, OrderStatus.delivering)
+        if order.status != OrderStatus.accepted:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                "Faqat 'qabul qilingan' buyurtmani yo'lga chiqarish mumkin",
+            )
+        accepted = _load_accepted_orders(db, courier, None)
+        if order.id not in {o.id for o in accepted}:
+            raise HTTPException(status.HTTP_409_CONFLICT, "Buyurtma holati o'zgargan")
+        _group, _km, started = _start_route_for_orders(db, courier, accepted, background)
+        for o in started:
+            if o.id == order_id:
+                return o
+        return started[0]
+
     ensure_transition(order.status, data.status)
     prev_status = order.status
 
@@ -356,13 +554,6 @@ def courier_update_order(
     if is_accept and order.courier_accepted_at is None:
         order.courier_accepted_at = now
         notify_accept = True
-
-    notify_eta = False
-    if data.status == OrderStatus.delivering and order.delivering_started_at is None:
-        order.delivering_started_at = now
-        # Taxminiy yetkazib berish vaqti — masofa + o'rganilgan min/km asosida.
-        order.eta_minutes = estimate_minutes(db, order.distance_km)
-        notify_eta = True
 
     # Atomik holat o'tishi — concurrent update yo'qotilmasin.
     transitioned = db.execute(
@@ -372,8 +563,6 @@ def courier_update_order(
             status=data.status,
             assigned_courier_id=order.assigned_courier_id,
             courier_accepted_at=order.courier_accepted_at,
-            delivering_started_at=order.delivering_started_at,
-            eta_minutes=order.eta_minutes,
         )
     )
     if transitioned.rowcount == 0 and prev_status != data.status:
@@ -399,29 +588,6 @@ def courier_update_order(
             f"{order.total:,} so'm · {order.address_line}",
             url="/orders",
             tag=f"accepted-{order.id}",
-        )
-    # "Yetkazilmoqda" — yangilangan chek (tahrirdan keyin summa) + ETA + kuryer.
-    if notify_eta and user_tg:
-        order_full = db.scalar(
-            select(Order)
-            .where(Order.id == order.id)
-            .options(selectinload(Order.items))
-        ) or order
-        receipt_png = None
-        try:
-            receipt_png = render_receipt(order_full)
-        except Exception:
-            receipt_png = None
-        background.add_task(
-            notify_delivering_eta,
-            order_full,
-            user_tg,
-            order.eta_minutes,
-            order.distance_km,
-            courier.name,
-            courier.phone,
-            user_lang,
-            receipt_png,
         )
     courier_events.publish({"type": "orders_updated", "restaurant_id": order.restaurant_id})
     return order

@@ -30,20 +30,35 @@ Future<bool> launchExternal(String url) async {
 }
 
 /// Marshrut tanlash: Google Maps yoki Yandex Navigator.
+/// [waypoints] berilsa multi-stop marshrut ochiladi.
 Future<void> showNavigationChooser(
   BuildContext context, {
   double? lat,
   double? lng,
   String? address,
+  List<({double lat, double lng})>? waypoints,
 }) async {
-  if (!canNavigate(lat: lat, lng: lng, address: address)) {
+  final multi = waypoints != null && waypoints.isNotEmpty;
+  if (!multi && !canNavigate(lat: lat, lng: lng, address: address)) {
     toast.error("Manzil yoki koordinata yo'q");
     return;
   }
 
-  final google = googleMapsNavUrl(lat: lat, lng: lng, address: address);
-  final yandexApp = yandexNaviUrl(lat: lat, lng: lng);
-  final yandexWeb = yandexMapsUrl(lat, lng, address: address);
+  final google = googleMapsNavUrl(
+    lat: lat,
+    lng: lng,
+    address: address,
+    waypoints: multi ? waypoints : null,
+  );
+  final yandexApp = multi
+      ? null
+      : yandexNaviUrl(lat: lat, lng: lng);
+  final yandexWeb = yandexMapsUrl(
+    lat,
+    lng,
+    address: address,
+    waypoints: multi ? waypoints : null,
+  );
 
   await showModalBottomSheet<void>(
     context: context,
@@ -77,11 +92,13 @@ Future<void> showNavigationChooser(
               ),
               const SizedBox(height: 4),
               Text(
-                address?.trim().isNotEmpty == true
-                    ? address!.trim()
-                    : (lat != null && lng != null
-                        ? '${lat.toStringAsFixed(5)}, ${lng.toStringAsFixed(5)}'
-                        : 'Manzil'),
+                multi
+                    ? '${waypoints.length} ta stop — optimal marshrut'
+                    : address?.trim().isNotEmpty == true
+                        ? address!.trim()
+                        : (lat != null && lng != null
+                            ? '${lat.toStringAsFixed(5)}, ${lng.toStringAsFixed(5)}'
+                            : 'Manzil'),
                 textAlign: TextAlign.center,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,

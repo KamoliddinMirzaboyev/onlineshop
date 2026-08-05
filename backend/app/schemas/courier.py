@@ -57,3 +57,11 @@ class OrderAdjustIn(BaseModel):
 class LocationUpdateIn(BaseModel):
     lat: float
     lng: float
+
+
+class RouteStartIn(BaseModel):
+    """Yo'lga chiqish: accepted buyurtmalarni optimal tartibda delivering qiladi.
+
+    order_ids bo'sh/None → shu kuryerning barcha accepted buyurtmalari.
+    """
+    order_ids: list[int] | None = None

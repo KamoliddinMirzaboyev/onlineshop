@@ -79,8 +79,9 @@ export default function DashboardPage() {
   const startDeliver = async (order: Order) => {
     setBusyId(order.id);
     try {
+      // Backend: barcha accepted larni optimal marshrut tartibida yo'lga chiqaradi.
       await patch(`/courier/orders/${order.id}`, { status: "delivering" });
-      toast.success("Yetkazish boshlandi 🛵");
+      toast.success("Marshrut tuzildi 🛵 — optimal tartibda yetkazing");
       refreshOrders();
     } catch {
       toast.error("Holatni o'zgartirib bo'lmadi");

@@ -36,6 +36,9 @@ export interface Order {
   courier_accepted_at?: string | null;
   delivering_started_at?: string | null;
   courier_delivered_at?: string | null;
+  route_group_id?: string | null;
+  route_sequence?: number | null;
+  route_leg_km?: number | null;
   created_at: string;
   items: OrderItem[];
 }

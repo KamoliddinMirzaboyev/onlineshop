@@ -56,16 +56,46 @@ class _OrdersPageState extends State<OrdersPage> {
     setState(() => _updating = id);
     try {
       await api.patch('/courier/orders/$id', {'status': status});
+      final acceptedN =
+          (_res.data ?? []).where((o) => o.status == 'accepted').length;
       toast.success(
         status == 'accepted'
             ? 'Buyurtma qabul qilindi ✅'
             : status == 'delivering'
-                ? 'Yetkazish boshlandi 🛵 — mijozga ETA yuborildi'
+                ? (acceptedN > 1
+                    ? 'Marshrut tuzildi 🛵 — $acceptedN ta stop optimal tartibda'
+                    : 'Yetkazish boshlandi 🛵 — mijozga ETA yuborildi')
                 : 'Holat yangilandi',
       );
       _res.refresh();
     } catch (_) {
       toast.error("Holatni o'zgartirib bo'lmadi. Qayta urinib ko'ring.");
+    } finally {
+      if (mounted) setState(() => _updating = null);
+    }
+  }
+
+  /// Barcha accepted buyurtmalarni optimal marshrut bilan yo'lga chiqaradi.
+  Future<void> _startRoute() async {
+    final accepted =
+        (_res.data ?? []).where((o) => o.status == 'accepted').toList();
+    if (accepted.isEmpty) return;
+    setState(() => _updating = -1);
+    try {
+      final res = await api.post('/courier/route/start', {
+        'order_ids': accepted.map((o) => o.id).toList(),
+      }) as Map<String, dynamic>;
+      final n = (res['orders'] as List?)?.length ?? accepted.length;
+      final km = res['total_distance_km'];
+      final kmLabel = km is num ? ' · ~${km.toStringAsFixed(1)} km' : '';
+      toast.success(
+        n > 1
+            ? 'Marshrut tuzildi 🛵 — $n ta stop$kmLabel'
+            : 'Yetkazish boshlandi 🛵$kmLabel',
+      );
+      _res.refresh();
+    } catch (_) {
+      toast.error("Marshrutni boshlab bo'lmadi. Qayta urinib ko'ring.");
     } finally {
       if (mounted) setState(() => _updating = null);
     }
@@ -88,12 +118,66 @@ class _OrdersPageState extends State<OrdersPage> {
   void _open(int id) => Navigator.of(context)
       .push(MaterialPageRoute(builder: (_) => OrderDetailPage(orderId: id)));
 
+  void _openFullRoute(List<Order> delivering) {
+    final pts = delivering
+        .where((o) => o.lat != null && o.lng != null)
+        .toList()
+      ..sort((a, b) =>
+          (a.routeSequence ?? 999).compareTo(b.routeSequence ?? 999));
+    if (pts.isEmpty) {
+      toast.error("Koordinatali manzil yo'q");
+      return;
+    }
+    final waypoints = [
+      for (final o in pts) (lat: o.lat!, lng: o.lng!),
+    ];
+    showNavigationChooser(
+      context,
+      lat: pts.first.lat,
+      lng: pts.first.lng,
+      address: '${pts.length} ta stop',
+      waypoints: waypoints,
+    );
+  }
+
+  List<Order> _sorted(List<Order> orders) {
+    int rank(Order o) {
+      switch (o.status) {
+        case 'delivering':
+          return 0;
+        case 'accepted':
+          return 1;
+        case 'ready':
+        case 'preparing':
+        case 'confirmed':
+          return 2;
+        default:
+          return 3;
+      }
+    }
+
+    final copy = [...orders];
+    copy.sort((a, b) {
+      final r = rank(a).compareTo(rank(b));
+      if (r != 0) return r;
+      if (a.status == 'delivering' && b.status == 'delivering') {
+        return (a.routeSequence ?? 999).compareTo(b.routeSequence ?? 999);
+      }
+      return a.createdAt.compareTo(b.createdAt);
+    });
+    return copy;
+  }
+
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: _res,
       builder: (context, _) {
-        final orders = _res.data ?? [];
+        final orders = _sorted(_res.data ?? []);
+        final accepted =
+            orders.where((o) => o.status == 'accepted').toList();
+        final delivering =
+            orders.where((o) => o.status == 'delivering').toList();
         return Column(
           children: [
             PageHeader(
@@ -113,6 +197,21 @@ class _OrdersPageState extends State<OrdersPage> {
                         children: [
                           if (_res.error != null) ...[
                             ErrorBanner(_res.error!),
+                            const SizedBox(height: 12),
+                          ],
+                          if (accepted.length >= 2) ...[
+                            _RouteBanner(
+                              count: accepted.length,
+                              loading: _updating == -1,
+                              onStart: _startRoute,
+                            ),
+                            const SizedBox(height: 12),
+                          ],
+                          if (delivering.length >= 2) ...[
+                            _ActiveRouteBanner(
+                              count: delivering.length,
+                              onNav: () => _openFullRoute(delivering),
+                            ),
                             const SizedBox(height: 12),
                           ],
                           if (orders.isEmpty)
@@ -141,6 +240,115 @@ class _OrdersPageState extends State<OrdersPage> {
           ],
         );
       },
+    );
+  }
+}
+
+class _RouteBanner extends StatelessWidget {
+  const _RouteBanner({
+    required this.count,
+    required this.loading,
+    required this.onStart,
+  });
+  final int count;
+  final bool loading;
+  final VoidCallback onStart;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF1D4ED8), Color(0xFF2563EB)],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF2563EB).withValues(alpha: 0.25),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            '$count ta buyurtma yig\'ilgan',
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w800,
+              fontSize: 15,
+            ),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Bir reysda eng qisqa yo\'l bilan yetkazish',
+            style: TextStyle(color: Color(0xFFBFDBFE), fontSize: 12),
+          ),
+          const SizedBox(height: 12),
+          Material(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            child: InkWell(
+              onTap: loading ? null : onStart,
+              borderRadius: BorderRadius.circular(12),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Center(
+                  child: Text(
+                    loading ? '…' : '🛵  Yo\'lga chiqish ($count ta)',
+                    style: const TextStyle(
+                      color: Color(0xFF1D4ED8),
+                      fontWeight: FontWeight.w800,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ActiveRouteBanner extends StatelessWidget {
+  const _ActiveRouteBanner({required this.count, required this.onNav});
+  final int count;
+  final VoidCallback onNav;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: const Color(0xFFEFF6FF),
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: onNav,
+        borderRadius: BorderRadius.circular(14),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Row(
+            children: [
+              const Icon(Icons.route, color: Color(0xFF2563EB), size: 22),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Faol marshrut: $count ta stop · Xaritada ochish',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF1E40AF),
+                  ),
+                ),
+              ),
+              const Icon(Icons.chevron_right, color: Color(0xFF2563EB)),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -182,6 +390,24 @@ class _OrderCard extends StatelessWidget {
                   spacing: 8,
                   runSpacing: 4,
                   children: [
+                    if (order.routeSequence != null &&
+                        order.status == 'delivering')
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF2563EB),
+                          borderRadius: BorderRadius.circular(99),
+                        ),
+                        child: Text(
+                          '#${order.routeSequence}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
                     Text('№ ${order.number}',
                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
                     StatusPill(order.status),

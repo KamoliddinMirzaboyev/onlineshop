@@ -113,6 +113,9 @@ class OrderOut(BaseModel):
     courier_accepted_at: datetime | None = None
     delivering_started_at: datetime | None = None
     courier_delivered_at: datetime | None = None
+    route_group_id: str | None = None
+    route_sequence: int | None = None
+    route_leg_km: float | None = None
     created_at: datetime
     items: list[OrderItemOut] = []
 

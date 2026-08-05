@@ -246,6 +246,11 @@ export default function OrdersPage() {
             <div className="flex flex-col md:flex-row justify-between items-start gap-4 md:gap-6">
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-3 flex-wrap mb-2">
+                  {o.route_sequence != null && o.status === "delivering" && (
+                    <span className="px-2.5 py-1 rounded-lg text-sm font-extrabold bg-blue-600 text-white">
+                      Marshrut #{o.route_sequence}
+                    </span>
+                  )}
                   <span className="text-xl md:text-2xl font-extrabold text-slate-900 tracking-tight">№ {o.number}</span>
                   <span className={`px-3 py-1 rounded-lg text-sm font-bold tracking-wide ${PILL[o.status]}`}>{LABEL[o.status]}</span>
                 </div>
@@ -332,12 +337,14 @@ export default function OrdersPage() {
               </div>
 
               <div className="flex flex-col sm:flex-row shrink-0 gap-3 w-full md:w-auto">
-                <button
-                  onClick={() => printReceipt(o)}
-                  className="w-full md:w-auto px-5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-700 text-sm font-bold hover:bg-slate-100 hover:text-slate-900 hover:border-slate-300 transition inline-flex items-center justify-center gap-2 shadow-sm"
-                >
-                  <Printer size={18} /> Chop etish
-                </button>
+                {(o.status === "delivering" || o.status === "delivered") && (
+                  <button
+                    onClick={() => printReceipt(o)}
+                    className="w-full md:w-auto px-5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-700 text-sm font-bold hover:bg-slate-100 hover:text-slate-900 hover:border-slate-300 transition inline-flex items-center justify-center gap-2 shadow-sm"
+                  >
+                    <Printer size={18} /> Chop etish
+                  </button>
+                )}
                 {o.status !== "delivered" && o.status !== "cancelled" && (
                   <button
                     disabled={busy === o.id}

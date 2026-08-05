@@ -36,16 +36,49 @@ export default function OrdersPage() {
     setUpdating(id);
     try {
       await patch(`/courier/orders/${id}`, { status });
+      const acceptedN = orders.filter((o) => o.status === "accepted").length;
       toast.success(
         status === "accepted"
           ? "Buyurtma qabul qilindi ✅"
           : status === "delivering"
-            ? "Yetkazish boshlandi 🛵 — mijozga ETA yuborildi"
+            ? acceptedN > 1
+              ? `Marshrut tuzildi 🛵 — ${acceptedN} ta stop optimal tartibda`
+              : "Yetkazish boshlandi 🛵 — mijozga ETA yuborildi"
             : "Holat yangilandi"
       );
       refresh();
     } catch {
       toast.error("Holatni o'zgartirib bo'lmadi. Qayta urinib ko'ring.");
+    } finally {
+      setUpdating(null);
+    }
+  };
+
+  const startRoute = async () => {
+    const accepted = orders.filter((o) => o.status === "accepted");
+    if (!accepted.length) return;
+    setUpdating(-1);
+    try {
+      const res = await post<{
+        route_group_id: string;
+        total_distance_km: number;
+        orders: Order[];
+      }>("/courier/route/start", {
+        order_ids: accepted.map((o) => o.id),
+      });
+      const n = res.orders?.length ?? accepted.length;
+      const km =
+        typeof res.total_distance_km === "number"
+          ? ` · ~${res.total_distance_km.toFixed(1)} km`
+          : "";
+      toast.success(
+        n > 1
+          ? `Marshrut tuzildi 🛵 — ${n} ta stop${km}`
+          : `Yetkazish boshlandi 🛵${km}`
+      );
+      refresh();
+    } catch {
+      toast.error("Marshrutni boshlab bo'lmadi. Qayta urinib ko'ring.");
     } finally {
       setUpdating(null);
     }
@@ -64,6 +97,35 @@ export default function OrdersPage() {
     }
   };
 
+  const accepted = orders.filter((o) => o.status === "accepted");
+  const delivering = orders
+    .filter((o) => o.status === "delivering")
+    .slice()
+    .sort(
+      (a, b) => (a.route_sequence ?? 999) - (b.route_sequence ?? 999)
+    );
+
+  const openFullRoute = () => {
+    const pts = delivering.filter((o) => o.lat != null && o.lng != null);
+    if (!pts.length) {
+      toast.error("Koordinatali manzil yo'q");
+      return;
+    }
+    const parts = pts.map((o) => `${o.lat},${o.lng}`).join("~");
+    window.open(`https://yandex.com/maps/?rtext=~${parts}&rtt=auto`, "_blank");
+  };
+
+  const sorted = [...orders].sort((a, b) => {
+    const rank = (s: OrderStatus) =>
+      s === "delivering" ? 0 : s === "accepted" ? 1 : 2;
+    const r = rank(a.status) - rank(b.status);
+    if (r !== 0) return r;
+    if (a.status === "delivering" && b.status === "delivering") {
+      return (a.route_sequence ?? 999) - (b.route_sequence ?? 999);
+    }
+    return a.created_at.localeCompare(b.created_at);
+  });
+
   return (
     <>
       <PageHeader
@@ -79,6 +141,41 @@ export default function OrdersPage() {
         <div className="p-4 space-y-3">
           {error && (
             <div className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</div>
+          )}
+
+          {accepted.length >= 2 && (
+            <div className="rounded-2xl bg-gradient-to-r from-blue-700 to-blue-600 p-4 text-white shadow-md">
+              <div className="font-extrabold text-sm">
+                {accepted.length} ta buyurtma yig'ilgan
+              </div>
+              <div className="text-xs text-blue-100 mt-0.5">
+                Bir reysda eng qisqa yo'l bilan yetkazish
+              </div>
+              <button
+                type="button"
+                disabled={updating === -1}
+                onClick={startRoute}
+                className="mt-3 w-full rounded-xl bg-white text-blue-700 font-extrabold text-sm py-2.5 disabled:opacity-60"
+              >
+                {updating === -1
+                  ? "…"
+                  : `🛵  Yo'lga chiqish (${accepted.length} ta)`}
+              </button>
+            </div>
+          )}
+
+          {delivering.length >= 2 && (
+            <button
+              type="button"
+              onClick={openFullRoute}
+              className="w-full rounded-xl bg-blue-50 border border-blue-100 text-blue-800 text-sm font-bold py-3 px-4 flex items-center justify-between"
+            >
+              <span className="inline-flex items-center gap-2">
+                <Navigation size={16} />
+                Faol marshrut: {delivering.length} ta stop · Xaritada ochish
+              </span>
+              <span>→</span>
+            </button>
           )}
 
           {orders.length === 0 && (
@@ -99,7 +196,7 @@ export default function OrdersPage() {
             animate="animate"
           >
             <AnimatePresence initial={false}>
-              {orders.map((o) => (
+              {sorted.map((o) => (
                 <motion.div
                   key={o.id}
                   layout
@@ -108,9 +205,14 @@ export default function OrdersPage() {
                   className="card p-4"
                 >
                   <div className="flex justify-between items-start mb-2">
-                    <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {o.status === "delivering" && o.route_sequence != null && (
+                        <span className="inline-flex h-6 min-w-6 px-1.5 items-center justify-center rounded-full bg-blue-600 text-white text-xs font-extrabold">
+                          #{o.route_sequence}
+                        </span>
+                      )}
                       <span className="font-bold text-lg">№ {o.number}</span>
-                      <span className={`ml-2 pill ${statusPill(o.status)}`}>{statusLabel(o.status)}</span>
+                      <span className={`pill ${statusPill(o.status)}`}>{statusLabel(o.status)}</span>
                     </div>
                     <span className="font-bold text-brand">{money(o.total)} so'm</span>
                   </div>
