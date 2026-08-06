@@ -289,6 +289,27 @@ def notify_delivering_eta(
         _send(user_telegram_id, text)
 
 
+def notify_eta_update(
+    order: Order,
+    user_telegram_id: int,
+    eta_minutes: int,
+    lang: str | None = "uz",
+) -> None:
+    """Marshrut qayta hisoblanganda qisqa ETA yangilanishi (spam'siz)."""
+    l = _lang(lang)
+    if l == "ru":
+        text = (
+            f"⏱ <b>Обновление ETA · № {order.number}</b>\n"
+            f"Курьер перестроил маршрут — ориентировочно через <b>{eta_minutes} мин</b>"
+        )
+    else:
+        text = (
+            f"⏱ <b>ETA yangilandi · № {order.number}</b>\n"
+            f"Kuryer marshrutni yangiladi — taxminan <b>{eta_minutes} daqiqa</b>"
+        )
+    _send(user_telegram_id, text)
+
+
 def notify_order_adjusted(
     order: Order,
     user_telegram_id: int,

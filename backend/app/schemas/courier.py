@@ -47,21 +47,43 @@ class ProfileUpdateIn(BaseModel):
     name: str | None = Field(default=None, max_length=128)
     phone: str | None = Field(default=None, max_length=32)
 
+
 class OrderAdjustItemIn(BaseModel):
     order_item_id: int
     quantity: float = Field(ge=0)  # 0 means item is removed or out of stock
 
+
 class OrderAdjustIn(BaseModel):
     items: list[OrderAdjustItemIn]
+
 
 class LocationUpdateIn(BaseModel):
     lat: float
     lng: float
 
 
+class OptionalLocationIn(BaseModel):
+    """GPS ixtiyoriy — berilsa depot sifatida ishlatiladi."""
+    lat: float | None = None
+    lng: float | None = None
+
+
 class RouteStartIn(BaseModel):
     """Yo'lga chiqish: accepted buyurtmalarni optimal tartibda delivering qiladi.
 
     order_ids bo'sh/None → shu kuryerning barcha accepted buyurtmalari.
+    lat/lng → kuryer joriy joyi (depot); bo'lmasa saqlangan GPS yoki ombor.
     """
     order_ids: list[int] | None = None
+    lat: float | None = None
+    lng: float | None = None
+
+
+class RouteReoptimizeIn(BaseModel):
+    """Faol marshrutni qayta tartiblash (joriy joydan).
+
+    include_accepted=True → yangi accepted larni shu reysga qo'shib qayta TSP.
+    """
+    lat: float | None = None
+    lng: float | None = None
+    include_accepted: bool = False

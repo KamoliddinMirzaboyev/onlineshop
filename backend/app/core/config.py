@@ -44,6 +44,10 @@ class Settings(BaseSettings):
 
     redis_url: str = "redis://redis:6379/0"
 
+    # OSRM (real yo'l km). Bo'sh = faqat haversine.
+    # Masalan: https://router.project-osrm.org yoki self-hosted.
+    osrm_base_url: str = ""
+
     # Web Push (VAPID) — admin PWA notifications
     vapid_public_key: str = ""
     vapid_private_key: str = ""

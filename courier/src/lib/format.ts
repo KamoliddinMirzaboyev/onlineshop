@@ -98,6 +98,19 @@ export const distanceLabel = (km?: number | null) => {
   return km < 1 ? `${Math.round(km * 1000)} m` : `${km.toFixed(1)} km`;
 };
 
+/** Delivering da leg (oldingi stopdan), aks holda ombor masofasi. */
+export const orderDistanceLabel = (o: {
+  status: string;
+  route_leg_km?: number | null;
+  distance_km?: number | null;
+}) => {
+  if (o.status === "delivering" && o.route_leg_km != null) {
+    const d = distanceLabel(o.route_leg_km);
+    return d ? `oldingidan ${d}` : null;
+  }
+  return distanceLabel(o.distance_km);
+};
+
 /** ETA: "~25 daqiqa". */
 export const etaLabel = (minutes?: number | null) =>
   minutes ? `~${minutes} daqiqa` : null;

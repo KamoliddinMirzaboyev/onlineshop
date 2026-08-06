@@ -10,6 +10,8 @@ import { useResource } from "../lib/cache";
 import { listContainer, listItem, tap } from "../lib/motion";
 import { isAcceptableOrderStatus } from "../lib/orderActions";
 import { money, statusLabel, statusPill } from "../lib/format";
+import { confirmOutOfOrder, offerNextStop } from "../lib/routeFlow";
+import { getCurrentCoords } from "../location";
 import { useAuth, useOrderAlerts } from "../store";
 import type { CourierStats, Order } from "../types";
 
@@ -76,12 +78,25 @@ export default function DashboardPage() {
     }
   };
 
+  const withGps = async (extra: Record<string, unknown> = {}) => {
+    const pos = await getCurrentCoords();
+    if (pos) return { ...extra, lat: pos.lat, lng: pos.lng };
+    return extra;
+  };
+
   const startDeliver = async (order: Order) => {
     setBusyId(order.id);
     try {
-      // Backend: barcha accepted larni optimal marshrut tartibida yo'lga chiqaradi.
-      await patch(`/courier/orders/${order.id}`, { status: "delivering" });
-      toast.success("Marshrut tuzildi 🛵 — optimal tartibda yetkazing");
+      const res = await post<{ orders?: Order[] }>(
+        "/courier/route/start",
+        await withGps({ order_ids: null })
+      );
+      const n = res.orders?.length ?? 1;
+      toast.success(
+        n > 1
+          ? `Marshrut tuzildi 🛵 — ${n} ta stop`
+          : "Yetkazish boshlandi 🛵"
+      );
       refreshOrders();
     } catch {
       toast.error("Holatni o'zgartirib bo'lmadi");
@@ -91,10 +106,20 @@ export default function DashboardPage() {
   };
 
   const markDone = async (order: Order) => {
+    const pool = activeOrders ?? [];
+    if (!confirmOutOfOrder(order, pool)) return;
+    const remainingBefore = pool.filter(
+      (o: Order) => o.status === "delivering" && o.id !== order.id
+    ).length;
     setBusyId(order.id);
     try {
-      await post(`/courier/orders/${order.id}/delivered`, {});
-      toast.success("Yetkazildi ✅");
+      await post(`/courier/orders/${order.id}/delivered`, await withGps());
+      toast.success(
+        remainingBefore > 0
+          ? `Yetkazildi ✅ · qolgan ${remainingBefore} ta qayta tartiblandi`
+          : "Yetkazildi ✅"
+      );
+      if (remainingBefore > 0) await offerNextStop();
       refreshOrders();
       refresh();
     } catch {

@@ -18,6 +18,8 @@ import {
   statusPill,
 } from "../lib/format";
 import { isAcceptableOrderStatus } from "../lib/orderActions";
+import { confirmOutOfOrder, offerNextStop } from "../lib/routeFlow";
+import { getCurrentCoords } from "../location";
 import type { Order, OrderStatus } from "../types";
 import NavChooser from "../components/NavChooser";
 
@@ -52,16 +54,35 @@ export default function OrderDetailPage() {
     return () => window.removeEventListener("courier-push", onPush);
   }, [refresh]);
 
+  const withGps = async (extra: Record<string, unknown> = {}) => {
+    const pos = await getCurrentCoords();
+    if (pos) return { ...extra, lat: pos.lat, lng: pos.lng };
+    return extra;
+  };
+
   const setStatus = async (status: OrderStatus) => {
     if (!order) return;
     setUpdating(true);
     try {
-      await patch(`/courier/orders/${order.id}`, { status });
-      toast.success(
-        status === "accepted"
-          ? "Buyurtma qabul qilindi ✅"
-          : "Yetkazish boshlandi 🛵 — mijozga chek + ETA yuborildi"
-      );
+      if (status === "delivering") {
+        const res = await post<{
+          total_distance_km?: number;
+          orders?: Order[];
+        }>("/courier/route/start", await withGps({ order_ids: null }));
+        const n = res.orders?.length ?? 1;
+        const km =
+          typeof res.total_distance_km === "number"
+            ? ` · ~${res.total_distance_km.toFixed(1)} km`
+            : "";
+        toast.success(
+          n > 1
+            ? `Marshrut tuzildi 🛵 — ${n} ta stop${km}`
+            : `Yetkazish boshlandi 🛵 — mijozga chek + ETA${km}`
+        );
+      } else {
+        await patch(`/courier/orders/${order.id}`, { status });
+        toast.success("Buyurtma qabul qilindi ✅");
+      }
       refresh();
     } catch {
       toast.error("Holatni o'zgartirib bo'lmadi. Qayta urinib ko'ring.");
@@ -72,15 +93,48 @@ export default function OrderDetailPage() {
 
   const markDelivered = async () => {
     if (!order) return;
+    try {
+      const list = await get<Order[]>("/courier/orders");
+      if (!confirmOutOfOrder(order, list)) return;
+    } catch {
+      /* pool olish muvaffaqiyatsiz — ogohlantirishsiz davom */
+    }
     setUpdating(true);
     try {
-      await post<Order>(`/courier/orders/${order.id}/delivered`, {});
-      toast.success("Buyurtma yetkazildi ✅");
+      await post<Order>(
+        `/courier/orders/${order.id}/delivered`,
+        await withGps()
+      );
+      toast.success("Buyurtma yetkazildi ✅ · qolgan marshrut yangilandi");
+      await offerNextStop();
       refresh();
     } catch {
       toast.error("Yakunlab bo'lmadi. Qayta urinib ko'ring.");
     } finally {
       setUpdating(false);
+    }
+  };
+
+  const openRemainingRoute = async () => {
+    if (!order) return;
+    try {
+      const list = await get<Order[]>("/courier/orders");
+      const fromSeq = order.route_sequence ?? 1;
+      const pts = list
+        .filter((o) => o.status === "delivering")
+        .filter((o) => o.lat != null && o.lng != null)
+        .filter((o) => (o.route_sequence ?? 999) >= fromSeq)
+        .sort(
+          (a, b) => (a.route_sequence ?? 999) - (b.route_sequence ?? 999)
+        );
+      if (!pts.length) {
+        toast.error("Koordinatali manzil yo'q");
+        return;
+      }
+      const parts = pts.map((o) => `${o.lat},${o.lng}`).join("~");
+      window.open(`https://yandex.com/maps/?rtext=~${parts}&rtt=auto`, "_blank");
+    } catch {
+      toast.error("Marshrutni yuklab bo'lmadi");
     }
   };
 
@@ -178,14 +232,28 @@ export default function OrderDetailPage() {
             </div>
           )}
           {hasNav && (
-            <motion.button
-              type="button"
-              whileTap={tap}
-              onClick={() => setNavOpen(true)}
-              className="btn w-full justify-center text-sm py-2.5 mt-1"
-            >
-              <Navigation size={16} /> Navigatsiya
-            </motion.button>
+            <>
+              <motion.button
+                type="button"
+                whileTap={tap}
+                onClick={() => setNavOpen(true)}
+                className="btn w-full justify-center text-sm py-2.5 mt-1"
+              >
+                <Navigation size={16} />{" "}
+                {order.route_sequence === 1
+                  ? "Navigatsiya · KEYINGI stop"
+                  : "Navigatsiya"}
+              </motion.button>
+              {order.status === "delivering" && (
+                <button
+                  type="button"
+                  onClick={openRemainingRoute}
+                  className="w-full text-sm font-bold text-blue-700 py-2"
+                >
+                  Qolgan marshrut (multi-stop)
+                </button>
+              )}
+            </>
           )}
         </motion.div>
 

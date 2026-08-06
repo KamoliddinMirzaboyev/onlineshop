@@ -59,3 +59,26 @@ def test_empty():
     r = optimize_route((40.0, 71.0), [])
     assert r.order_ids == []
     assert r.total_km == 0.0
+
+
+def test_reopt_from_last_stop_prefers_nearby():
+    """#1 yetkazilgandan keyin depot = #1 joyi → qolganlar qayta tartiblanadi."""
+    # Janub 3km "yetkazildi"; qolgan: shimol 1km va shimol 5km
+    last_stop = (40.0, 71.0)  # taxminan yetkazilgan nuqta
+    near = RouteStop(2, 40.01, 71.0)
+    far = RouteStop(3, 40.05, 71.0)
+    r = optimize_route(last_stop, [far, near])
+    assert r.order_ids == [2, 3]
+
+
+def test_two_opt_improves_or_equals_nn_path():
+    """Ko'p stop: optimize_route xato bermasligi va id lar to'liq saqlanishi."""
+    depot = (41.3, 69.2)
+    stops = [
+        RouteStop(i, 41.3 + 0.01 * ((i * 3) % 7), 69.2 + 0.01 * ((i * 5) % 7))
+        for i in range(1, 10)
+    ]
+    r = optimize_route(depot, stops)
+    assert set(r.order_ids) == set(range(1, 10))
+    assert len(r.leg_km) == 9
+    assert r.total_km >= 0

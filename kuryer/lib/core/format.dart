@@ -168,6 +168,19 @@ String? distanceLabel(double? km) {
   return km < 1 ? '${(km * 1000).round()} m' : '${km.toStringAsFixed(1)} km';
 }
 
+/// Delivering da leg (oldingi stopdan), aks holda ombor masofasi.
+String? orderDistanceLabel({
+  required String status,
+  double? routeLegKm,
+  double? distanceKm,
+}) {
+  if (status == 'delivering' && routeLegKm != null) {
+    final d = distanceLabel(routeLegKm);
+    return d == null ? null : 'oldingidan $d';
+  }
+  return distanceLabel(distanceKm);
+}
+
 /// "~25 daqiqa"
 String? etaLabel(int? minutes) =>
     (minutes != null && minutes > 0) ? '~$minutes daqiqa' : null;

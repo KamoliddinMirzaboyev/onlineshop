@@ -2,6 +2,8 @@ from pydantic import BaseModel, ConfigDict
 
 
 class ProductOut(BaseModel):
+    """Mijoz/public katalog — tannarx (cost) hech qachon chiqmaydi."""
+
     id: int
     restaurant_id: int
     category_id: int
@@ -11,13 +13,18 @@ class ProductOut(BaseModel):
     description_ru: str | None = None
     image_url: str | None = None
     price: int
-    cost: int = 0
     stock: float = 0
     unit: str = "dona"
-    low_stock_threshold: float = 10
     is_available: bool
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class ProductAdminOut(ProductOut):
+    """Admin/ombor — tannarx va past zaxira chegarasi faqat shu yerdan."""
+
+    cost: int = 0
+    low_stock_threshold: float = 10
 
 
 class CategoryOut(BaseModel):

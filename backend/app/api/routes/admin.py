@@ -25,7 +25,7 @@ from app.schemas.admin import (
 )
 from app.schemas.admin import AdminUserOut
 from app.schemas.catalog import (
-    CategoryGroupIn, CategoryGroupOut, CategoryIn, CategoryOut, ProductIn, ProductOut,
+    CategoryGroupIn, CategoryGroupOut, CategoryIn, CategoryOut, ProductIn, ProductAdminOut,
     RestaurantOut, StoreSettingsIn,
 )
 from app.schemas.admin import DeliveryZoneIn, DeliveryZoneOut
@@ -452,7 +452,7 @@ def delete_category(
 
 
 # ── Products ─────────────────────────────────────────────────────
-@router.get("/restaurants/{rid}/products", response_model=list[ProductOut])
+@router.get("/restaurants/{rid}/products", response_model=list[ProductAdminOut])
 def list_products(
     rid: int, store: Restaurant = Depends(current_restaurant), db: Session = Depends(get_db)
 ):
@@ -472,7 +472,7 @@ def _check_subcategory(db: Session, category_id: int, restaurant_id: int) -> Non
         )
 
 
-@router.post("/products", response_model=ProductOut, status_code=201)
+@router.post("/products", response_model=ProductAdminOut, status_code=201)
 def create_product(
     data: ProductIn,
     store: Restaurant = Depends(current_restaurant),
@@ -486,7 +486,7 @@ def create_product(
     return p
 
 
-@router.put("/products/{pid}", response_model=ProductOut)
+@router.put("/products/{pid}", response_model=ProductAdminOut)
 def update_product(
     pid: int,
     data: ProductIn,
@@ -515,7 +515,7 @@ def delete_product(
 
 
 # ── Warehouse / stock (ombor) ────────────────────────────────────
-@router.patch("/products/{pid}/stock", response_model=ProductOut)
+@router.patch("/products/{pid}/stock", response_model=ProductAdminOut)
 def update_stock(
     pid: int,
     data: StockUpdate,
