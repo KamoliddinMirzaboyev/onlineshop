@@ -1,4 +1,4 @@
-import { MapPin } from "lucide-react";
+import { Map as MapIcon, MapPin } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -9,6 +9,7 @@ import {
   peekAddressLabel,
 } from "../api/client";
 import type { Restaurant } from "../api/types";
+import MapPicker from "../components/MapPicker";
 import PageHeader from "../components/PageHeader";
 import { useI18n } from "../i18n";
 import { formatUzPhone, money } from "../lib/format";
@@ -83,6 +84,7 @@ export default function CheckoutPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [store, setStore] = useState<Restaurant | null>(null);
+  const [showMapPicker, setShowMapPicker] = useState(false);
 
   useEffect(() => {
     if (!phone && user?.phone) setPhone(formatUzPhone(user.phone));
@@ -133,6 +135,21 @@ export default function CheckoutPage() {
       });
       cacheAddressLabel(line);
       return coords;
+    } finally {
+      setLocating(false);
+    }
+  };
+
+  /** Xaritadan qo'lda tanlangan joy — GPS o'rniga shu koordinata ishlatiladi. */
+  const applyPickedLocation = async (lat: number, lng: number) => {
+    setShowMapPicker(false);
+    setLocation(lat, lng, undefined);
+    setLocating(true);
+    try {
+      const geo = await reverseGeocodeParts(lat, lng);
+      const line = geo?.label || `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+      useCheckoutDraft.setState({ addressLine: line, addressDirty: false });
+      cacheAddressLabel(line);
     } finally {
       setLocating(false);
     }
@@ -246,14 +263,25 @@ export default function CheckoutPage() {
         <div className="space-y-2">
           <div className="flex items-center justify-between px-1">
             <label className="text-sm text-slate-400 font-medium">{t.address}</label>
-            <button
-              type="button"
-              disabled={locating}
-              onClick={() => void fetchLocation({ force: true, overwriteText: true })}
-              className="text-xs font-medium text-brand disabled:opacity-50"
-            >
-              {locating ? t.address_locating : t.address_refresh}
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                disabled={locating}
+                onClick={() => setShowMapPicker(true)}
+                title={t.address_pick_map}
+                className="p-1 text-brand disabled:opacity-50"
+              >
+                <MapIcon size={16} />
+              </button>
+              <button
+                type="button"
+                disabled={locating}
+                onClick={() => void fetchLocation({ force: true, overwriteText: true })}
+                className="text-xs font-medium text-brand disabled:opacity-50"
+              >
+                {locating ? t.address_locating : t.address_refresh}
+              </button>
+            </div>
           </div>
 
           <div className="rounded-[16px] bg-[#F4F5F7] px-4 py-3">
@@ -349,6 +377,15 @@ export default function CheckoutPage() {
           {submitting ? "…" : (lang === "uz" ? "Buyurtma berish" : "Заказать")}
         </button>
       </div>
+
+      {showMapPicker && (
+        <MapPicker
+          initialLat={loc?.lat}
+          initialLng={loc?.lng}
+          onConfirm={(lat, lng) => void applyPickedLocation(lat, lng)}
+          onClose={() => setShowMapPicker(false)}
+        />
+      )}
     </div>
   );
 }
