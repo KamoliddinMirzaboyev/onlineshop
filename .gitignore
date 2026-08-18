@@ -57,3 +57,11 @@ postgres-data/
 .vercel
 bblogo.png
 bblogobg.png
+
+# Play Store release artifacts — katta binary, reverse-engineer/mapping riski
+# (repo tarixida saqlanmasin — obyekt storage/lokal saqlansin).
+*.apk
+*.aab
+/Play Market/
+/Play Market.zip
+kuryer/store/play/release/

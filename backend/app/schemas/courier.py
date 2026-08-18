@@ -58,14 +58,14 @@ class OrderAdjustIn(BaseModel):
 
 
 class LocationUpdateIn(BaseModel):
-    lat: float
-    lng: float
+    lat: float = Field(ge=-90, le=90)
+    lng: float = Field(ge=-180, le=180)
 
 
 class OptionalLocationIn(BaseModel):
     """GPS ixtiyoriy — berilsa depot sifatida ishlatiladi."""
-    lat: float | None = None
-    lng: float | None = None
+    lat: float | None = Field(default=None, ge=-90, le=90)
+    lng: float | None = Field(default=None, ge=-180, le=180)
 
 
 class RouteStartIn(BaseModel):

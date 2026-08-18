@@ -1,6 +1,6 @@
 from datetime import date, datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.enums import AdminRole, AnnouncementStatus
 
@@ -85,8 +85,8 @@ class ReportsOut(BaseModel):
 
 
 class StockUpdate(BaseModel):
-    stock: float
-    low_stock_threshold: float | None = None
+    stock: float = Field(ge=0)
+    low_stock_threshold: float | None = Field(default=None, ge=0)
 
 
 class PushKeys(BaseModel):

@@ -33,7 +33,7 @@ class AddressOut(AddressIn):
 
 class CartItemIn(BaseModel):
     product_id: int
-    quantity: float = Field(gt=0)
+    quantity: float = Field(gt=0, le=10_000)
     note: str | None = None         # mahsulotga mijoz izohi (masalan "yetilgan bo'lsin")
 
 

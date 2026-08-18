@@ -74,6 +74,10 @@ _ZONE_COLUMNS = (
 _PUSH_COLUMNS = (
     "ALTER TABLE push_subscriptions ADD COLUMN IF NOT EXISTS admin_user_id INTEGER "
     "REFERENCES admin_users(id) ON DELETE CASCADE",
+    # Admin-panel obunalarni do'konga bog'laydi — bo'lmasa har bir do'kon
+    # boshqasining buyurtma push'larini ham olar edi (cross-tenant leak).
+    "ALTER TABLE push_subscriptions ADD COLUMN IF NOT EXISTS restaurant_id INTEGER "
+    "REFERENCES restaurants(id) ON DELETE CASCADE",
 )
 # Foydalanuvchini bloklash (admin paneldan) — buyurtma bera olmaydi.
 # password_hash / fcm_token — mijoz app (telefon login + push); create_all

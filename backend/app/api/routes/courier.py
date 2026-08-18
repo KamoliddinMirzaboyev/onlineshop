@@ -46,9 +46,9 @@ from app.services.notify import (
     notify_status_change,
 )
 from app.services.orders import (
+    calc_delivery_fee,
     ensure_transition,
     mark_order_paid_if_cash,
-    reserve_stock_atomic,
     restore_stock_atomic,
 )
 from app.services.receipt import render_receipt
@@ -246,7 +246,7 @@ def courier_adjust_order(
     ):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Order not found")
 
-    if order.status not in (OrderStatus.accepted, OrderStatus.preparing, OrderStatus.ready):
+    if order.status != OrderStatus.accepted:
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST,
             "Can only adjust order before delivering starts",
@@ -255,12 +255,19 @@ def courier_adjust_order(
     adjust_map = {item.order_item_id: item.quantity for item in data.items}
 
     # Oldindan yakuniy miqdorlarni hisoblab, bo'sh buyurtmani va omborni tekshiramiz.
+    # Faqat kamaytirish ruxsat etiladi — kuryer mijoz roziligisiz savatni oshira
+    # olmaydi (oshirish kerak bo'lsa — yangi buyurtma).
     planned: list[tuple[OrderItem, float]] = []
     changed = False
     for item in order.items:
         new_qty = adjust_map[item.id] if item.id in adjust_map else item.quantity
         if new_qty < 0:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "Miqdor manfiy bo'lishi mumkin emas")
+        if new_qty > item.quantity + 1e-9:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                "Miqdorni faqat kamaytirish mumkin (mijoz roziligisiz oshirib bo'lmaydi)",
+            )
         if abs(new_qty - item.quantity) > 1e-9:
             changed = True
         planned.append((item, new_qty))
@@ -274,16 +281,23 @@ def courier_adjust_order(
 
     for item, new_qty in planned:
         delta = new_qty - item.quantity
-        if delta > 0:
-            reserve_stock_atomic(db, item.product_id, delta, product_name=item.name_uz)
-        elif delta < 0:
+        if delta < 0:
             restore_stock_atomic(db, item.product_id, -delta)
         item.quantity = new_qty
 
     order.items = [item for item, _q in remaining]
     new_items_total = sum(item.price * item.quantity for item in order.items)
     order.items_total = int(round(new_items_total))
-    # Yetkazish haqi o'zgarmaydi (masofa/chegara buyurtma paytida hisoblangan).
+    # Savat kamaysa yetkazish haqi ham qayta hisoblanadi (masalan bepul yetkazish
+    # chegarasidan pastga tushib qolgan bo'lishi mumkin).
+    restaurant = db.get(Restaurant, order.restaurant_id)
+    if restaurant is not None:
+        order.delivery_fee = calc_delivery_fee(
+            order.items_total,
+            order.distance_km,
+            free_from=restaurant.min_order,
+            per_km=restaurant.delivery_fee,
+        )
     order.total = order.items_total + order.delivery_fee
 
     customer = db.get(User, order.user_id)
@@ -818,6 +832,7 @@ def courier_update_order(
             webpush.notify_admins,
             f"✅ Buyurtma qabul qilindi № {order.number}",
             f"{order.total:,} so'm · {order.address_line}",
+            order.restaurant_id,
             url="/orders",
             tag=f"accepted-{order.id}",
         )
@@ -911,6 +926,7 @@ def courier_mark_delivered(
         webpush.notify_admins,
         f"🎉 Buyurtma yetkazildi № {order.number}",
         f"{order.total:,} so'm · {order.address_line}",
+        order.restaurant_id,
         url="/orders",
         tag=f"delivered-{order.id}",
     )

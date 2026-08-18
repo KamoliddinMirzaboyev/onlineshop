@@ -1,9 +1,10 @@
-import { Bike, MapPin, Navigation, Phone, Printer, User, X } from "lucide-react";
+import { Bike, MapPin, Navigation, Phone, Printer, Trash2, User, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { get, patch } from "../api";
+import { del, get, patch } from "../api";
 import { confirm } from "../components/Confirm";
 import { ErrorRetry, OrderListSkeleton } from "../components/Skeleton";
+import { useAuth } from "../store";
 import type { Order, OrderStatus } from "../types";
 
 const FILTER_TABS = [
@@ -32,6 +33,14 @@ const PILL: Record<OrderStatus, string> = {
 
 const money = (n?: number | null) => (n || 0).toLocaleString("ru-RU").replace(/,/g, " ");
 
+// Chek doc.write() bilan yoziladi — mijoz/kuryer kiritgan matnlar (manzil,
+// izoh, ism, telefon) escape qilinmasa, HTML/JS sifatida ijro etiladi (stored
+// XSS: chekni ochgan admin brauzerida, localStorage token'ga kirish bilan).
+const esc = (s?: string | number | null) =>
+  String(s ?? "").replace(/[&<>"']/g, (c) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  })[c] as string);
+
 // Yangi/faol buyurtmalar tepada; yakunlanganlar pastda.
 const RANK: Record<OrderStatus, number> = {
   pending: 0, confirmed: 1, preparing: 2, ready: 3, accepted: 4,
@@ -57,7 +66,7 @@ const printReceipt = (o: Order) => {
   o.items.forEach((it, idx) => {
     itemsHtml += `
       <tr>
-        <td class="text-left" colspan="2" style="padding-bottom: 2px;">${idx + 1}. ${it.name_uz}</td>
+        <td class="text-left" colspan="2" style="padding-bottom: 2px;">${idx + 1}. ${esc(it.name_uz)}</td>
       </tr>
       <tr>
         <td class="text-left" style="padding-bottom: 6px; color: #444;">${it.quantity} x ${money(it.price)}</td>
@@ -70,7 +79,7 @@ const printReceipt = (o: Order) => {
     <!DOCTYPE html>
     <html>
       <head>
-        <title>Chek №${o.number}</title>
+        <title>Chek №${esc(o.number)}</title>
         <style>
           @page { margin: 0; size: auto; }
           body { 
@@ -95,12 +104,12 @@ const printReceipt = (o: Order) => {
       <body>
         <div class="header">BARAKALI BOZOR</div>
         <div class="divider"></div>
-        <div><b>Buyurtma №:</b> ${o.number}</div>
-        <div><b>Sana:</b> ${dateStr}</div>
-        ${o.customer_name ? `<div><b>Mijoz:</b> ${o.customer_name}</div>` : ""}
-        <div><b>Mijoz tel:</b> ${o.phone || "-"}</div>
-        <div><b>Manzil:</b> ${o.address_line}</div>
-        ${o.comment ? `<div><b>Izoh:</b> ${o.comment}</div>` : ""}
+        <div><b>Buyurtma №:</b> ${esc(o.number)}</div>
+        <div><b>Sana:</b> ${esc(dateStr)}</div>
+        ${o.customer_name ? `<div><b>Mijoz:</b> ${esc(o.customer_name)}</div>` : ""}
+        <div><b>Mijoz tel:</b> ${esc(o.phone) || "-"}</div>
+        <div><b>Manzil:</b> ${esc(o.address_line)}</div>
+        ${o.comment ? `<div><b>Izoh:</b> ${esc(o.comment)}</div>` : ""}
         <div class="divider"></div>
         <table>
           ${itemsHtml}
@@ -121,8 +130,8 @@ const printReceipt = (o: Order) => {
           </tr>
         </table>
         <div class="divider"></div>
-        ${o.assigned_courier_name ? `<div><b>Kuryer:</b> ${o.assigned_courier_name}</div>` : ""}
-        ${o.assigned_courier_phone ? `<div><b>Tel:</b> ${o.assigned_courier_phone}</div>` : ""}
+        ${o.assigned_courier_name ? `<div><b>Kuryer:</b> ${esc(o.assigned_courier_name)}</div>` : ""}
+        ${o.assigned_courier_phone ? `<div><b>Tel:</b> ${esc(o.assigned_courier_phone)}</div>` : ""}
         <div class="text-center font-bold" style="margin-top: 10px;">Xaridingiz uchun rahmat!</div>
       </body>
     </html>
@@ -139,6 +148,7 @@ const printReceipt = (o: Order) => {
 };
 
 export default function OrdersPage() {
+  const { admin } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
   const [filter, setFilter] = useState<OrderStatus | "">("");
   const [loading, setLoading] = useState(true);
@@ -192,6 +202,28 @@ export default function OrdersPage() {
       setOrders(prev);
       setErr(true);
       toast.error("Bekor qilib bo'lmadi");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const remove = async (o: Order) => {
+    const ok = await confirm({
+      title: `№ ${o.number} buyurtmani butunlay o'chirasizmi?`,
+      message: "Buyurtma ro'yxatdan butunlay o'chiriladi. Bu amalni qaytarib bo'lmaydi.",
+      confirmText: "O'chirish",
+      cancelText: "Yo'q",
+      danger: true,
+    });
+    if (!ok) return;
+
+    setBusy(o.id);
+    try {
+      await del(`/admin/orders/${o.id}`);
+      setOrders((os) => os.filter((x) => x.id !== o.id));
+      toast.success(`№ ${o.number}: o'chirildi`);
+    } catch {
+      toast.error("O'chirib bo'lmadi — avval bekor qiling");
     } finally {
       setBusy(null);
     }
@@ -352,6 +384,15 @@ export default function OrdersPage() {
                     className="w-full md:w-auto px-5 py-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-600 text-sm font-bold hover:bg-rose-600 hover:text-white hover:border-rose-600 transition inline-flex items-center justify-center gap-2 disabled:opacity-50 disabled:hover:bg-rose-50 disabled:hover:text-rose-600 disabled:hover:border-rose-200 shadow-sm"
                   >
                     <X size={18} strokeWidth={2.5} /> Bekor qilish
+                  </button>
+                )}
+                {(o.status === "cancelled" || o.status === "delivered") && admin?.role === "superadmin" && (
+                  <button
+                    disabled={busy === o.id}
+                    onClick={() => remove(o)}
+                    className="w-full md:w-auto px-5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-500 text-sm font-bold hover:bg-rose-600 hover:text-white hover:border-rose-600 transition inline-flex items-center justify-center gap-2 disabled:opacity-50 shadow-sm"
+                  >
+                    <Trash2 size={18} strokeWidth={2.5} /> O'chirish
                   </button>
                 )}
               </div>
