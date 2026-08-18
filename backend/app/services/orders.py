@@ -51,11 +51,12 @@ def calc_delivery_fee(
 
 
 # Buyurtma holatlari grafi — faqat ruxsat etilgan o'tishlar.
+# confirmed/preparing/ready olib tashlandi: hech qanday endpoint ularni yozmasdi
+# (o'lik holatlar edi) — oshxona tasdiqlash bosqichi yo'q, kuryer pending'ni
+# to'g'ridan-to'g'ri oladi. Model/DB enum'da qiymatlar qoladi (eski yozuvlar
+# bilan mos), lekin state-machine ularga o'tishga endi ruxsat bermaydi.
 _ALLOWED_TRANSITIONS: dict[OrderStatus, set[OrderStatus]] = {
-    OrderStatus.pending: {OrderStatus.confirmed, OrderStatus.accepted, OrderStatus.cancelled},
-    OrderStatus.confirmed: {OrderStatus.preparing, OrderStatus.accepted, OrderStatus.cancelled},
-    OrderStatus.preparing: {OrderStatus.ready, OrderStatus.accepted, OrderStatus.cancelled},
-    OrderStatus.ready: {OrderStatus.accepted, OrderStatus.delivering, OrderStatus.cancelled},
+    OrderStatus.pending: {OrderStatus.accepted, OrderStatus.cancelled},
     OrderStatus.accepted: {OrderStatus.delivering, OrderStatus.cancelled},
     OrderStatus.delivering: {OrderStatus.delivered, OrderStatus.cancelled},
     OrderStatus.delivered: set(),

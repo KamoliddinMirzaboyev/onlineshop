@@ -33,6 +33,23 @@ export function TableSkeleton({ cols = 5, rows = 6 }: { cols?: number; rows?: nu
   );
 }
 
+export function OrderListSkeleton({ rows = 4 }: { rows?: number }) {
+  return (
+    <div className="space-y-3">
+      {Array.from({ length: rows }).map((_, i) => (
+        <div key={i} className="card p-4 space-y-3">
+          <div className="flex justify-between">
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="h-4 w-24" />
+          </div>
+          <Skeleton className="h-3 w-2/3" />
+          <Skeleton className="h-8 w-40" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function StatCardsSkeleton({ count = 4 }: { count?: number }) {
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

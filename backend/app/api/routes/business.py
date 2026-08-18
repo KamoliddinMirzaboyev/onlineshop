@@ -1,12 +1,14 @@
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_business
+from app.core.cache import invalidate_restaurant_catalog
 from app.core.db import get_db
 from app.core.security import hash_password
+from app.core.tz import tashkent_today_start_utc
 from app.models import AdminUser, Business, Order, Product, Restaurant
 from app.models.enums import AdminRole
 from app.schemas.business import (
@@ -14,6 +16,7 @@ from app.schemas.business import (
     StoreWithStaffCreateIn,
 )
 from app.schemas.catalog import RestaurantOut
+from app.services import analytics
 
 # Tadbirkorning biznes bo'ylab amallari (bitta do'kondan yuqori daraja).
 router = APIRouter(prefix="/business", tags=["business"])
@@ -28,7 +31,7 @@ def _period_start(period: str) -> datetime | None:
     days = _PERIOD_DAYS.get(period)
     if days is None:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "period: today|week|month|all")
-    today = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    today = tashkent_today_start_utc()
     return today - timedelta(days=days)
 
 
@@ -76,6 +79,7 @@ def create_store(
     ))
     db.commit()
     db.refresh(store)
+    invalidate_restaurant_catalog(store.id)  # "catalog:restaurants:all" ham tozalanadi
     return store
 
 
@@ -87,10 +91,14 @@ def update_store(
     db: Session = Depends(get_db),
 ):
     store = _own_store(rid, business, db)
-    for k, v in data.model_dump().items():
+    # exclude_unset: frontend yubormagan maydonlar (masalan faqat {name}) schema
+    # default'lari (delivery_fee=2000, min_order=50000, is_active=True, ...) bilan
+    # qayta yozilib ketmasin — admin.update_store bilan bir xil pattern.
+    for k, v in data.model_dump(exclude_unset=True).items():
         setattr(store, k, v)
     db.commit()
     db.refresh(store)
+    invalidate_restaurant_catalog(store.id)
     return store
 
 
@@ -112,9 +120,11 @@ def delete_store(
         store.is_active = False
         store.is_open = False
         db.commit()
+        invalidate_restaurant_catalog(store.id)
         return {"archived": True}
     db.delete(store)
     db.commit()
+    invalidate_restaurant_catalog(rid)
     return {"archived": False}
 
 
@@ -125,8 +135,6 @@ def business_stats(
     db: Session = Depends(get_db),
 ):
     """Har bir do'kon kesimida va umumiy: buyurtma, aylanma, harajat, foyda."""
-    from app.api.routes.admin import _agg
-
     start = _period_start(period)
     stores = db.scalars(
         select(Restaurant).where(Restaurant.business_id == business.id).order_by(Restaurant.id)
@@ -134,7 +142,7 @@ def business_stats(
 
     breakdown: list[StoreBreakdown] = []
     for store in stores:
-        orders, revenue, profit = _agg(db, [store.id], start)
+        orders, revenue, profit = analytics.agg(db, [store.id], start)
         breakdown.append(StoreBreakdown(
             restaurant_id=store.id, name=store.name,
             orders=orders, revenue=revenue, cost=revenue - profit, profit=profit,
@@ -157,8 +165,6 @@ def business_reports(
 ):
     """Chart'lar uchun: biznes bo'ylab jamlangan vaqt qatorlari (kunlik/haftalik/
     oylik), top mahsulotlar va so'nggi 30 kun do'kon kesimi."""
-    from app.api.routes.admin import _agg, _series, _top_products
-
     stores = db.scalars(
         select(Restaurant).where(Restaurant.business_id == business.id).order_by(Restaurant.id)
     ).all()
@@ -166,15 +172,15 @@ def business_reports(
     if not ids:
         return BusinessReportsOut(totals=ReportTotals(orders=0, revenue=0, profit=0))
 
-    today = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    today = tashkent_today_start_utc()
     month_start = today - timedelta(days=30)
     breakdown: list[StoreBreakdown] = []
     for store in stores:
-        orders, revenue, profit = _agg(db, [store.id], month_start)
+        orders, revenue, profit = analytics.agg(db, [store.id], month_start)
         product_count = db.scalar(
             select(func.count(Product.id)).where(Product.restaurant_id == store.id)
         ) or 0
-        top = _top_products(db, [store.id], limit=1)
+        top = analytics.top_products(db, [store.id], limit=1)
         breakdown.append(StoreBreakdown(
             restaurant_id=store.id, name=store.name,
             orders=orders, revenue=revenue, cost=revenue - profit, profit=profit,
@@ -196,10 +202,10 @@ def business_reports(
         start = today - timedelta(days=29)
         trunc = "day"
 
-    o, r, p = _agg(db, ids, start)
+    o, r, p = analytics.agg(db, ids, start)
     return BusinessReportsOut(
         totals=ReportTotals(orders=o, revenue=r, profit=p),
-        series=_series(db, ids, trunc, start),
-        top_products=_top_products(db, ids, start=start, limit=20),
+        series=analytics.series(db, ids, trunc, start),
+        top_products=analytics.top_products(db, ids, start=start, limit=20),
         stores=breakdown,
     )

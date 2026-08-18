@@ -21,6 +21,17 @@ def verify_password(plain: str, hashed: str) -> bool:
     return pwd_context.verify(plain, hashed)
 
 
+# Login enumeratsiyasiga qarshi: user/username topilmasa ham bcrypt shu qadar
+# vaqt yeydi — "user yo'q" (tezkor 401) va "parol xato" (sekin 401) javoblari
+# javob vaqtidan farqlanmasin.
+_DUMMY_HASH = hash_password("dummy-constant-time-padding")
+
+
+def verify_password_safe(plain: str, hashed: str | None) -> bool:
+    ok = pwd_context.verify(plain, hashed or _DUMMY_HASH)
+    return ok if hashed else False
+
+
 # ── JWT ──────────────────────────────────────────────────────────
 def create_access_token(
     subject: str,

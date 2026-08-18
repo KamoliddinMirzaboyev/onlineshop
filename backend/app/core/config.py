@@ -44,6 +44,10 @@ class Settings(BaseSettings):
 
     redis_url: str = "redis://redis:6379/0"
 
+    # OSRM (real yo'l km). Bo'sh = faqat haversine.
+    # Masalan: https://router.project-osrm.org yoki self-hosted.
+    osrm_base_url: str = ""
+
     # Web Push (VAPID) — admin PWA notifications
     vapid_public_key: str = ""
     vapid_private_key: str = ""
@@ -85,20 +89,14 @@ class Settings(BaseSettings):
 
     @property
     def cors_origins(self) -> list[str]:
-        """Prod uchun aniq origin ro'yxati (development'da wildcard ishlatiladi).
+        """Faqat production uchun aniq origin ro'yxati.
 
-        Lokal frontend (vite dev) prod API'ga ulana olishi uchun localhost
-        portlari ham har doim ruxsat etiladi.
+        `main.py`da bu faqat `environment == "production"` shoxobchasida
+        ishlatiladi — development wildcard (`allow_origin_regex=".*"`) orqali
+        ishlaydi. Shu sabab bu yerda localhost qo'shilmaydi: qo'shilsa prod
+        API'ga istalgan localhost origin'dan credentialed so'rov yuborish
+        mumkin bo'lib qolardi (real bug — CORS teshigi).
         """
-        localhost_dev = [
-            "http://localhost:5173", "http://127.0.0.1:5173",  # tma
-            "http://localhost:3000", "http://127.0.0.1:3000",  # admin
-            "http://localhost:3001", "http://127.0.0.1:3001",  # courier
-            "http://localhost:5174", "http://127.0.0.1:5174",  # admin (eski port)
-            "http://localhost:5175", "http://127.0.0.1:5175",  # courier (eski port)
-            "http://localhost:5176", "http://127.0.0.1:5176",  # businessman
-            "http://localhost:5177", "http://127.0.0.1:5177",  # superadmin
-        ]
         configured = [
             self.tma_url,
             self.admin_url,
@@ -124,9 +122,6 @@ class Settings(BaseSettings):
                     www = f"https://www.{host}"
                     if www not in origins:
                         origins.append(www)
-        for item in localhost_dev:
-            if item not in origins:
-                origins.append(item)
         return origins
 
 

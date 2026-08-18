@@ -7,7 +7,9 @@ import '../core/theme.dart';
 import '../models/order.dart';
 import '../services/api.dart';
 import '../services/cache.dart';
+import '../services/location.dart';
 import '../services/rate_prompt.dart';
+import '../services/route_flow.dart';
 import '../widgets/common.dart';
 import '../widgets/skeleton.dart';
 import '../widgets/toast.dart';
@@ -93,17 +95,38 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
     }
   }
 
+  Future<Map<String, dynamic>> _gpsBody([Map<String, dynamic>? extra]) async {
+    final body = <String, dynamic>{...?extra};
+    final pos = await locationService.getOnce();
+    if (pos != null) {
+      body['lat'] = pos.lat;
+      body['lng'] = pos.lng;
+    }
+    return body;
+  }
+
   Future<void> _setStatus(String status) async {
     final order = _res.data;
     if (order == null) return;
     setState(() => _updating = true);
     try {
-      await api.patch('/courier/orders/${order.id}', {'status': status});
-      toast.success(
-        status == 'accepted'
-            ? 'Buyurtma qabul qilindi ✅'
-            : 'Yetkazish boshlandi 🛵 — mijozga chek + ETA yuborildi',
-      );
+      if (status == 'delivering') {
+        // Barcha accepted lar bir reysda optimal tartibda (joriy GPS depot).
+        final body = await _gpsBody({'order_ids': null});
+        final res = await api.post('/courier/route/start', body)
+            as Map<String, dynamic>;
+        final n = (res['orders'] as List?)?.length ?? 1;
+        final km = res['total_distance_km'];
+        final kmLabel = km is num ? ' · ~${km.toStringAsFixed(1)} km' : '';
+        toast.success(
+          n > 1
+              ? 'Marshrut tuzildi 🛵 — $n ta stop$kmLabel'
+              : 'Yetkazish boshlandi 🛵 — mijozga chek + ETA$kmLabel',
+        );
+      } else {
+        await api.patch('/courier/orders/${order.id}', {'status': status});
+        toast.success('Buyurtma qabul qilindi ✅');
+      }
       _res.refresh();
     } catch (_) {
       toast.error("Holatni o'zgartirib bo'lmadi. Qayta urinib ko'ring.");
@@ -115,16 +138,63 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
   Future<void> _markDelivered() async {
     final order = _res.data;
     if (order == null) return;
+    if (!await RouteFlow.confirmOutOfOrder(context, order)) return;
     setState(() => _updating = true);
     try {
-      await api.post('/courier/orders/${order.id}/delivered', {});
-      toast.success('Buyurtma yetkazildi ✅');
-      _res.refresh();
-      if (mounted) unawaited(ratePrompt.maybeShowAfterDelivery(context));
+      final body = await _gpsBody();
+      await api.post('/courier/orders/${order.id}/delivered', body);
+      toast.success('Buyurtma yetkazildi ✅ · qolgan marshrut yangilandi');
+      if (!mounted) return;
+      final hadMore = await RouteFlow.offerNextStop(context);
+      if (!mounted) return;
+      if (hadMore) Navigator.of(context).maybePop();
+      unawaited(ratePrompt.maybeShowAfterDelivery(context));
     } catch (_) {
       toast.error("Yakunlab bo'lmadi. Qayta urinib ko'ring.");
     } finally {
       if (mounted) setState(() => _updating = false);
+    }
+  }
+
+  /// Shu stopdan boshlab qolgan delivering larni multi-nav da ochadi.
+  Future<void> _openRemainingRoute(Order current) async {
+    try {
+      final raw = await api.get('/courier/orders');
+      final all = Order.listFrom(raw)
+          .where((o) => o.status == 'delivering')
+          .where((o) => o.lat != null && o.lng != null)
+          .toList()
+        ..sort((a, b) =>
+            (a.routeSequence ?? 999).compareTo(b.routeSequence ?? 999));
+      // Joriy stopdan keyingi tartib (shu bilan birga).
+      final fromSeq = current.routeSequence ?? 1;
+      final remaining = all
+          .where((o) => (o.routeSequence ?? 999) >= fromSeq)
+          .toList();
+      final pts = remaining.isNotEmpty ? remaining : all;
+      if (pts.isEmpty) {
+        toast.error("Koordinatali manzil yo'q");
+        return;
+      }
+      if (!mounted) return;
+      if (pts.length == 1) {
+        showNavigationChooser(
+          context,
+          lat: pts.first.lat,
+          lng: pts.first.lng,
+          address: pts.first.addressLine,
+        );
+        return;
+      }
+      showNavigationChooser(
+        context,
+        lat: pts.first.lat,
+        lng: pts.first.lng,
+        address: '${pts.length} ta stop',
+        waypoints: [for (final o in pts) (lat: o.lat!, lng: o.lng!)],
+      );
+    } catch (_) {
+      toast.error("Marshrutni yuklab bo'lmadi");
     }
   }
 
@@ -269,7 +339,11 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
       lng: order.lng,
       address: order.addressLine,
     );
-    final dist = distanceLabel(order.distanceKm);
+    final dist = orderDistanceLabel(
+      status: order.status,
+      routeLegKm: order.routeLegKm,
+      distanceKm: order.distanceKm,
+    );
     final eta = etaLabel(order.etaMinutes);
 
     return ListView(
@@ -384,7 +458,9 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
               if (hasNav) ...[
                 const SizedBox(height: 12),
                 AppButton(
-                  label: 'Navigatsiya',
+                  label: order.routeSequence == 1
+                      ? 'Navigatsiya · KEYINGI stop'
+                      : 'Navigatsiya',
                   icon: Icons.navigation_outlined,
                   expand: true,
                   padding: const EdgeInsets.symmetric(vertical: 12),
@@ -395,6 +471,16 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                     address: order.addressLine,
                   ),
                 ),
+                if (order.status == 'delivering') ...[
+                  const SizedBox(height: 8),
+                  GhostButton(
+                    label: 'Qolgan marshrut (multi-stop)',
+                    expand: true,
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    textColor: AppColors.blue600,
+                    onPressed: () => _openRemainingRoute(order),
+                  ),
+                ],
               ],
             ],
           ),
@@ -450,9 +536,44 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
           ),
         if (order.status == 'accepted')
           _BigButton(
-            label: _updating ? '…' : '🛵  Yetkazishni boshlash',
+            label: _updating
+                ? '…'
+                : '🛵  Yetkazishni boshlash (optimal marshrut)',
             color: AppColors.blue600,
             onPressed: _updating ? null : () => _setStatus('delivering'),
+          ),
+        if (order.status == 'delivering' && order.routeSequence != null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: order.routeSequence == 1
+                    ? const Color(0xFFECFDF5)
+                    : const Color(0xFFEFF6FF),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: order.routeSequence == 1
+                      ? const Color(0xFFA7F3D0)
+                      : const Color(0xFFBFDBFE),
+                ),
+              ),
+              child: Text(
+                order.routeSequence == 1
+                    ? 'KEYINGI stop #1'
+                        '${order.routeLegKm != null ? ' · ~${order.routeLegKm!.toStringAsFixed(1)} km' : ''}'
+                    : 'Marshrutdagi tartib: #${order.routeSequence}'
+                        '${order.routeLegKm != null ? ' · oldingi stopdan ~${order.routeLegKm!.toStringAsFixed(1)} km' : ''}',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: order.routeSequence == 1
+                      ? const Color(0xFF047857)
+                      : const Color(0xFF1E40AF),
+                ),
+              ),
+            ),
           ),
         if (order.status == 'delivering')
           _BigButton(

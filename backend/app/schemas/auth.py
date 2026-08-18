@@ -28,6 +28,10 @@ class AppRegisterIn(BaseModel):
         return s[:128]
 
 
+class SetPasswordIn(BaseModel):
+    password: str = Field(min_length=6, max_length=128)
+
+
 class AppLoginIn(BaseModel):
     phone: str
     password: str = Field(min_length=1, max_length=128)

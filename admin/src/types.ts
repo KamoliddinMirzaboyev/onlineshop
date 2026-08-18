@@ -90,6 +90,9 @@ export interface Order {
   assigned_courier_name?: string | null;
   assigned_courier_phone?: string | null;
   courier_delivered_at?: string | null;
+  route_group_id?: string | null;
+  route_sequence?: number | null;
+  route_leg_km?: number | null;
   created_at: string;
   items: OrderItem[];
 }

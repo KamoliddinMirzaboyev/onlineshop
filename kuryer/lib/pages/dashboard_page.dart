@@ -9,8 +9,10 @@ import '../models/order.dart';
 import '../models/stats.dart';
 import '../services/api.dart';
 import '../services/cache.dart';
+import '../services/location.dart';
 import '../services/order_widget.dart';
 import '../services/rate_prompt.dart';
+import '../services/route_flow.dart';
 import '../state/auth.dart';
 import '../state/order_alerts.dart';
 import '../widgets/common.dart';
@@ -101,11 +103,28 @@ class _DashboardPageState extends State<DashboardPage> {
     }
   }
 
+  Future<Map<String, dynamic>> _gpsBody([Map<String, dynamic>? extra]) async {
+    final body = <String, dynamic>{...?extra};
+    final pos = await locationService.getOnce();
+    if (pos != null) {
+      body['lat'] = pos.lat;
+      body['lng'] = pos.lng;
+    }
+    return body;
+  }
+
   Future<void> _deliver(Order o) async {
     setState(() => _updatingId = o.id);
     try {
-      await api.patch('/courier/orders/${o.id}', {'status': 'delivering'});
-      toast.success('Yetkazish boshlandi 🛵');
+      final body = await _gpsBody({'order_ids': null});
+      final res =
+          await api.post('/courier/route/start', body) as Map<String, dynamic>;
+      final n = (res['orders'] as List?)?.length ?? 1;
+      toast.success(
+        n > 1
+            ? 'Marshrut tuzildi 🛵 — $n ta stop'
+            : 'Yetkazish boshlandi 🛵',
+      );
       _orders.refresh();
     } catch (_) {
       toast.error("Holatni o'zgartirib bo'lmadi");
@@ -115,12 +134,26 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Future<void> _markDelivered(Order o) async {
+    final pool = _orders.data ?? const <Order>[];
+    if (!await RouteFlow.confirmOutOfOrder(context, o, deliveringPool: pool)) {
+      return;
+    }
+    final remainingBefore =
+        pool.where((x) => x.status == 'delivering' && x.id != o.id).length;
     setState(() => _updatingId = o.id);
     try {
-      await api.post('/courier/orders/${o.id}/delivered', {});
-      toast.success('Yetkazildi ✅');
+      final body = await _gpsBody();
+      await api.post('/courier/orders/${o.id}/delivered', body);
+      toast.success(
+        remainingBefore > 0
+            ? 'Yetkazildi ✅ · qolgan $remainingBefore ta qayta tartiblandi'
+            : 'Yetkazildi ✅',
+      );
       _orders.refresh();
       _stats.refresh();
+      if (remainingBefore > 0 && mounted) {
+        await RouteFlow.offerNextStop(context);
+      }
       if (mounted) unawaited(ratePrompt.maybeShowAfterDelivery(context));
     } catch (_) {
       toast.error("Yakunlab bo'lmadi");

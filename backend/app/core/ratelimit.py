@@ -12,14 +12,17 @@ from app.core.redis import redis_client
 def _client_ip(request: Request) -> str:
     """Proxy ortida haqiqiy klient IP.
 
-    Faqat birinchi X-Forwarded-For (eng ishonchli chain boshi) yoki X-Real-IP.
-    Trusted proxy bo'lmasa ham — reverse proxy odatda o'zi yozadi.
+    Bitta ishonchli reverse-proxy (Caddy) oldida ishlaydi deb hisoblanadi: u
+    X-Forwarded-For'ga o'zi ko'rgan ulanuvchi IP'ni OXIRIGA qo'shib beradi.
+    SHUNING UCHUN OXIRGI qiymat olinadi — birinchisini olish klient
+    `X-Forwarded-For: 1.2.3.4` deb soxta header yuborib rate-limit'ni chetlab
+    o'tishiga imkon berardi (real bug).
     """
     xff = request.headers.get("x-forwarded-for")
     if xff:
-        first = xff.split(",")[0].strip()
-        if first:
-            return first
+        last = xff.split(",")[-1].strip()
+        if last:
+            return last
     real = request.headers.get("x-real-ip")
     if real and real.strip():
         return real.strip()

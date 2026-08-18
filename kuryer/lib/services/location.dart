@@ -67,6 +67,32 @@ class LocationService {
     _sub = null;
   }
 
+  /// Marshrut uchun bir martalik GPS (best-effort, 8s timeout).
+  Future<({double lat, double lng})?> getOnce() async {
+    try {
+      final serviceOn = await Geolocator.isLocationServiceEnabled();
+      if (!serviceOn) return null;
+      var perm = await Geolocator.checkPermission();
+      if (perm == LocationPermission.denied) {
+        perm = await Geolocator.requestPermission();
+      }
+      if (perm == LocationPermission.denied ||
+          perm == LocationPermission.deniedForever) {
+        return null;
+      }
+      final pos = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 8),
+        ),
+      );
+      unawaited(_post(pos));
+      return (lat: pos.latitude, lng: pos.longitude);
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<void> _post(Position pos) async {
     if (!api.hasToken) return;
     try {

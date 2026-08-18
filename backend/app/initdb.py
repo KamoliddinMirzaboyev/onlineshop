@@ -62,6 +62,9 @@ _ORDER_COLUMNS = (
     "ALTER TABLE orders ADD COLUMN IF NOT EXISTS eta_minutes INTEGER",
     "ALTER TABLE orders ADD COLUMN IF NOT EXISTS courier_accepted_at TIMESTAMPTZ",
     "ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivering_started_at TIMESTAMPTZ",
+    "ALTER TABLE orders ADD COLUMN IF NOT EXISTS route_group_id VARCHAR(36)",
+    "ALTER TABLE orders ADD COLUMN IF NOT EXISTS route_sequence INTEGER",
+    "ALTER TABLE orders ADD COLUMN IF NOT EXISTS route_leg_km DOUBLE PRECISION",
 )
 _ZONE_COLUMNS = (
     "ALTER TABLE delivery_zones ADD COLUMN IF NOT EXISTS center_lat DOUBLE PRECISION",
@@ -71,6 +74,10 @@ _ZONE_COLUMNS = (
 _PUSH_COLUMNS = (
     "ALTER TABLE push_subscriptions ADD COLUMN IF NOT EXISTS admin_user_id INTEGER "
     "REFERENCES admin_users(id) ON DELETE CASCADE",
+    # Admin-panel obunalarni do'konga bog'laydi — bo'lmasa har bir do'kon
+    # boshqasining buyurtma push'larini ham olar edi (cross-tenant leak).
+    "ALTER TABLE push_subscriptions ADD COLUMN IF NOT EXISTS restaurant_id INTEGER "
+    "REFERENCES restaurants(id) ON DELETE CASCADE",
 )
 # Foydalanuvchini bloklash (admin paneldan) — buyurtma bera olmaydi.
 # password_hash / fcm_token — mijoz app (telefon login + push); create_all

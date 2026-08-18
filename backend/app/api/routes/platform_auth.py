@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_platform_admin
 from app.core.db import get_db
 from app.core.ratelimit import rate_limiter
-from app.core.security import create_access_token, hash_password, verify_password
+from app.core.security import create_access_token, hash_password, verify_password, verify_password_safe
 from app.models import PlatformAdmin
 from app.schemas.auth import AdminLoginIn, TokenOut
 from app.schemas.business import PlatformAdminOut
@@ -20,7 +20,8 @@ _login_limit = rate_limiter("platform_login", limit=10, window_seconds=60)
 @router.post("/login", response_model=TokenOut, dependencies=[Depends(_login_limit)])
 def platform_login(data: AdminLoginIn, db: Session = Depends(get_db)):
     admin = db.scalar(select(PlatformAdmin).where(PlatformAdmin.username == data.username))
-    if not admin or not admin.is_active or not verify_password(data.password, admin.hashed_password):
+    pw_ok = verify_password_safe(data.password, admin.hashed_password if admin else None)
+    if not admin or not admin.is_active or not pw_ok:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid credentials")
     token = create_access_token(subject=str(admin.id), role="platform_superadmin")
     return TokenOut(access_token=token)

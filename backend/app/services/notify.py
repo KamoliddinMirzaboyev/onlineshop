@@ -4,11 +4,20 @@ Used by API to ping the user and the orders channel on order events.
 Failures are swallowed — a notification problem must never break an order.
 """
 
+import html
+
 import httpx
 
 from app.core.config import settings
 from app.models import Order
 from app.services import webpush
+
+
+def _e(s: str | None) -> str:
+    """parse_mode=HTML xabarlariga qo'yiladigan erkin matnni escape qiladi
+    (address_line/phone/comment/courier nomi — mijoz/xodim kiritadi, tag
+    tashlab yuborilsa Telegram API 400 qaytaradi yoki matn soxtalashtiriladi)."""
+    return html.escape(s or "", quote=False)
 
 _API = f"https://api.telegram.org/bot{settings.bot_token}/sendMessage"
 _PHOTO_API = f"https://api.telegram.org/bot{settings.bot_token}/sendPhoto"
@@ -57,9 +66,9 @@ def _courier_block(
     l = _lang(lang)
     lines = ["", "🚴 <b>Kuryer:</b>" if l == "uz" else "🚴 <b>Курьер:</b>"]
     if courier_name:
-        lines.append(f"👤 {courier_name}")
+        lines.append(f"👤 {_e(courier_name)}")
     if courier_phone:
-        lines.append(f"📞 {courier_phone}")
+        lines.append(f"📞 {_e(courier_phone)}")
     return lines
 
 
@@ -133,8 +142,8 @@ def notify_new_order(
         f"🆕 <b>Yangi buyurtma {order.number}</b>",
         f"Restoran ID: {order.restaurant_id}",
         f"Summa: {order.total:,} so'm",
-        f"Manzil: {order.address_line}",
-        f"Tel: {order.phone or '-'}",
+        f"Manzil: {_e(order.address_line)}",
+        f"Tel: {_e(order.phone) or '-'}",
     ]
     text = "\n".join(lines)
     if settings.orders_chat_id:
@@ -154,10 +163,11 @@ def notify_new_order(
         if needs_location:
             _ask_location(user_telegram_id)
 
-    # admin PWA push
+    # admin PWA push — faqat shu buyurtmaning do'koniga
     webpush.notify_admins(
         f"🆕 Yangi buyurtma {order.number}",
         f"{order.total:,} so'm · {order.address_line}",
+        order.restaurant_id,
         url="/orders",
         tag=f"order-{order.id}",
     )
@@ -287,6 +297,27 @@ def notify_delivering_eta(
         _send(user_telegram_id, text)
     else:
         _send(user_telegram_id, text)
+
+
+def notify_eta_update(
+    order: Order,
+    user_telegram_id: int,
+    eta_minutes: int,
+    lang: str | None = "uz",
+) -> None:
+    """Marshrut qayta hisoblanganda qisqa ETA yangilanishi (spam'siz)."""
+    l = _lang(lang)
+    if l == "ru":
+        text = (
+            f"⏱ <b>Обновление ETA · № {order.number}</b>\n"
+            f"Курьер перестроил маршрут — ориентировочно через <b>{eta_minutes} мин</b>"
+        )
+    else:
+        text = (
+            f"⏱ <b>ETA yangilandi · № {order.number}</b>\n"
+            f"Kuryer marshrutni yangiladi — taxminan <b>{eta_minutes} daqiqa</b>"
+        )
+    _send(user_telegram_id, text)
 
 
 def notify_order_adjusted(
