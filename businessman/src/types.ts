@@ -125,11 +125,15 @@ export interface Order {
   delivery_fee: number;
   total: number;
   address_line: string;
+  lat?: number | null;
+  lng?: number | null;
+  customer_name?: string | null;
   phone?: string | null;
   comment?: string | null;
   assigned_courier_id?: number | null;
   assigned_courier_name?: string | null;
   assigned_courier_phone?: string | null;
+  route_sequence?: number | null;
   created_at: string;
   items: OrderItem[];
 }
