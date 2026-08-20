@@ -243,9 +243,13 @@ function browserCoords(
  * Brauzer watchPosition — bir necha sekund ichida eng aniq fixni oladi.
  * getCurrentPosition ba'zan eski/wifi fix qaytaradi.
  */
-function watchBestBrowserCoords(windowMs: number): Promise<Coords | null> {
+function watchBestBrowserCoords(
+  windowMs: number,
+  silent: boolean,
+): Promise<Coords | null> {
   if (!navigator.geolocation) return Promise.resolve(null);
-  return new Promise((resolve) => {
+
+  const run = (): Promise<Coords | null> => new Promise((resolve) => {
     let best: Coords | null = null;
     let watchId = -1;
     const done = () => {
@@ -286,6 +290,18 @@ function watchBestBrowserCoords(windowMs: number): Promise<Coords | null> {
       resolve(null);
     }
   });
+
+  // Ruxsat hali so'ralmagan bo'lsa, watchPosition ham OS dialogini ochadi —
+  // Telegram LocationManager promptidan alohida ikkinchi prompt paydo bo'ladi.
+  // Silent rejimda faqat ruxsat allaqachon berilgan bo'lsa ishga tushiramiz.
+  if (silent && navigator.permissions?.query) {
+    return navigator.permissions
+      .query({ name: "geolocation" })
+      .then((st) => (st.state === "granted" ? run() : null))
+      .catch(() => null);
+  }
+  if (silent) return Promise.resolve(null);
+  return run();
 }
 
 /**
@@ -311,9 +327,7 @@ async function fetchHighAccuracyCoords(): Promise<Coords | null> {
     // Parallel: bitta getCurrentPosition + 4s watch (eng aniq)
     const browserP = Promise.all([
       browserCoords(12_000, silentBrowser, true),
-      silentBrowser || isTelegramDesktopLike()
-        ? watchBestBrowserCoords(isTelegramDesktopLike() ? 5000 : 4000)
-        : Promise.resolve(null),
+      watchBestBrowserCoords(isTelegramDesktopLike() ? 5000 : 4000, silentBrowser),
     ]).then(([a, b]) => pickBest(a, b));
 
     const [tg, browser] = await Promise.all([tgP, browserP]);

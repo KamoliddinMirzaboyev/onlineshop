@@ -216,30 +216,20 @@ def stats(store: Restaurant = Depends(current_restaurant), db: Session = Depends
 
 # ── Reports (hisobot) ────────────────────────────────────────────
 @router.get("/reports", response_model=ReportsOut)
-def reports(period: str = "daily", store: Restaurant = Depends(current_restaurant), db: Session = Depends(get_db)):
+def reports(
+    period: str = "30days",
+    start_date: str | None = None,
+    end_date: str | None = None,
+    store: Restaurant = Depends(current_restaurant),
+    db: Session = Depends(get_db),
+):
     rid = store.id
-    today = tashkent_today_start_utc()
-
-    # Kunlik = oxirgi 30 kun, haftalik = 12 hafta, oylik = 12 oy.
-    # (Faqat "bugun soatlik" bo'lsa bo'sh chart chiqardi.)
-    if period == "daily":
-        start = today - timedelta(days=29)
-        trunc = "day"
-    elif period == "weekly":
-        start = today - timedelta(weeks=12)
-        trunc = "week"
-    elif period == "monthly":
-        start = today - timedelta(days=365)
-        trunc = "month"
-    else:
-        start = today - timedelta(days=29)
-        trunc = "day"
-
-    o, r, p = _agg(db, [rid], start)
+    start, end, trunc = analytics.parse_report_period(period, start_date, end_date)
+    o, r, p = _agg(db, [rid], start=start, end=end)
     return ReportsOut(
         totals=ReportTotals(orders=o, revenue=r, profit=p),
-        series=_series(db, [rid], trunc, start),
-        top_products=_top_products(db, [rid], start=start, limit=20),
+        series=_series(db, [rid], trunc=trunc, start=start, end=end),
+        top_products=_top_products(db, [rid], start=start, end=end, limit=20),
     )
 
 
@@ -532,24 +522,21 @@ def delete_order(
     store: Restaurant = Depends(current_restaurant),
     db: Session = Depends(get_db),
 ):
-    """Tadbirkor yoki do'kon superadmini buyurtmani butunlay o'chiradi —
-    yetkazilgan (delivered) buyurtma ham, to'liqligicha (moliyaviy/hisobot
-    yig'indilaridan ham chiqib ketadi, chunki ular Order jadvalidan
-    hisoblanadi — bu ataylab shunday so'ralgan).
+    """Tadbirkor/do'kon superadmini istalgan holatdagi buyurtmani hard-delete
+    qiladi. Hisobot/statistika Order jadvalidan hisoblanadi — qator yo'qolsa
+    aylanma/foyda/grafikdan ham tushadi.
 
-    Hali yakunlanmagan (pending/accepted/delivering) buyurtma avval bekor
-    qilinishi kerak — aks holda ombordan ayirilgan zaxira (stock) hech qachon
-    qaytarilmay qoladi. Manager emas — faqat superadmin/tadbirkor
-    (require_store_admin_or_business bilan bir xil, xodim yaratish kabi og'ir
-    amal)."""
+    Faol (pending/accepted/delivering) buyurtma avval bekor qilinadi — zaxira
+    omborga qaytadi. Yetkazilganida stock qaytarilmaydi (allaqachon sotilgan)."""
     order = db.get(Order, order_id)
     if not order or order.restaurant_id != store.id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Order not found")
     if order.status not in (OrderStatus.delivered, OrderStatus.cancelled):
-        raise HTTPException(
-            status.HTTP_400_BAD_REQUEST,
-            "Avval buyurtmani bekor qiling (zaxira qaytarilishi kerak), keyin o'chiring",
-        )
+        cancel_order(db, order)
+        order = db.get(Order, order_id)
+        if not order:
+            courier_events.publish({"type": "orders_updated", "restaurant_id": store.id})
+            return
     db.delete(order)
     db.commit()
     courier_events.publish({"type": "orders_updated", "restaurant_id": store.id})

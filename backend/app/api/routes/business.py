@@ -159,7 +159,9 @@ def business_stats(
 
 @router.get("/reports", response_model=BusinessReportsOut)
 def business_reports(
-    period: str = "daily",
+    period: str = "30days",
+    start_date: str | None = None,
+    end_date: str | None = None,
     business: Business = Depends(get_current_business),
     db: Session = Depends(get_db),
 ):
@@ -172,15 +174,15 @@ def business_reports(
     if not ids:
         return BusinessReportsOut(totals=ReportTotals(orders=0, revenue=0, profit=0))
 
-    today = tashkent_today_start_utc()
-    month_start = today - timedelta(days=30)
+    start, end, trunc = analytics.parse_report_period(period, start_date, end_date)
+
     breakdown: list[StoreBreakdown] = []
     for store in stores:
-        orders, revenue, profit = analytics.agg(db, [store.id], month_start)
+        orders, revenue, profit = analytics.agg(db, [store.id], start=start, end=end)
         product_count = db.scalar(
             select(func.count(Product.id)).where(Product.restaurant_id == store.id)
         ) or 0
-        top = analytics.top_products(db, [store.id], limit=1)
+        top = analytics.top_products(db, [store.id], start=start, end=end, limit=1)
         breakdown.append(StoreBreakdown(
             restaurant_id=store.id, name=store.name,
             orders=orders, revenue=revenue, cost=revenue - profit, profit=profit,
@@ -188,24 +190,10 @@ def business_reports(
             top_product_name=top[0].name_uz if top else None,
         ))
 
-    # Admin hisobot bilan bir xil diapazonlar.
-    if period == "daily":
-        start = today - timedelta(days=29)
-        trunc = "day"
-    elif period == "weekly":
-        start = today - timedelta(weeks=12)
-        trunc = "week"
-    elif period == "monthly":
-        start = today - timedelta(days=365)
-        trunc = "month"
-    else:
-        start = today - timedelta(days=29)
-        trunc = "day"
-
-    o, r, p = analytics.agg(db, ids, start)
+    o, r, p = analytics.agg(db, ids, start=start, end=end)
     return BusinessReportsOut(
         totals=ReportTotals(orders=o, revenue=r, profit=p),
-        series=analytics.series(db, ids, trunc, start),
-        top_products=analytics.top_products(db, ids, start=start, limit=20),
+        series=analytics.series(db, ids, trunc=trunc, start=start, end=end),
+        top_products=analytics.top_products(db, ids, start=start, end=end, limit=20),
         stores=breakdown,
     )
