@@ -1,7 +1,8 @@
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { MapPin, X } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { LocateFixed, MapPin, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { getCoords } from "../api/client";
 import { useI18n } from "../i18n";
 
 const TASHKENT: [number, number] = [41.2995, 69.2401];
@@ -18,6 +19,7 @@ export default function MapPicker({ initialLat, initialLng, onConfirm, onClose }
   const { t } = useI18n();
   const mapRef = useRef<HTMLDivElement>(null);
   const mapObj = useRef<L.Map | null>(null);
+  const [locating, setLocating] = useState(false);
 
   useEffect(() => {
     if (!mapRef.current || mapObj.current) return;
@@ -44,6 +46,13 @@ export default function MapPicker({ initialLat, initialLng, onConfirm, onClose }
     onConfirm(c.lat, c.lng);
   };
 
+  const locateMe = async () => {
+    setLocating(true);
+    const c = await getCoords({ force: true, highAccuracy: true });
+    setLocating(false);
+    if (c) mapObj.current?.setView([c.lat, c.lng], 17);
+  };
+
   return (
     <div className="fixed inset-0 z-50 bg-white flex flex-col">
       <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
@@ -61,6 +70,15 @@ export default function MapPicker({ initialLat, initialLng, onConfirm, onClose }
           style={{ transform: "translate(-50%, -100%)" }}
           fill="currentColor"
         />
+        <button
+          type="button"
+          onClick={locateMe}
+          disabled={locating}
+          aria-label={t.address_locate_me}
+          className="absolute bottom-4 right-4 flex h-11 w-11 items-center justify-center rounded-full bg-white text-brand shadow-lg disabled:opacity-50"
+        >
+          <LocateFixed size={22} className={locating ? "animate-pulse" : ""} />
+        </button>
       </div>
 
       <div className="p-4 border-t border-slate-100">

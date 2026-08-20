@@ -278,77 +278,77 @@ export default function OrdersPage() {
       ) : err && orders.length === 0 ? (
         <ErrorRetry onRetry={load} />
       ) : (
-      <div className="flex-1 min-h-0 overflow-y-auto space-y-3 pb-2">
+      <div className="flex-1 min-h-0 overflow-y-auto space-y-2.5 pb-2">
         {sorted.map((o) => {
           const isNew = o.status === "pending";
           const itemsCount = o.items.reduce((s, it) => s + it.quantity, 0);
           return (
           <div
             key={o.id}
-            className={`bg-white rounded-xl shadow-sm border p-3.5 md:p-4 transition-all ${
+            className={`bg-white rounded-xl shadow-sm border p-2.5 md:p-3 transition-all ${
               isNew ? "border-amber-300 ring-4 ring-amber-500/10 bg-amber-50/20" : "border-slate-200 hover:border-slate-300 hover:shadow-md"
             }`}
           >
-            <div className="flex flex-col md:flex-row justify-between items-start gap-4 md:gap-6">
+            <div className="flex flex-col md:flex-row justify-between items-start gap-2.5 md:gap-4">
               <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-3 flex-wrap mb-2">
+                <div className="flex items-center gap-2 flex-wrap mb-1.5">
                   {o.route_sequence != null && o.status === "delivering" && (
-                    <span className="px-2.5 py-1 rounded-lg text-sm font-extrabold bg-blue-600 text-white">
+                    <span className="px-2 py-0.5 rounded-lg text-xs font-extrabold bg-blue-600 text-white">
                       Marshrut #{o.route_sequence}
                     </span>
                   )}
-                  <span className="text-lg md:text-xl font-extrabold text-slate-900 tracking-tight">№ {o.number}</span>
-                  <span className={`px-3 py-1 rounded-lg text-sm font-bold tracking-wide ${PILL[o.status]}`}>{LABEL[o.status]}</span>
-                  {isAll && <span className="px-3 py-1 rounded-lg text-sm font-bold bg-slate-100 text-slate-600">{storeName(o.restaurant_id)}</span>}
+                  <span className="text-base md:text-lg font-extrabold text-slate-900 tracking-tight">№ {o.number}</span>
+                  <span className={`px-2.5 py-0.5 rounded-lg text-xs font-bold tracking-wide ${PILL[o.status]}`}>{LABEL[o.status]}</span>
+                  {isAll && <span className="px-2.5 py-0.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-600">{storeName(o.restaurant_id)}</span>}
                 </div>
 
-                <div className="space-y-2 mt-4">
-                  <div className="text-base text-slate-600 flex items-start gap-2.5">
-                    <MapPin size={20} className="shrink-0 text-slate-400 mt-0.5" />
+                <div className="space-y-1.5 mt-2.5">
+                  <div className="text-sm text-slate-600 flex items-start gap-2">
+                    <MapPin size={16} className="shrink-0 text-slate-400 mt-0.5" />
                     <span className="leading-snug">{o.address_line}</span>
                   </div>
                   {o.phone && (
-                    <a href={`tel:${o.phone}`} className="text-base font-semibold text-slate-700 flex items-center gap-2.5 hover:text-brand w-fit transition-colors">
-                      <Phone size={18} className="shrink-0 text-slate-400" /> {o.phone}
+                    <a href={`tel:${o.phone}`} className="text-sm font-semibold text-slate-700 flex items-center gap-2 hover:text-brand w-fit transition-colors">
+                      <Phone size={15} className="shrink-0 text-slate-400" /> {o.phone}
                     </a>
                   )}
                 </div>
               </div>
 
-              <div className="text-left md:text-right shrink-0 w-full md:w-auto bg-slate-50 md:bg-transparent p-3 md:p-0 rounded-lg">
-                <div className="text-sm font-medium text-slate-500 mb-1">{new Date(o.created_at).toLocaleString()}</div>
-                <div className="text-xl md:text-2xl font-black text-slate-900 tracking-tight">
-                  {money(o.total)} <span className="text-base text-slate-500 font-bold">so'm</span>
+              <div className="text-left md:text-right shrink-0 w-full md:w-auto bg-slate-50 md:bg-transparent p-2.5 md:p-0 rounded-lg">
+                <div className="text-xs font-medium text-slate-500 mb-0.5">{new Date(o.created_at).toLocaleString()}</div>
+                <div className="text-lg md:text-xl font-black text-slate-900 tracking-tight">
+                  {money(o.total)} <span className="text-sm text-slate-500 font-bold">so'm</span>
                 </div>
               </div>
             </div>
 
             {/* Mahsulotlar — rasm bilan */}
-            <div className="mt-4">
-              <div className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
+            <div className="mt-2.5">
+              <div className="text-xs font-bold text-slate-800 mb-2 flex items-center gap-2">
                 Mahsulotlar
                 <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded-md text-xs">{itemsCount} dona</span>
               </div>
-              <div className="flex gap-3 md:gap-4 overflow-x-auto pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <div className="flex gap-2.5 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 {o.items.map((it) => (
-                  <div key={it.id} className="shrink-0 w-20 md:w-24 flex flex-col group">
+                  <div key={it.id} className="shrink-0 w-14 md:w-16 flex flex-col group">
                     <div className="relative rounded-lg overflow-hidden bg-slate-100 border border-slate-200/60 aspect-square shadow-sm group-hover:shadow-md transition">
                       {it.image_url ? (
                         <img src={it.image_url} alt="" className="w-full h-full object-cover group-hover:scale-110 transition duration-500" />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center text-3xl">🍽</div>
+                        <div className="w-full h-full flex items-center justify-center text-xl">🍽</div>
                       )}
-                      <div className="absolute top-0 right-0 bg-white/95 backdrop-blur-sm px-2 py-1 m-1.5 rounded-lg text-xs font-bold text-slate-800 shadow-sm border border-slate-200/50">
+                      <div className="absolute top-0 right-0 bg-white/95 backdrop-blur-sm px-1.5 py-0.5 m-1 rounded-md text-[10px] font-bold text-slate-800 shadow-sm border border-slate-200/50">
                         ×{it.quantity}
                       </div>
                     </div>
-                    <div className="text-xs text-slate-700 mt-1.5 font-semibold leading-tight line-clamp-2" title={it.name_uz}>{it.name_uz}</div>
+                    <div className="text-[11px] text-slate-700 mt-1 font-semibold leading-tight line-clamp-2" title={it.name_uz}>{it.name_uz}</div>
                   </div>
                 ))}
               </div>
             </div>
 
-            <div className="mt-3 pt-3 border-t border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-3">
+            <div className="mt-2 pt-2 border-t border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-2.5">
               {/* Kuryer holati — faqat kuzatish, kuryer o'zi qabul qiladi */}
               <div className="flex flex-wrap items-center gap-3">
                 {o.assigned_courier_id ? (
