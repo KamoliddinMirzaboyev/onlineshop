@@ -215,7 +215,7 @@ export default function OrdersPage() {
   const remove = async (o: Order) => {
     const ok = await confirm({
       title: `№ ${o.number} buyurtmani butunlay o'chirasizmi?`,
-      message: "Buyurtma ro'yxatdan butunlay o'chiriladi. Bu amalni qaytarib bo'lmaydi.",
+      message: "Buyurtma ro'yxat va statistikadan butunlay o'chadi. Qaytarib bo'lmaydi.",
       confirmText: "O'chirish",
       cancelText: "Yo'q",
       danger: true,
@@ -228,7 +228,7 @@ export default function OrdersPage() {
       setOrders((os) => os.filter((x) => x.id !== o.id));
       toast.success(`№ ${o.number}: o'chirildi`);
     } catch {
-      toast.error("O'chirib bo'lmadi — avval bekor qiling");
+      toast.error("O'chirib bo'lmadi");
     } finally {
       setBusy(null);
     }
@@ -278,14 +278,14 @@ export default function OrdersPage() {
       ) : err && orders.length === 0 ? (
         <ErrorRetry onRetry={load} />
       ) : (
-      <div className="flex-1 min-h-0 overflow-y-auto space-y-4 pb-2">
+      <div className="flex-1 min-h-0 overflow-y-auto space-y-3 pb-2">
         {sorted.map((o) => {
           const isNew = o.status === "pending";
           const itemsCount = o.items.reduce((s, it) => s + it.quantity, 0);
           return (
           <div
             key={o.id}
-            className={`bg-white rounded-3xl shadow-sm border p-5 md:p-6 transition-all ${
+            className={`bg-white rounded-xl shadow-sm border p-3.5 md:p-4 transition-all ${
               isNew ? "border-amber-300 ring-4 ring-amber-500/10 bg-amber-50/20" : "border-slate-200 hover:border-slate-300 hover:shadow-md"
             }`}
           >
@@ -297,7 +297,7 @@ export default function OrdersPage() {
                       Marshrut #{o.route_sequence}
                     </span>
                   )}
-                  <span className="text-xl md:text-2xl font-extrabold text-slate-900 tracking-tight">№ {o.number}</span>
+                  <span className="text-lg md:text-xl font-extrabold text-slate-900 tracking-tight">№ {o.number}</span>
                   <span className={`px-3 py-1 rounded-lg text-sm font-bold tracking-wide ${PILL[o.status]}`}>{LABEL[o.status]}</span>
                   {isAll && <span className="px-3 py-1 rounded-lg text-sm font-bold bg-slate-100 text-slate-600">{storeName(o.restaurant_id)}</span>}
                 </div>
@@ -315,24 +315,24 @@ export default function OrdersPage() {
                 </div>
               </div>
 
-              <div className="text-left md:text-right shrink-0 w-full md:w-auto bg-slate-50 md:bg-transparent p-4 md:p-0 rounded-2xl">
+              <div className="text-left md:text-right shrink-0 w-full md:w-auto bg-slate-50 md:bg-transparent p-3 md:p-0 rounded-lg">
                 <div className="text-sm font-medium text-slate-500 mb-1">{new Date(o.created_at).toLocaleString()}</div>
-                <div className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight">
-                  {money(o.total)} <span className="text-lg text-slate-500 font-bold">so'm</span>
+                <div className="text-xl md:text-2xl font-black text-slate-900 tracking-tight">
+                  {money(o.total)} <span className="text-base text-slate-500 font-bold">so'm</span>
                 </div>
               </div>
             </div>
 
             {/* Mahsulotlar — rasm bilan */}
-            <div className="mt-8">
+            <div className="mt-4">
               <div className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
                 Mahsulotlar
                 <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded-md text-xs">{itemsCount} dona</span>
               </div>
-              <div className="flex gap-4 md:gap-5 overflow-x-auto pb-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <div className="flex gap-3 md:gap-4 overflow-x-auto pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 {o.items.map((it) => (
-                  <div key={it.id} className="shrink-0 w-24 md:w-28 flex flex-col group">
-                    <div className="relative rounded-2xl overflow-hidden bg-slate-100 border border-slate-200/60 aspect-square shadow-sm group-hover:shadow-md transition">
+                  <div key={it.id} className="shrink-0 w-20 md:w-24 flex flex-col group">
+                    <div className="relative rounded-lg overflow-hidden bg-slate-100 border border-slate-200/60 aspect-square shadow-sm group-hover:shadow-md transition">
                       {it.image_url ? (
                         <img src={it.image_url} alt="" className="w-full h-full object-cover group-hover:scale-110 transition duration-500" />
                       ) : (
@@ -342,13 +342,13 @@ export default function OrdersPage() {
                         ×{it.quantity}
                       </div>
                     </div>
-                    <div className="text-sm text-slate-700 mt-2.5 font-semibold leading-tight line-clamp-2" title={it.name_uz}>{it.name_uz}</div>
+                    <div className="text-xs text-slate-700 mt-1.5 font-semibold leading-tight line-clamp-2" title={it.name_uz}>{it.name_uz}</div>
                   </div>
                 ))}
               </div>
             </div>
 
-            <div className="mt-4 pt-5 border-t border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="mt-3 pt-3 border-t border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-3">
               {/* Kuryer holati — faqat kuzatish, kuryer o'zi qabul qiladi */}
               <div className="flex flex-wrap items-center gap-3">
                 {o.assigned_courier_id ? (
@@ -387,7 +387,7 @@ export default function OrdersPage() {
                 {(o.status === "delivering" || o.status === "delivered") && (
                   <button
                     onClick={() => printReceipt(o)}
-                    className="w-full md:w-auto px-5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-700 text-sm font-bold hover:bg-slate-100 hover:text-slate-900 hover:border-slate-300 transition inline-flex items-center justify-center gap-2 shadow-sm"
+                    className="w-full md:w-auto px-3.5 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold hover:bg-slate-100 hover:text-slate-900 hover:border-slate-300 transition inline-flex items-center justify-center gap-1.5 shadow-sm"
                   >
                     <Printer size={18} /> Chop etish
                   </button>
@@ -396,20 +396,18 @@ export default function OrdersPage() {
                   <button
                     disabled={busy === o.id}
                     onClick={() => cancel(o)}
-                    className="w-full md:w-auto px-5 py-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-600 text-sm font-bold hover:bg-rose-600 hover:text-white hover:border-rose-600 transition inline-flex items-center justify-center gap-2 disabled:opacity-50 disabled:hover:bg-rose-50 disabled:hover:text-rose-600 disabled:hover:border-rose-200 shadow-sm"
+                    className="w-full md:w-auto px-3.5 py-1.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-600 text-xs font-bold hover:bg-rose-600 hover:text-white hover:border-rose-600 transition inline-flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:hover:bg-rose-50 disabled:hover:text-rose-600 disabled:hover:border-rose-200 shadow-sm"
                   >
                     <X size={18} strokeWidth={2.5} /> Bekor qilish
                   </button>
                 )}
-                {(o.status === "cancelled" || o.status === "delivered") && (
-                  <button
-                    disabled={busy === o.id}
-                    onClick={() => remove(o)}
-                    className="w-full md:w-auto px-5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-500 text-sm font-bold hover:bg-rose-600 hover:text-white hover:border-rose-600 transition inline-flex items-center justify-center gap-2 disabled:opacity-50 shadow-sm"
-                  >
-                    <Trash2 size={18} strokeWidth={2.5} /> O'chirish
-                  </button>
-                )}
+                <button
+                  disabled={busy === o.id}
+                  onClick={() => remove(o)}
+                  className="w-full md:w-auto px-3.5 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-500 text-xs font-bold hover:bg-rose-600 hover:text-white hover:border-rose-600 transition inline-flex items-center justify-center gap-1.5 disabled:opacity-50 shadow-sm"
+                >
+                  <Trash2 size={18} strokeWidth={2.5} /> O'chirish
+                </button>
               </div>
             </div>
           </div>

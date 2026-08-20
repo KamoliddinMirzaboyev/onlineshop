@@ -110,3 +110,64 @@ def test_business_stats_breaks_down_by_store(client, db_session, tenant_a, tenan
 def test_staff_token_rejected_by_business_router(client, tenant_a):
     resp = client.get("/api/business/stores", headers=auth(tenant_a.staff_token))
     assert resp.status_code == 401
+
+
+def test_business_hard_deletes_delivered_order_and_stats_drop(client, db_session, tenant_a):
+    from app.models import Order
+    from app.services.analytics import agg
+
+    order = make_order(db_session, tenant_a, total=12_000)
+    n, rev, _ = agg(db_session, [tenant_a.restaurant_id])
+    assert n == 1
+    assert rev == 12_000
+
+    resp = client.delete(
+        f"/api/admin/orders/{order.id}?restaurant_id={tenant_a.restaurant_id}",
+        headers=auth(tenant_a.business_token),
+    )
+    assert resp.status_code == 204
+    db_session.expire_all()
+    assert db_session.get(Order, order.id) is None
+    n2, rev2, _ = agg(db_session, [tenant_a.restaurant_id])
+    assert n2 == 0
+    assert rev2 == 0
+
+
+def test_business_hard_deletes_pending_order(client, db_session, tenant_a):
+    from app.models import Order, User
+    from app.models.enums import OrderStatus, PaymentMethod, PaymentStatus
+
+    user = User(telegram_id=9_001_001, language="uz")
+    db_session.add(user)
+    db_session.commit()
+    order = Order(
+        user_id=user.id,
+        restaurant_id=tenant_a.restaurant_id,
+        number="ORD-PENDING-DEL",
+        status=OrderStatus.pending,
+        payment_method=PaymentMethod.cash,
+        payment_status=PaymentStatus.unpaid,
+        items_total=3_000,
+        delivery_fee=0,
+        total=3_000,
+        address_line="Test",
+    )
+    db_session.add(order)
+    db_session.commit()
+
+    resp = client.delete(
+        f"/api/admin/orders/{order.id}?restaurant_id={tenant_a.restaurant_id}",
+        headers=auth(tenant_a.business_token),
+    )
+    assert resp.status_code == 204
+    db_session.expire_all()
+    assert db_session.get(Order, order.id) is None
+
+
+def test_business_cannot_delete_other_store_order(client, db_session, tenant_a, tenant_b):
+    order = make_order(db_session, tenant_b, total=4_000)
+    resp = client.delete(
+        f"/api/admin/orders/{order.id}?restaurant_id={tenant_a.restaurant_id}",
+        headers=auth(tenant_a.business_token),
+    )
+    assert resp.status_code == 404
