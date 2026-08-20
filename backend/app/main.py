@@ -72,26 +72,15 @@ if settings.environment == "production":
 app = FastAPI(title="Barakali Bozor API", version="1.0.0", docs_url="/docs" if settings.environment != "production" else None, redoc_url=None if settings.environment == "production" else "/redoc")
 app.add_middleware(SecurityHeadersMiddleware)
 
-if settings.environment == "production":
-    # Aniq origin'lar + barcha barakali-bozor.uz subdomainlari
-    # (Telegram WebView ba'zan origin variantlarini yuboradi).
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=settings.cors_origins,
-        allow_origin_regex=r"https://([a-z0-9-]+\.)?barakali-bozor\.uz",
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
-else:
-    # Dev'da wildcard — istalgan lokal port/tunnel bilan ishlash uchun.
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origin_regex=".*",
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
+# ponytail: vaqtincha hammaga ochiq (dasturlash bosqichi) — kechga prod
+# origin whitelist'ga (settings.cors_origins) qaytariladi.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origin_regex=".*",
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 api = APIRouter(prefix="/api")
 api.include_router(auth.router)
