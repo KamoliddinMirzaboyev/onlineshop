@@ -4,7 +4,6 @@ import {
   KeyRound,
   Pencil,
   Plus,
-  PowerOff,
   Store,
   Trash2,
   Users,
@@ -222,9 +221,25 @@ export default function StaffPage() {
   };
 
   const toggle = async (u: StaffUser) => {
+    const isBlocking = u.is_active;
+    const name = u.name || u.username;
+
+    const ok = await confirm({
+      title: isBlocking 
+        ? `"${name}" xodimini bloklaysizmi?` 
+        : `"${name}" xodimini faollashtirasizmi?`,
+      message: isBlocking
+        ? "Bloklangan xodim ilova yoki admin panelga kira olmaydi, yangi buyurtmalarni ko'ra olmaydi."
+        : "Xodim yana tizimga kirish va buyurtmalar ustida ishlash imkoniyatiga ega bo'ladi.",
+      confirmText: isBlocking ? "Ha, bloklash" : "Faollashtirish",
+      danger: isBlocking,
+    });
+
+    if (!ok) return;
+
     try {
       await patch(withStore(`/admin/admin-users/${u.id}/toggle`, u.restaurant_id), {});
-      toast.success(u.is_active ? "Xodim bloklandi" : "Xodim aktivlashtirildi");
+      toast.success(isBlocking ? `"${name}" xodimi bloklandi` : `"${name}" xodimi aktivlashtirildi`);
       load();
     } catch {
       toast.error("Amalni bajarib bo'lmadi");
@@ -262,46 +277,47 @@ export default function StaffPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold tracking-tight mb-1">Xodimlar</h1>
-      <p className="text-slate-500 mb-5">Do&apos;kon menejer va kuryer akkauntlari.</p>
-
-      <div className="flex justify-end mb-4">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight mb-1">Xodimlar</h1>
+          <p className="text-slate-500">Do'kon menejerlari va kuryerlarini boshqarish</p>
+        </div>
         <button className="btn" type="button" onClick={openCreate}>
           <Plus size={18} /> Yangi xodim
         </button>
       </div>
 
       {loading ? (
-        <TableSkeleton cols={4} />
+        <TableSkeleton cols={isAll ? 7 : 6} />
       ) : (
-        <div className="card overflow-hidden">
-          <table className="w-full">
+        <div className="card overflow-hidden bg-white border border-slate-200/80 rounded-2xl shadow-sm">
+          <table className="w-full min-w-[700px]">
             <thead>
-              <tr className="bg-slate-50">
+              <tr className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wider border-b border-slate-100">
                 <th className="th">Login</th>
                 <th className="th">Ism</th>
                 <th className="th">Telefon</th>
                 <th className="th">Rol</th>
-                {isAll && <th className="th">Do&apos;kon</th>}
-                <th className="th">Holat</th>
-                <th className="th"></th>
+                {isAll && <th className="th">Do'kon</th>}
+                <th className="th">Holat / Kirish</th>
+                <th className="th text-right">Amallar</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-slate-100 text-slate-700">
               {staff.map((u) => (
-                <tr key={u.id} className="hover:bg-slate-50/60">
+                <tr key={u.id} className={`hover:bg-slate-50/60 transition ${!u.is_active ? "bg-rose-50/20" : ""}`}>
                   <td className="td font-medium text-slate-900">
                     <div className="flex items-center gap-2">
-                      <span className="h-8 w-8 rounded-full bg-brand/10 text-brand text-sm font-bold flex items-center justify-center uppercase">
+                      <span className={`h-8 w-8 rounded-full text-sm font-bold flex items-center justify-center uppercase ${!u.is_active ? "bg-rose-100 text-rose-700" : "bg-brand/10 text-brand"}`}>
                         {u.username[0]}
                       </span>
-                      {u.username}
+                      <span className="font-semibold">{u.username}</span>
                     </div>
                   </td>
-                  <td className="td text-slate-600">{u.name || "—"}</td>
+                  <td className="td text-slate-600 font-medium">{u.name || "—"}</td>
                   <td className="td text-slate-600">
                     {u.phone ? (
-                      <a href={`tel:${u.phone}`} className="hover:text-brand">
+                      <a href={`tel:${u.phone}`} className="hover:text-brand font-medium">
                         {u.phone}
                       </a>
                     ) : (
@@ -316,16 +332,36 @@ export default function StaffPage() {
                   {isAll && <td className="td text-slate-500">{storeName(u.restaurant_id)}</td>}
                   <td className="td">
                     {u.is_active ? (
-                      <span className="pill bg-emerald-100 text-emerald-700">Faol</span>
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/60">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                        <span>Faol</span>
+                      </span>
                     ) : (
-                      <span className="pill bg-slate-100 text-slate-500">Bloklangan</span>
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200/60">
+                        <span className="w-2 h-2 rounded-full bg-rose-500" />
+                        <span>Bloklangan</span>
+                      </span>
                     )}
                   </td>
                   <td className="td text-right">
-                    <div className="inline-flex items-center gap-0.5">
+                    <div className="inline-flex items-center gap-1.5 justify-end">
+                      {/* Bloklash / Faollashtirish tugmasi */}
                       <button
                         type="button"
-                        className="icon-btn"
+                        onClick={() => toggle(u)}
+                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold transition border shadow-sm ${
+                          u.is_active
+                            ? "bg-white border-rose-200 text-rose-600 hover:bg-rose-50"
+                            : "bg-emerald-600 border-emerald-600 text-white hover:bg-emerald-700"
+                        }`}
+                        title={u.is_active ? "Xodimni bloklash" : "Xodimni faollashtirish"}
+                      >
+                        {u.is_active ? "Bloklash" : "Faollashtirish"}
+                      </button>
+
+                      <button
+                        type="button"
+                        className="icon-btn hover:text-slate-900"
                         title="Tahrirlash"
                         onClick={() => openEdit(u)}
                       >
@@ -333,22 +369,11 @@ export default function StaffPage() {
                       </button>
                       <button
                         type="button"
-                        className="icon-btn"
+                        className="icon-btn hover:text-sky-700"
                         title="Parolni o'zgartirish"
                         onClick={() => openPassword(u)}
                       >
                         <KeyRound size={15} className="text-sky-600" />
-                      </button>
-                      <button
-                        type="button"
-                        className="icon-btn"
-                        title={u.is_active ? "Bloklash" : "Aktivlashtirish"}
-                        onClick={() => toggle(u)}
-                      >
-                        <PowerOff
-                          size={15}
-                          className={u.is_active ? "text-amber-500" : "text-emerald-500"}
-                        />
                       </button>
                       <button
                         type="button"
