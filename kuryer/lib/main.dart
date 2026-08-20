@@ -6,9 +6,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/theme.dart';
 import 'pages/login_page.dart';
+import 'pages/onboarding_page.dart';
 import 'services/api.dart';
 import 'services/cache.dart';
+import 'services/fcm.dart';
+import 'services/location.dart';
 import 'services/notifications.dart';
+import 'services/order_widget.dart';
+import 'services/rate_prompt.dart';
 import 'state/auth.dart';
 import 'state/order_alerts.dart';
 import 'widgets/nav_shell.dart';
@@ -21,6 +26,10 @@ Future<void> main() async {
   attachCachePrefs(prefs);
   await api.init();
   await notifications.init();
+  // google-services.json bo'lmasa ham app ishlaydi (local poll).
+  await fcm.init();
+  await orderWidget.init();
+  await ratePrompt.init();
   runApp(const BarakaliCourierApp());
 }
 
@@ -35,6 +44,7 @@ class _BarakaliCourierAppState extends State<BarakaliCourierApp> {
   // Boot splash: shown once on cold start with a minimum on-screen time so the
   // brand animation reads even on a fast connection (mirrors App.tsx).
   bool _booting = true;
+  bool? _onboardingDone;
 
   @override
   void initState() {
@@ -42,6 +52,12 @@ class _BarakaliCourierAppState extends State<BarakaliCourierApp> {
     Timer(const Duration(milliseconds: 1700), () {
       if (mounted) setState(() => _booting = false);
     });
+    unawaited(_loadOnboarding());
+  }
+
+  Future<void> _loadOnboarding() async {
+    final done = await isOnboardingDone();
+    if (mounted) setState(() => _onboardingDone = done);
   }
 
   @override
@@ -52,10 +68,19 @@ class _BarakaliCourierAppState extends State<BarakaliCourierApp> {
         ChangeNotifierProvider(create: (_) => OrderAlerts()),
       ],
       child: MaterialApp(
-        title: 'Barakali Bozor Kuryer',
+        title: 'BB Kuryer',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.light,
-        home: const AuthGate(),
+        home: _onboardingDone == null
+            ? const Scaffold(
+                backgroundColor: AppColors.slate50,
+                body: SizedBox.shrink(),
+              )
+            : _onboardingDone!
+                ? const AuthGate()
+                : OnboardingPage(
+                    onDone: () => setState(() => _onboardingDone = true),
+                  ),
         builder: (context, child) {
           // Overlays hosted above every route: toast stack + boot splash.
           return Stack(
@@ -125,14 +150,21 @@ class _AuthGateState extends State<AuthGate> {
 
   @override
   Widget build(BuildContext context) {
-    // Rebuild on auth changes (login sets identity; logout/401 clears it).
     final auth = context.watch<AuthState>();
 
-    if (!api.hasToken) return const LoginPage();
+    // Chiqish / 401: token yo'q → login.
+    if (!api.hasToken) {
+      _servicesStarted = false;
+      return const LoginPage();
+    }
 
-    // Logged in via the login form (identity set) — go straight to the shell.
-    if (auth.username != null) return const NavShell();
+    // Login muvaffaqiyatli yoki /me yuklandi.
+    if (auth.username != null) {
+      _ensureRuntimeServices();
+      return const NavShell();
+    }
 
+    // Token bor, /me hali tekshirilmoqda.
     if (!_checked) {
       return const Scaffold(
         backgroundColor: AppColors.slate50,
@@ -142,6 +174,7 @@ class _AuthGateState extends State<AuthGate> {
       );
     }
 
+    // Tarmoq xatosi — token saqlanadi, qayta urinish.
     if (_failed) {
       return Scaffold(
         backgroundColor: AppColors.slate50,
@@ -174,6 +207,23 @@ class _AuthGateState extends State<AuthGate> {
       );
     }
 
-    return const NavShell();
+    // Token bor, username yo'q (logout race / yaroqsiz sessiya).
+    _servicesStarted = false;
+    return const LoginPage();
+  }
+
+  bool _servicesStarted = false;
+
+  void _ensureRuntimeServices() {
+    if (_servicesStarted) return;
+    _servicesStarted = true;
+    unawaited(notifications.requestPermission());
+    unawaited(fcm.syncToken());
+    unawaited(locationService.start());
+    unawaited(ratePrompt.recordAppOpen());
+    // Soft rate prompt — sessiya ochilgach.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(ratePrompt.maybeShow(context));
+    });
   }
 }

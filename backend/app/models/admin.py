@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, String, func
+from sqlalchemy import Boolean, DateTime, Enum, Float, ForeignKey, String, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.db import Base
@@ -20,4 +20,9 @@ class AdminUser(Base):
     phone: Mapped[str | None] = mapped_column(String(32))
     role: Mapped[AdminRole] = mapped_column(Enum(AdminRole), default=AdminRole.manager)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    lat: Mapped[float | None] = mapped_column(Float)
+    lng: Mapped[float | None] = mapped_column(Float)
+    last_location_update: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Native Android (FCM) push token — kuryer APK; Web Push alohida jadvalda.
+    fcm_token: Mapped[str | None] = mapped_column(String(512))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

@@ -1,9 +1,10 @@
-import { Bike, MapPin, Navigation, Phone, Printer, User, X } from "lucide-react";
+import { Bike, MapPin, Navigation, Phone, Printer, Trash2, User, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { get, patch } from "../api";
+import { del, get, patch } from "../api";
 import { confirm } from "../components/Confirm";
 import { ErrorRetry, OrderListSkeleton } from "../components/Skeleton";
+import { useAuth } from "../store";
 import type { Order, OrderStatus } from "../types";
 
 const FILTER_TABS = [
@@ -32,6 +33,14 @@ const PILL: Record<OrderStatus, string> = {
 
 const money = (n?: number | null) => (n || 0).toLocaleString("ru-RU").replace(/,/g, " ");
 
+// Chek doc.write() bilan yoziladi — mijoz/kuryer kiritgan matnlar (manzil,
+// izoh, ism, telefon) escape qilinmasa, HTML/JS sifatida ijro etiladi (stored
+// XSS: chekni ochgan admin brauzerida, localStorage token'ga kirish bilan).
+const esc = (s?: string | number | null) =>
+  String(s ?? "").replace(/[&<>"']/g, (c) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  })[c] as string);
+
 // Yangi/faol buyurtmalar tepada; yakunlanganlar pastda.
 const RANK: Record<OrderStatus, number> = {
   pending: 0, confirmed: 1, preparing: 2, ready: 3, accepted: 4,
@@ -57,7 +66,7 @@ const printReceipt = (o: Order) => {
   o.items.forEach((it, idx) => {
     itemsHtml += `
       <tr>
-        <td class="text-left" colspan="2" style="padding-bottom: 2px;">${idx + 1}. ${it.name_uz}</td>
+        <td class="text-left" colspan="2" style="padding-bottom: 2px;">${idx + 1}. ${esc(it.name_uz)}</td>
       </tr>
       <tr>
         <td class="text-left" style="padding-bottom: 6px; color: #444;">${it.quantity} x ${money(it.price)}</td>
@@ -70,7 +79,7 @@ const printReceipt = (o: Order) => {
     <!DOCTYPE html>
     <html>
       <head>
-        <title>Chek №${o.number}</title>
+        <title>Chek №${esc(o.number)}</title>
         <style>
           @page { margin: 0; size: auto; }
           body { 
@@ -95,12 +104,12 @@ const printReceipt = (o: Order) => {
       <body>
         <div class="header">BARAKALI BOZOR</div>
         <div class="divider"></div>
-        <div><b>Buyurtma №:</b> ${o.number}</div>
-        <div><b>Sana:</b> ${dateStr}</div>
-        ${o.customer_name ? `<div><b>Mijoz:</b> ${o.customer_name}</div>` : ""}
-        <div><b>Mijoz tel:</b> ${o.phone || "-"}</div>
-        <div><b>Manzil:</b> ${o.address_line}</div>
-        ${o.comment ? `<div><b>Izoh:</b> ${o.comment}</div>` : ""}
+        <div><b>Buyurtma №:</b> ${esc(o.number)}</div>
+        <div><b>Sana:</b> ${esc(dateStr)}</div>
+        ${o.customer_name ? `<div><b>Mijoz:</b> ${esc(o.customer_name)}</div>` : ""}
+        <div><b>Mijoz tel:</b> ${esc(o.phone) || "-"}</div>
+        <div><b>Manzil:</b> ${esc(o.address_line)}</div>
+        ${o.comment ? `<div><b>Izoh:</b> ${esc(o.comment)}</div>` : ""}
         <div class="divider"></div>
         <table>
           ${itemsHtml}
@@ -121,8 +130,8 @@ const printReceipt = (o: Order) => {
           </tr>
         </table>
         <div class="divider"></div>
-        ${o.assigned_courier_name ? `<div><b>Kuryer:</b> ${o.assigned_courier_name}</div>` : ""}
-        ${o.assigned_courier_phone ? `<div><b>Tel:</b> ${o.assigned_courier_phone}</div>` : ""}
+        ${o.assigned_courier_name ? `<div><b>Kuryer:</b> ${esc(o.assigned_courier_name)}</div>` : ""}
+        ${o.assigned_courier_phone ? `<div><b>Tel:</b> ${esc(o.assigned_courier_phone)}</div>` : ""}
         <div class="text-center font-bold" style="margin-top: 10px;">Xaridingiz uchun rahmat!</div>
       </body>
     </html>
@@ -139,6 +148,7 @@ const printReceipt = (o: Order) => {
 };
 
 export default function OrdersPage() {
+  const { admin } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
   const [filter, setFilter] = useState<OrderStatus | "">("");
   const [loading, setLoading] = useState(true);
@@ -197,6 +207,28 @@ export default function OrdersPage() {
     }
   };
 
+  const remove = async (o: Order) => {
+    const ok = await confirm({
+      title: `№ ${o.number} buyurtmani butunlay o'chirasizmi?`,
+      message: "Buyurtma ro'yxatdan butunlay o'chiriladi. Bu amalni qaytarib bo'lmaydi.",
+      confirmText: "O'chirish",
+      cancelText: "Yo'q",
+      danger: true,
+    });
+    if (!ok) return;
+
+    setBusy(o.id);
+    try {
+      await del(`/admin/orders/${o.id}`);
+      setOrders((os) => os.filter((x) => x.id !== o.id));
+      toast.success(`№ ${o.number}: o'chirildi`);
+    } catch {
+      toast.error("O'chirib bo'lmadi — avval bekor qiling");
+    } finally {
+      setBusy(null);
+    }
+  };
+
   const sorted = [...orders].sort(
     (a, b) =>
       RANK[a.status] - RANK[b.status] ||
@@ -204,8 +236,9 @@ export default function OrdersPage() {
   );
 
   return (
-    <div>
-      <div className="mb-6">
+    <div className="flex flex-col h-[calc(100dvh-3.5rem-2rem)] md:h-[calc(100dvh-3.5rem-4rem)]">
+      {/* Title + filterlar fixed — ro'yxat alohida scroll, yopilmaydi */}
+      <div className="shrink-0 pb-4">
         <h1 className="text-2xl font-bold tracking-tight mb-1">Buyurtmalar</h1>
         <p className="text-slate-500 mb-4">Kuzatuv rejimi — kuryer buyurtmani o'zi qabul qiladi</p>
 
@@ -218,7 +251,7 @@ export default function OrdersPage() {
                 ? "bg-brand text-white shadow-md shadow-brand/25"
                 : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900 hover:border-slate-300"
             }`}
-            onClick={() => setFilter(tab.value as any)}
+            onClick={() => setFilter(tab.value as OrderStatus | "")}
           >
             {tab.label}
           </button>
@@ -226,72 +259,81 @@ export default function OrdersPage() {
         </div>
       </div>
 
-      {loading ? <OrderListSkeleton /> : err && orders.length === 0 ? <ErrorRetry onRetry={load} /> : (
-      <div className="space-y-4">
+      {loading ? (
+        <div className="flex-1 min-h-0 overflow-y-auto"><OrderListSkeleton /></div>
+      ) : err && orders.length === 0 ? (
+        <ErrorRetry onRetry={load} />
+      ) : (
+      <div className="flex-1 min-h-0 overflow-y-auto space-y-2.5 pb-2">
         {sorted.map((o) => {
           const isNew = o.status === "pending";
           const itemsCount = o.items.reduce((s, it) => s + it.quantity, 0);
           return (
           <div
             key={o.id}
-            className={`bg-white rounded-3xl shadow-sm border p-5 md:p-6 transition-all ${
+            className={`bg-white rounded-xl shadow-sm border p-2.5 md:p-3 transition-all ${
               isNew ? "border-amber-300 ring-4 ring-amber-500/10 bg-amber-50/20" : "border-slate-200 hover:border-slate-300 hover:shadow-md"
             }`}
           >
-            <div className="flex flex-col md:flex-row justify-between items-start gap-4 md:gap-6">
+            <div className="flex flex-col md:flex-row justify-between items-start gap-2.5 md:gap-4">
               <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-3 flex-wrap mb-2">
-                  <span className="text-xl md:text-2xl font-extrabold text-slate-900 tracking-tight">№ {o.number}</span>
-                  <span className={`px-3 py-1 rounded-lg text-sm font-bold tracking-wide ${PILL[o.status]}`}>{LABEL[o.status]}</span>
+                <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                  {o.route_sequence != null && o.status === "delivering" && (
+                    <span className="px-2 py-0.5 rounded-lg text-xs font-extrabold bg-blue-600 text-white">
+                      Marshrut #{o.route_sequence}
+                    </span>
+                  )}
+                  <span className="text-base md:text-lg font-extrabold text-slate-900 tracking-tight">№ {o.number}</span>
+                  <span className={`px-2.5 py-0.5 rounded-lg text-xs font-bold tracking-wide ${PILL[o.status]}`}>{LABEL[o.status]}</span>
                 </div>
-                
-                <div className="space-y-2 mt-4">
-                  <div className="text-base text-slate-600 flex items-start gap-2.5">
-                    <MapPin size={20} className="shrink-0 text-slate-400 mt-0.5" /> 
+
+                <div className="space-y-1.5 mt-2.5">
+                  <div className="text-sm text-slate-600 flex items-start gap-2">
+                    <MapPin size={16} className="shrink-0 text-slate-400 mt-0.5" />
                     <span className="leading-snug">{o.address_line}</span>
                   </div>
                   {o.phone && (
-                    <a href={`tel:${o.phone}`} className="text-base font-semibold text-slate-700 flex items-center gap-2.5 hover:text-brand w-fit transition-colors">
-                      <Phone size={18} className="shrink-0 text-slate-400" /> {o.phone}
+                    <a href={`tel:${o.phone}`} className="text-sm font-semibold text-slate-700 flex items-center gap-2 hover:text-brand w-fit transition-colors">
+                      <Phone size={15} className="shrink-0 text-slate-400" /> {o.phone}
                     </a>
                   )}
                 </div>
               </div>
 
-              <div className="text-left md:text-right shrink-0 w-full md:w-auto bg-slate-50 md:bg-transparent p-4 md:p-0 rounded-2xl">
-                <div className="text-sm font-medium text-slate-500 mb-1">{new Date(o.created_at).toLocaleString()}</div>
-                <div className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight">
-                  {money(o.total)} <span className="text-lg text-slate-500 font-bold">so'm</span>
+              <div className="text-left md:text-right shrink-0 w-full md:w-auto bg-slate-50 md:bg-transparent p-2.5 md:p-0 rounded-lg">
+                <div className="text-xs font-medium text-slate-500 mb-0.5">{new Date(o.created_at).toLocaleString()}</div>
+                <div className="text-lg md:text-xl font-black text-slate-900 tracking-tight">
+                  {money(o.total)} <span className="text-sm text-slate-500 font-bold">so'm</span>
                 </div>
               </div>
             </div>
 
             {/* Mahsulotlar — rasm bilan */}
-            <div className="mt-8">
-              <div className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
-                Mahsulotlar 
+            <div className="mt-2.5">
+              <div className="text-xs font-bold text-slate-800 mb-2 flex items-center gap-2">
+                Mahsulotlar
                 <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded-md text-xs">{itemsCount} dona</span>
               </div>
-              <div className="flex gap-4 md:gap-5 overflow-x-auto pb-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <div className="flex gap-2.5 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 {o.items.map((it) => (
-                  <div key={it.id} className="shrink-0 w-24 md:w-28 flex flex-col group">
-                    <div className="relative rounded-2xl overflow-hidden bg-slate-100 border border-slate-200/60 aspect-square shadow-sm group-hover:shadow-md transition">
+                  <div key={it.id} className="shrink-0 w-14 md:w-16 flex flex-col group">
+                    <div className="relative rounded-lg overflow-hidden bg-slate-100 border border-slate-200/60 aspect-square shadow-sm group-hover:shadow-md transition">
                       {it.image_url ? (
                         <img src={it.image_url} alt="" className="w-full h-full object-cover group-hover:scale-110 transition duration-500" />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center text-3xl">🍽</div>
+                        <div className="w-full h-full flex items-center justify-center text-xl">🍽</div>
                       )}
-                      <div className="absolute top-0 right-0 bg-white/95 backdrop-blur-sm px-2 py-1 m-1.5 rounded-lg text-xs font-bold text-slate-800 shadow-sm border border-slate-200/50">
+                      <div className="absolute top-0 right-0 bg-white/95 backdrop-blur-sm px-1.5 py-0.5 m-1 rounded-md text-[10px] font-bold text-slate-800 shadow-sm border border-slate-200/50">
                         ×{it.quantity}
                       </div>
                     </div>
-                    <div className="text-sm text-slate-700 mt-2.5 font-semibold leading-tight line-clamp-2" title={it.name_uz}>{it.name_uz}</div>
+                    <div className="text-[11px] text-slate-700 mt-1 font-semibold leading-tight line-clamp-2" title={it.name_uz}>{it.name_uz}</div>
                   </div>
                 ))}
               </div>
             </div>
 
-            <div className="mt-4 pt-5 border-t border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="mt-2 pt-2 border-t border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-2.5">
               {/* Kuryer holati — faqat kuzatish, kuryer o'zi qabul qiladi */}
               <div className="flex flex-wrap items-center gap-3">
                 {o.assigned_courier_id ? (
@@ -327,19 +369,30 @@ export default function OrdersPage() {
               </div>
 
               <div className="flex flex-col sm:flex-row shrink-0 gap-3 w-full md:w-auto">
-                <button
-                  onClick={() => printReceipt(o)}
-                  className="w-full md:w-auto px-5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-700 text-sm font-bold hover:bg-slate-100 hover:text-slate-900 hover:border-slate-300 transition inline-flex items-center justify-center gap-2 shadow-sm"
-                >
-                  <Printer size={18} /> Chop etish
-                </button>
+                {(o.status === "delivering" || o.status === "delivered") && (
+                  <button
+                    onClick={() => printReceipt(o)}
+                    className="w-full md:w-auto px-3.5 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold hover:bg-slate-100 hover:text-slate-900 hover:border-slate-300 transition inline-flex items-center justify-center gap-1.5 shadow-sm"
+                  >
+                    <Printer size={18} /> Chop etish
+                  </button>
+                )}
                 {o.status !== "delivered" && o.status !== "cancelled" && (
                   <button
                     disabled={busy === o.id}
                     onClick={() => cancel(o)}
-                    className="w-full md:w-auto px-5 py-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-600 text-sm font-bold hover:bg-rose-600 hover:text-white hover:border-rose-600 transition inline-flex items-center justify-center gap-2 disabled:opacity-50 disabled:hover:bg-rose-50 disabled:hover:text-rose-600 disabled:hover:border-rose-200 shadow-sm"
+                    className="w-full md:w-auto px-3.5 py-1.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-600 text-xs font-bold hover:bg-rose-600 hover:text-white hover:border-rose-600 transition inline-flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:hover:bg-rose-50 disabled:hover:text-rose-600 disabled:hover:border-rose-200 shadow-sm"
                   >
                     <X size={18} strokeWidth={2.5} /> Bekor qilish
+                  </button>
+                )}
+                {(o.status === "cancelled" || o.status === "delivered") && admin?.role === "superadmin" && (
+                  <button
+                    disabled={busy === o.id}
+                    onClick={() => remove(o)}
+                    className="w-full md:w-auto px-3.5 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-500 text-xs font-bold hover:bg-rose-600 hover:text-white hover:border-rose-600 transition inline-flex items-center justify-center gap-1.5 disabled:opacity-50 shadow-sm"
+                  >
+                    <Trash2 size={18} strokeWidth={2.5} /> O'chirish
                   </button>
                 )}
               </div>

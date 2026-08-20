@@ -66,6 +66,9 @@ class ApiService {
       case 'PATCH':
         res = await http.patch(uri, headers: _headers, body: jsonEncode(body));
         break;
+      case 'DELETE':
+        res = await http.delete(uri, headers: _headers);
+        break;
       default:
         res = await http.get(uri, headers: _headers);
     }
@@ -85,6 +88,7 @@ class ApiService {
   Future<dynamic> get(String path) => _request('GET', path);
   Future<dynamic> post(String path, Object? body) => _request('POST', path, body: body);
   Future<dynamic> patch(String path, Object? body) => _request('PATCH', path, body: body);
+  Future<dynamic> delete(String path) => _request('DELETE', path);
 }
 
 final api = ApiService.instance;

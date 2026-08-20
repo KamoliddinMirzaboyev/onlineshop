@@ -1,6 +1,6 @@
 from datetime import date, datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.enums import AdminRole, AnnouncementStatus
 
@@ -20,8 +20,7 @@ class DeliveryZoneIn(BaseModel):
 class DeliveryZoneOut(DeliveryZoneIn):
     id: int
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class AdminUserOut(BaseModel):
@@ -34,8 +33,7 @@ class AdminUserOut(BaseModel):
     is_active: bool
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class TopProduct(BaseModel):
@@ -87,8 +85,8 @@ class ReportsOut(BaseModel):
 
 
 class StockUpdate(BaseModel):
-    stock: int
-    low_stock_threshold: int | None = None
+    stock: float = Field(ge=0)
+    low_stock_threshold: float | None = Field(default=None, ge=0)
 
 
 class PushKeys(BaseModel):
@@ -125,8 +123,7 @@ class SupplyRecordOut(BaseModel):
     notes: str | None = None
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class AnnouncementIn(BaseModel):
@@ -147,8 +144,7 @@ class AnnouncementOut(BaseModel):
     created_at: datetime
     sent_at: datetime | None = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class NotificationEvent(BaseModel):

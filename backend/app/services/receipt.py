@@ -11,8 +11,11 @@ snapshot'idan olinadi va yuklab olinadi (xato/timeout — o'rniga harf-belgili
 placeholder chiziladi, chek hech qachon buzilmaydi).
 """
 
+import ipaddress
+import socket
 from io import BytesIO
 from pathlib import Path
+from urllib.parse import urlparse
 
 import httpx
 from PIL import Image, ImageDraw, ImageFont
@@ -59,13 +62,32 @@ def _placeholder(name: str, size: int, font: ImageFont.FreeTypeFont) -> Image.Im
     return im
 
 
+def _is_public_http_url(url: str) -> bool:
+    """SSRF himoyasi: image_url admin/tadbirkor tomonidan erkin kiritiladi —
+    ichki tarmoq/localhost/metadata (169.254.169.254 va h.k.)ga so'rov
+    yubormasligimiz kerak."""
+    try:
+        parsed = urlparse(url)
+        if parsed.scheme not in ("http", "https") or not parsed.hostname:
+            return False
+        for info in socket.getaddrinfo(parsed.hostname, None):
+            ip = ipaddress.ip_address(info[4][0])
+            if not ip.is_global or ip.is_private or ip.is_loopback or ip.is_link_local:
+                return False
+        return True
+    except Exception:
+        return False
+
+
 def _rounded_thumb(url: str | None, size: int) -> Image.Image | None:
     """Mahsulot rasmini yuklab, kvadrat kesib, yumaloq burchakli qiladi.
-    Xato/timeout — None (chaqiruvchi o'rniga placeholder chizadi)."""
-    if not url:
+    Xato/timeout/ichki-tarmoq URL — None (chaqiruvchi o'rniga placeholder chizadi)."""
+    if not url or not _is_public_http_url(url):
         return None
     try:
-        r = httpx.get(url, timeout=6, follow_redirects=True)
+        # Redirect orqali ichki manzilga yo'naltirishning oldini olish uchun
+        # follow_redirects=False — o'z uploads/CDN havolalari redirect qilmaydi.
+        r = httpx.get(url, timeout=6, follow_redirects=False)
         if r.status_code != 200:
             return None
         im = Image.open(BytesIO(r.content)).convert("RGB")
@@ -75,7 +97,7 @@ def _rounded_thumb(url: str | None, size: int) -> Image.Image | None:
     w, h = im.size
     s = min(w, h)
     im = im.crop(((w - s) // 2, (h - s) // 2, (w + s) // 2, (h + s) // 2)).resize(
-        (size, size), Image.LANCZOS
+        (size, size), Image.Resampling.LANCZOS
     )
     # yumaloq burchak maskasi
     mask = Image.new("L", (size, size), 0)
@@ -124,7 +146,7 @@ def render_receipt(order: Order) -> bytes:
             lw, lh = logo.size
             logo_h = 75
             logo_w = int(lw * (logo_h / lh))
-            logo = logo.resize((logo_w, logo_h), Image.LANCZOS)
+            logo = logo.resize((logo_w, logo_h), Image.Resampling.LANCZOS)
             img.paste(logo, (W // 2 - logo_w // 2, y), logo)
             y += logo_h + 15
     except Exception:

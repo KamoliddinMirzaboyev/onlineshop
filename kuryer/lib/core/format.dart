@@ -89,10 +89,70 @@ const _paymentLabelMap = {
 
 String paymentLabel(String? m) => m == null ? '—' : (_paymentLabelMap[m] ?? m);
 
-/// Yandex Maps navigation link (when lat/lng present).
-String? mapsUrl(double? lat, double? lng) => (lat != null && lng != null)
-    ? 'https://yandex.com/maps/?rtext=~$lat,$lng&rtt=auto'
-    : null;
+/// Legacy — Yandex Maps (web). Prefer [googleMapsNavUrl] / [yandexNaviUrl].
+String? mapsUrl(double? lat, double? lng) => yandexMapsUrl(lat, lng);
+
+/// Google Maps marshrut (avtomobil). Multi-stop: [waypoints] orasida.
+String? googleMapsNavUrl({
+  double? lat,
+  double? lng,
+  String? address,
+  List<({double lat, double lng})>? waypoints,
+}) {
+  if (waypoints != null && waypoints.length >= 2) {
+    final dest = waypoints.last;
+    final via = waypoints
+        .sublist(0, waypoints.length - 1)
+        .map((p) => '${p.lat},${p.lng}')
+        .join('|');
+    return 'https://www.google.com/maps/dir/?api=1'
+        '&destination=${dest.lat},${dest.lng}'
+        '&waypoints=$via'
+        '&travelmode=driving';
+  }
+  if (lat != null && lng != null) {
+    return 'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng&travelmode=driving';
+  }
+  final a = address?.trim();
+  if (a != null && a.isNotEmpty) {
+    return 'https://www.google.com/maps/dir/?api=1&destination=${Uri.encodeComponent(a)}&travelmode=driving';
+  }
+  return null;
+}
+
+/// Yandex Navigator deep link (ilova o'rnatilgan bo'lsa).
+String? yandexNaviUrl({double? lat, double? lng}) {
+  if (lat == null || lng == null) return null;
+  return 'yandexnavi://build_route_on_map?lat_to=$lat&lon_to=$lng';
+}
+
+/// Yandex Maps web / ilova (manzil yoki koordinata). Multi-stop: rtext=lat,lng~lat,lng…
+String? yandexMapsUrl(
+  double? lat,
+  double? lng, {
+  String? address,
+  List<({double lat, double lng})>? waypoints,
+}) {
+  if (waypoints != null && waypoints.isNotEmpty) {
+    final parts = waypoints.map((p) => '${p.lat},${p.lng}').join('~');
+    return 'https://yandex.com/maps/?rtext=~$parts&rtt=auto';
+  }
+  if (lat != null && lng != null) {
+    return 'https://yandex.com/maps/?rtext=~$lat,$lng&rtt=auto';
+  }
+  final a = address?.trim();
+  if (a != null && a.isNotEmpty) {
+    return 'https://yandex.com/maps/?text=${Uri.encodeComponent(a)}';
+  }
+  return null;
+}
+
+
+
+bool canNavigate({double? lat, double? lng, String? address}) {
+  if (lat != null && lng != null) return true;
+  return address != null && address.trim().isNotEmpty;
+}
 
 /// "1 kg", "3 dona"
 String qtyUnit(num quantity, String? unit) {
@@ -106,6 +166,19 @@ String qtyUnit(num quantity, String? unit) {
 String? distanceLabel(double? km) {
   if (km == null) return null;
   return km < 1 ? '${(km * 1000).round()} m' : '${km.toStringAsFixed(1)} km';
+}
+
+/// Delivering da leg (oldingi stopdan), aks holda ombor masofasi.
+String? orderDistanceLabel({
+  required String status,
+  double? routeLegKm,
+  double? distanceKm,
+}) {
+  if (status == 'delivering' && routeLegKm != null) {
+    final d = distanceLabel(routeLegKm);
+    return d == null ? null : 'oldingidan $d';
+  }
+  return distanceLabel(distanceKm);
 }
 
 /// "~25 daqiqa"

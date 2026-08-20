@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.schemas.admin import PeriodPoint, TopProduct, ReportTotals
 
@@ -13,14 +13,13 @@ class BusinessOut(BaseModel):
     is_active: bool
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class BusinessCreateIn(BaseModel):
     name: str
     username: str
-    password: str
+    password: str = Field(min_length=6, max_length=128)
     phone: str | None = None
 
 
@@ -38,8 +37,7 @@ class PlatformStoreRow(BaseModel):
     business_name: str
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class PlatformAdminOut(BaseModel):
@@ -48,8 +46,7 @@ class PlatformAdminOut(BaseModel):
     is_active: bool
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class StoreCreateIn(BaseModel):

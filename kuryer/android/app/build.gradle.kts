@@ -7,6 +7,11 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+// google-services.json joylangandan keyin FCM ishlaydi (yo'q bo'lsa build o'tadi).
+if (file("google-services.json").exists()) {
+    apply(plugin = "com.google.gms.google-services")
+}
+
 val keystoreProperties = Properties()
 val keystorePropertiesFile = rootProject.file("key.properties")
 if (keystorePropertiesFile.exists()) {
@@ -14,23 +19,23 @@ if (keystorePropertiesFile.exists()) {
 }
 
 android {
-    namespace = "uz.allfoods.kuryer"
+    namespace = "uz.barakalibozor.kuryer"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
         // Required by flutter_local_notifications (java.time backport).
         isCoreLibraryDesugaringEnabled = true
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
 
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_11.toString()
+        jvmTarget = JavaVersion.VERSION_17.toString()
     }
 
     defaultConfig {
-        applicationId = "uz.allfoods.kuryer"
+        applicationId = "uz.barakalibozor.kuryer"
         // flutter_local_notifications needs at least API 21.
         minSdk = maxOf(flutter.minSdkVersion, 21)
         targetSdk = flutter.targetSdkVersion
@@ -53,14 +58,26 @@ android {
 
     buildTypes {
         release {
-            // Falls back to the debug key only when key.properties is absent (e.g. a
-            // fresh checkout without the release keystore), so `flutter run --release`
-            // still works locally. Real release builds must supply key.properties.
+            // Real release: key.properties majburiy (Play upload uchun).
+            // Local fallback: debug key — faqat keystore yo'q checkout uchun.
             signingConfig = if (keystorePropertiesFile.exists()) {
                 signingConfigs.getByName("release")
             } else {
                 signingConfigs.getByName("debug")
             }
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
+        }
+    }
+
+    // Play: 16 KB page size / packaging
+    packaging {
+        jniLibs {
+            useLegacyPackaging = false
         }
     }
 }

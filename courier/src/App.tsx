@@ -12,6 +12,7 @@ import OrdersPage from "./pages/OrdersPage";
 import OrderDetailPage from "./pages/OrderDetailPage";
 import ProfilePage from "./pages/ProfilePage";
 import { useAuth } from "./store";
+import { startLocationTracking, stopLocationTracking } from "./location";
 
 function Protected({ children }: { children: React.ReactNode }) {
   const { loadMe } = useAuth();
@@ -19,20 +20,29 @@ function Protected({ children }: { children: React.ReactNode }) {
   const [failed, setFailed] = useState(false);
 
   const verify = () => {
-    if (!hasToken()) { setChecked(true); return; }
+    if (!hasToken()) {
+      setChecked(true);
+      return;
+    }
     setFailed(false);
     loadMe()
       .then(() => setFailed(false))
       .catch(() => {
         // 401 is already handled in api.ts (token cleared + redirect to /login).
-        // A transient network failure must NOT log the courier out — keep the
-        // session (token stays) and offer a retry instead.
         if (hasToken()) setFailed(true);
       })
       .finally(() => setChecked(true));
   };
 
   useEffect(verify, [loadMe]);
+
+  // Hooks must not be after early returns (React #310).
+  const ready = checked && hasToken() && !failed;
+  useEffect(() => {
+    if (!ready) return;
+    startLocationTracking();
+    return () => stopLocationTracking();
+  }, [ready]);
 
   if (!checked) {
     return (
@@ -55,6 +65,7 @@ function Protected({ children }: { children: React.ReactNode }) {
       </div>
     );
   }
+
   return <>{children}</>;
 }
 

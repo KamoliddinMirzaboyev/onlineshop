@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_business
 from app.core.db import get_db
 from app.core.ratelimit import rate_limiter
-from app.core.security import create_access_token, hash_password, verify_password
+from app.core.security import create_access_token, hash_password, verify_password, verify_password_safe
 from app.models import Business
 from app.schemas.auth import AdminLoginIn, TokenOut
 from app.schemas.business import BusinessOut
@@ -20,9 +20,10 @@ _login_limit = rate_limiter("business_login", limit=10, window_seconds=60)
 @router.post("/login", response_model=TokenOut, dependencies=[Depends(_login_limit)])
 def business_login(data: AdminLoginIn, db: Session = Depends(get_db)):
     business = db.scalar(select(Business).where(Business.username == data.username))
-    if not business or not business.is_active or not verify_password(data.password, business.hashed_password):
+    pw_ok = verify_password_safe(data.password, business.hashed_password if business else None)
+    if not business or not business.is_active or not pw_ok:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid credentials")
-    token = create_access_token(subject=business.id, role="businessman")
+    token = create_access_token(subject=str(business.id), role="businessman")
     return TokenOut(access_token=token)
 
 

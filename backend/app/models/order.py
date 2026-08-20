@@ -85,6 +85,13 @@ class Order(Base):
     # Kuryer "yetkazdim" bosgan vaqt — mijoz tasdig'i kutilmoqda (status hali delivering).
     courier_delivered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
+    # Multi-stop marshrut: bir "yo'lga chiqish"dagi guruh + tartib (1,2,3…).
+    route_group_id: Mapped[str | None] = mapped_column(String(36), index=True)
+    route_sequence: Mapped[int | None] = mapped_column(Integer)
+    # Oldingi nuqtadan (depot yoki oldingi stop) shu stopgacha leg km.
+    route_leg_km: Mapped[float | None] = mapped_column(Float)
+
+
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 

@@ -22,8 +22,8 @@ class Restaurant(Base):
     address: Mapped[str | None] = mapped_column(String(512))
     owner_name: Mapped[str | None] = mapped_column(String(128))
     # phones: ["+998901234567", ...]; socials: {"instagram": "https://...", ...}
-    phones: Mapped[list] = mapped_column(JSONB, default=list, server_default="[]")
-    socials: Mapped[dict] = mapped_column(JSONB, default=dict, server_default="{}")
+    phones: Mapped[list[str]] = mapped_column(JSONB, default=list, server_default="[]")
+    socials: Mapped[dict[str, str]] = mapped_column(JSONB, default=dict, server_default="{}")
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     # Do'kon joylashuvi — masofa/ETA hisobida origin (bo'lmasa zona markazi fallback).
     lat: Mapped[float | None] = mapped_column(Float)

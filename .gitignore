@@ -34,6 +34,8 @@ build/
 *.key
 key.properties
 google-services.json
+*firebase-adminsdk*.json
+firebase-service-account.json
 
 # Database dumps — contain real customer data
 backups/
@@ -55,3 +57,11 @@ postgres-data/
 .vercel
 bblogo.png
 bblogobg.png
+
+# Play Store release artifacts — katta binary, reverse-engineer/mapping riski
+# (repo tarixida saqlanmasin — obyekt storage/lokal saqlansin).
+*.apk
+*.aab
+/Play Market/
+/Play Market.zip
+kuryer/store/play/release/

@@ -1,4 +1,4 @@
-package uz.allfoods.kuryer
+package uz.barakalibozor.kuryer
 
 import io.flutter.embedding.android.FlutterActivity
 

@@ -1,0 +1,57 @@
+BB Kuryer — Play Market listing (o‘zbek)
+
+═══════════════════════════════════════
+Ilova nomi (30 belgi max)
+═══════════════════════════════════════
+BB Kuryer
+
+═══════════════════════════════════════
+Qisqa tavsif (80 belgi max)
+═══════════════════════════════════════
+Barakali Bozor kuryerlari uchun buyurtma, navigatsiya va daromad.
+
+═══════════════════════════════════════
+To‘liq tavsif
+═══════════════════════════════════════
+BB Kuryer — Barakali Bozor yetkazib berish kuryerlari uchun maxsus ilova.
+
+Nima qila olasiz:
+• Yangi buyurtmalarni real vaqtda ko‘rish va qabul qilish
+• Holatni yangilash: qabul qilindi → yetkazilmoqda → yetkazildi
+• Google Maps yoki Yandex Navigator orqali mijoz manziliga yo‘l olish
+• Mijoz bilan bog‘lanish (telefon)
+• Kunlik/umumiy statistika va daromad
+• Push-bildirishnomalar — yangi buyurtmani o‘tkazib yubormang
+• Uy ekranida Home Widget — faol buyurtmalar doim ko‘rinadi
+
+Kim uchun:
+Faqat Barakali Bozor kuryerlari (admin tomonidan berilgan login).
+
+Xavfsizlik:
+Hisobingiz himoyalangan. Manzil ma’lumotlari faqat yetkazib berish uchun ishlatiladi.
+
+Qo‘llab-quvvatlash: Barakali Bozor administratsiyasi orqali.
+
+═══════════════════════════════════════
+Yangilanish eslatmalari (v1.2.0)
+═══════════════════════════════════════
+• Birinchi ochilishda onboarding
+• Play Marketda ilovani baholash
+• Uy ekrani widgeti — faol buyurtmalar
+• Tezlik va barqarorlik yaxshilandi
+
+═══════════════════════════════════════
+Kategoriya
+═══════════════════════════════════════
+Biznes / Mahalliy yetkazib berish (Business)
+
+═══════════════════════════════════════
+Aloqa / Support email (Play Console)
+═══════════════════════════════════════
+(o‘zingizning ish emailingizni yozing)
+
+═══════════════════════════════════════
+Maxfiylik siyosati URL
+═══════════════════════════════════════
+https://allfoodapi.webportfolio.uz/privacy  (yoki o‘zingiz joylashtirgan sahifa)
+store/play/privacy-policy.html ni hostingga yuklang.

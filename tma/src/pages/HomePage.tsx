@@ -105,7 +105,7 @@ export default function HomePage() {
           sections.map((section, si) => (
             <div key={section.key} className="mb-5 last:mb-0">
               {section.title && (
-                <h2 className="text-base font-semibold px-1 mb-3 text-slate-800">{section.title}</h2>
+                <h2 className="text-[20px] font-semibold px-1 mb-3 text-slate-800 leading-snug">{section.title}</h2>
               )}
               <div className="grid grid-cols-5 gap-2.5">
                 {section.cats.map((c, ci) => {

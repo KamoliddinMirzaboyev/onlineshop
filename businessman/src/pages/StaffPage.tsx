@@ -1,9 +1,18 @@
-import { CircleCheck, CircleX, Plus, PowerOff, Store, Trash2, Users } from "lucide-react";
-import PasswordInput from "../components/PasswordInput";
+import {
+  CircleCheck,
+  CircleX,
+  KeyRound,
+  Pencil,
+  Plus,
+  Store,
+  Trash2,
+  Users,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { del, get, getAll, patch, post, withStore } from "../api";
 import { confirm } from "../components/Confirm";
+import PasswordInput from "../components/PasswordInput";
 import { TableSkeleton } from "../components/Skeleton";
 import { useStore } from "../store";
 import type { StaffUser } from "../types";
@@ -19,6 +28,39 @@ const ROLE_PILL: Record<string, string> = {
   courier: "bg-violet-100 text-violet-700",
 };
 
+type StaffRole = "superadmin" | "manager" | "courier";
+
+type CreateForm = {
+  mode: "create";
+  username: string;
+  password: string;
+  name: string;
+  phone: string;
+  role: "manager" | "courier";
+  restaurant_id: number;
+};
+
+type EditForm = {
+  mode: "edit";
+  id: number;
+  restaurant_id: number;
+  username: string;
+  name: string;
+  phone: string;
+  role: StaffRole;
+};
+
+type PasswordForm = {
+  mode: "password";
+  id: number;
+  restaurant_id: number;
+  username: string;
+  password: string;
+  password2: string;
+};
+
+type ModalForm = CreateForm | EditForm | PasswordForm;
+
 export default function StaffPage() {
   const storeId = useStore((s) => s.selectedStoreId);
   const stores = useStore((s) => s.stores);
@@ -26,8 +68,9 @@ export default function StaffPage() {
   const storeName = (rid: number) => stores.find((s) => s.id === rid)?.name ?? "—";
   const [staff, setStaff] = useState<StaffUser[]>([]);
   const [loading, setLoading] = useState(true);
-  const [form, setForm] = useState<{ username: string; password: string; name: string; phone: string; role: "manager" | "courier"; restaurant_id: number } | null>(null);
+  const [form, setForm] = useState<ModalForm | null>(null);
   const [err, setErr] = useState("");
+  const [saving, setSaving] = useState(false);
 
   const load = async () => {
     if (storeId == null) return;
@@ -36,41 +79,167 @@ export default function StaffPage() {
       setStaff(
         isAll
           ? await getAll<StaffUser>("/admin/admin-users", stores.map((s) => s.id))
-          : await get<StaffUser[]>(withStore("/admin/admin-users", storeId))
+          : await get<StaffUser[]>(withStore("/admin/admin-users", storeId)),
       );
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { load(); }, [storeId, stores.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    load();
+  }, [storeId, stores.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const save = async () => {
-    if (!form || !form.username.trim() || !form.password.trim()) return;
+  const openCreate = () => {
     setErr("");
+    setForm({
+      mode: "create",
+      username: "",
+      password: "",
+      name: "",
+      phone: "",
+      role: "courier",
+      restaurant_id: isAll ? stores[0]?.id ?? 0 : (storeId as number),
+    });
+  };
+
+  const openEdit = (u: StaffUser) => {
+    setErr("");
+    setForm({
+      mode: "edit",
+      id: u.id,
+      restaurant_id: u.restaurant_id,
+      username: u.username,
+      name: u.name ?? "",
+      phone: u.phone ?? "",
+      role: u.role,
+    });
+  };
+
+  const openPassword = (u: StaffUser) => {
+    setErr("");
+    setForm({
+      mode: "password",
+      id: u.id,
+      restaurant_id: u.restaurant_id,
+      username: u.username,
+      password: "",
+      password2: "",
+    });
+  };
+
+  const saveCreate = async (f: CreateForm) => {
+    if (!f.username.trim() || !f.password.trim()) return;
+    setErr("");
+    setSaving(true);
     try {
-      await post(withStore("/admin/admin-users", form.restaurant_id), {
-        ...form,
-        name: form.name.trim() || undefined,
-        phone: form.phone.trim() || undefined,
+      await post(withStore("/admin/admin-users", f.restaurant_id), {
+        username: f.username.trim(),
+        password: f.password,
+        name: f.name.trim() || undefined,
+        phone: f.phone.trim() || undefined,
+        role: f.role,
       });
       setForm(null);
       toast.success("Xodim yaratildi");
       load();
     } catch (e) {
-      if (String(e).includes("409")) {
-        setErr("Bu username band");
-        toast.error("Bu username band");
+      const msg = String(e);
+      if (msg.includes("409") && msg.toLowerCase().includes("telefon")) {
+        setErr("Bu telefon raqam band");
+        toast.error("Bu telefon raqam band");
+      } else if (msg.includes("409")) {
+        setErr("Bu login band");
+        toast.error("Bu login band");
       } else {
-        setErr(String(e).replace("Error: ", ""));
+        setErr(msg.replace("Error: ", ""));
       }
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const saveEdit = async (f: EditForm) => {
+    if (!f.username.trim()) {
+      setErr("Login majburiy");
+      return;
+    }
+    setErr("");
+    setSaving(true);
+    try {
+      await patch(withStore(`/admin/admin-users/${f.id}`, f.restaurant_id), {
+        username: f.username.trim(),
+        name: f.name.trim() || null,
+        phone: f.phone.trim() || null,
+        role: f.role,
+      });
+      setForm(null);
+      toast.success("Xodim yangilandi");
+      load();
+    } catch (e) {
+      const msg = String(e);
+      if (msg.includes("409") && msg.toLowerCase().includes("telefon")) {
+        setErr("Bu telefon raqam band");
+        toast.error("Bu telefon raqam band");
+      } else if (msg.includes("409")) {
+        setErr("Bu login band");
+        toast.error("Bu login band");
+      } else {
+        setErr(msg.replace("Error: ", ""));
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const savePassword = async (f: PasswordForm) => {
+    const pw = f.password.trim();
+    if (pw.length < 4) {
+      setErr("Parol kamida 4 belgi bo'lishi kerak");
+      return;
+    }
+    if (pw !== f.password2.trim()) {
+      setErr("Parollar mos kelmadi");
+      return;
+    }
+    setErr("");
+    setSaving(true);
+    try {
+      // Eski parol shart emas — tadbirkor reset qiladi.
+      await patch(withStore(`/admin/admin-users/${f.id}/password`, f.restaurant_id), {
+        password: pw,
+      });
+      setForm(null);
+      toast.success(`"${f.username}" paroli yangilandi`);
+      load();
+    } catch (e) {
+      setErr(String(e).replace("Error: ", ""));
+      toast.error("Parolni o'zgartirib bo'lmadi");
+    } finally {
+      setSaving(false);
     }
   };
 
   const toggle = async (u: StaffUser) => {
+    const isBlocking = u.is_active;
+    const name = u.name || u.username;
+
+    const ok = await confirm({
+      title: isBlocking 
+        ? `"${name}" xodimini bloklaysizmi?` 
+        : `"${name}" xodimini faollashtirasizmi?`,
+      message: isBlocking
+        ? "Bloklangan xodim ilova yoki admin panelga kira olmaydi, yangi buyurtmalarni ko'ra olmaydi."
+        : "Xodim yana tizimga kirish va buyurtmalar ustida ishlash imkoniyatiga ega bo'ladi.",
+      confirmText: isBlocking ? "Ha, bloklash" : "Faollashtirish",
+      danger: isBlocking,
+    });
+
+    if (!ok) return;
+
     try {
       await patch(withStore(`/admin/admin-users/${u.id}/toggle`, u.restaurant_id), {});
-      toast.success(u.is_active ? "Xodim bloklandi" : "Xodim aktivlashtirildi");
+      toast.success(isBlocking ? `"${name}" xodimi bloklandi` : `"${name}" xodimi aktivlashtirildi`);
       load();
     } catch {
       toast.error("Amalni bajarib bo'lmadi");
@@ -100,7 +269,7 @@ export default function StaffPage() {
         <h1 className="text-2xl font-bold tracking-tight mb-1">Xodimlar</h1>
         <div className="card p-10 text-center text-slate-400 mt-5">
           <Store size={32} className="mx-auto mb-3 opacity-30" />
-          Avval "Do'konlar" bo'limida do'kon yarating, so'ng yuqoridagi ro'yxatdan tanlang
+          Avval &quot;Do&apos;konlar&quot; bo&apos;limida do&apos;kon yarating, so&apos;ng yuqoridagi ro&apos;yxatdan tanlang
         </div>
       </div>
     );
@@ -108,46 +277,52 @@ export default function StaffPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold tracking-tight mb-1">Xodimlar</h1>
-      <p className="text-slate-500 mb-5">Do'kon menejer va kuryer akkauntlari.</p>
-
-      <div className="flex justify-end mb-4">
-        <button
-          className="btn"
-          onClick={() => { setErr(""); setForm({ username: "", password: "", name: "", phone: "", role: "courier", restaurant_id: isAll ? stores[0]?.id ?? 0 : (storeId as number) }); }}
-        >
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight mb-1">Xodimlar</h1>
+          <p className="text-slate-500">Do'kon menejerlari va kuryerlarini boshqarish</p>
+        </div>
+        <button className="btn" type="button" onClick={openCreate}>
           <Plus size={18} /> Yangi xodim
         </button>
       </div>
 
-      {loading ? <TableSkeleton cols={4} /> : (
-        <div className="card overflow-hidden">
-          <table className="w-full">
+      {loading ? (
+        <TableSkeleton cols={isAll ? 7 : 6} />
+      ) : (
+        <div className="card overflow-hidden bg-white border border-slate-200/80 rounded-2xl shadow-sm">
+          <table className="w-full min-w-[700px]">
             <thead>
-              <tr className="bg-slate-50">
+              <tr className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wider border-b border-slate-100">
                 <th className="th">Login</th>
                 <th className="th">Ism</th>
                 <th className="th">Telefon</th>
                 <th className="th">Rol</th>
                 {isAll && <th className="th">Do'kon</th>}
-                <th className="th">Holat</th>
-                <th className="th"></th>
+                <th className="th">Holat / Kirish</th>
+                <th className="th text-right">Amallar</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-slate-100 text-slate-700">
               {staff.map((u) => (
-                <tr key={u.id} className="hover:bg-slate-50/60">
+                <tr key={u.id} className={`hover:bg-slate-50/60 transition ${!u.is_active ? "bg-rose-50/20" : ""}`}>
                   <td className="td font-medium text-slate-900">
                     <div className="flex items-center gap-2">
-                      <span className="h-8 w-8 rounded-full bg-brand/10 text-brand text-sm font-bold flex items-center justify-center uppercase">
+                      <span className={`h-8 w-8 rounded-full text-sm font-bold flex items-center justify-center uppercase ${!u.is_active ? "bg-rose-100 text-rose-700" : "bg-brand/10 text-brand"}`}>
                         {u.username[0]}
                       </span>
-                      {u.username}
+                      <span className="font-semibold">{u.username}</span>
                     </div>
                   </td>
-                  <td className="td text-slate-600">{u.name || "—"}</td>
+                  <td className="td text-slate-600 font-medium">{u.name || "—"}</td>
                   <td className="td text-slate-600">
-                    {u.phone ? <a href={`tel:${u.phone}`} className="hover:text-brand">{u.phone}</a> : "—"}
+                    {u.phone ? (
+                      <a href={`tel:${u.phone}`} className="hover:text-brand font-medium">
+                        {u.phone}
+                      </a>
+                    ) : (
+                      "—"
+                    )}
                   </td>
                   <td className="td">
                     <span className={`pill ${ROLE_PILL[u.role] ?? "bg-slate-100 text-slate-600"}`}>
@@ -156,20 +331,52 @@ export default function StaffPage() {
                   </td>
                   {isAll && <td className="td text-slate-500">{storeName(u.restaurant_id)}</td>}
                   <td className="td">
-                    {u.is_active
-                      ? <span className="pill bg-emerald-100 text-emerald-700">Faol</span>
-                      : <span className="pill bg-slate-100 text-slate-500">Bloklangan</span>}
+                    {u.is_active ? (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/60">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                        <span>Faol</span>
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200/60">
+                        <span className="w-2 h-2 rounded-full bg-rose-500" />
+                        <span>Bloklangan</span>
+                      </span>
+                    )}
                   </td>
                   <td className="td text-right">
-                    <div className="inline-flex items-center gap-1">
+                    <div className="inline-flex items-center gap-1.5 justify-end">
+                      {/* Bloklash / Faollashtirish tugmasi */}
                       <button
-                        className="icon-btn"
-                        title={u.is_active ? "Bloklash" : "Aktivlashtirish"}
+                        type="button"
                         onClick={() => toggle(u)}
+                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold transition border shadow-sm ${
+                          u.is_active
+                            ? "bg-white border-rose-200 text-rose-600 hover:bg-rose-50"
+                            : "bg-emerald-600 border-emerald-600 text-white hover:bg-emerald-700"
+                        }`}
+                        title={u.is_active ? "Xodimni bloklash" : "Xodimni faollashtirish"}
                       >
-                        <PowerOff size={15} className={u.is_active ? "text-amber-500" : "text-emerald-500"} />
+                        {u.is_active ? "Bloklash" : "Faollashtirish"}
+                      </button>
+
+                      <button
+                        type="button"
+                        className="icon-btn hover:text-slate-900"
+                        title="Tahrirlash"
+                        onClick={() => openEdit(u)}
+                      >
+                        <Pencil size={15} className="text-slate-500" />
                       </button>
                       <button
+                        type="button"
+                        className="icon-btn hover:text-sky-700"
+                        title="Parolni o'zgartirish"
+                        onClick={() => openPassword(u)}
+                      >
+                        <KeyRound size={15} className="text-sky-600" />
+                      </button>
+                      <button
+                        type="button"
                         className="icon-btn hover:text-red-600"
                         title="O'chirish"
                         onClick={() => remove(u)}
@@ -184,7 +391,7 @@ export default function StaffPage() {
                 <tr>
                   <td colSpan={isAll ? 7 : 6} className="td text-center text-slate-400 py-10">
                     <Users size={28} className="mx-auto mb-2 opacity-30" />
-                    Hali xodim yo'q — "Yangi xodim" tugmasini bosing
+                    Hali xodim yo&apos;q — &quot;Yangi xodim&quot; tugmasini bosing
                   </td>
                 </tr>
               )}
@@ -195,92 +402,237 @@ export default function StaffPage() {
 
       {form && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="card p-6 w-96 space-y-4">
-            <h2 className="font-bold text-lg">Yangi xodim</h2>
+          <div className="card p-6 w-full max-w-md space-y-4 shadow-xl">
+            {form.mode === "create" && (
+              <>
+                <h2 className="font-bold text-lg">Yangi xodim</h2>
 
-            {isAll && (
-              <label className="block">
-                <span className="text-xs text-slate-500">Do'kon</span>
-                <select
-                  className="input mt-1"
-                  value={form.restaurant_id}
-                  onChange={(e) => setForm({ ...form, restaurant_id: Number(e.target.value) })}
-                >
-                  {stores.map((s) => (
-                    <option key={s.id} value={s.id}>{s.name}</option>
-                  ))}
-                </select>
-              </label>
+                {isAll && (
+                  <label className="block">
+                    <span className="text-xs text-slate-500">Do&apos;kon</span>
+                    <select
+                      className="input mt-1"
+                      value={form.restaurant_id}
+                      onChange={(e) =>
+                        setForm({ ...form, restaurant_id: Number(e.target.value) })
+                      }
+                    >
+                      {stores.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+
+                <label className="block">
+                  <span className="text-xs text-slate-500">Ism</span>
+                  <input
+                    className="input mt-1"
+                    placeholder="Aziz Karimov"
+                    value={form.name}
+                    onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="text-xs text-slate-500">Telefon</span>
+                  <input
+                    className="input mt-1"
+                    placeholder="+998901234567"
+                    value={form.phone}
+                    onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="text-xs text-slate-500">Login</span>
+                  <input
+                    className="input mt-1"
+                    placeholder="kuryer1"
+                    value={form.username}
+                    onChange={(e) => setForm({ ...form, username: e.target.value })}
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="text-xs text-slate-500">Parol</span>
+                  <PasswordInput
+                    className="input mt-1"
+                    placeholder="••••••••"
+                    value={form.password}
+                    onChange={(e) => setForm({ ...form, password: e.target.value })}
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="text-xs text-slate-500">Rol</span>
+                  <select
+                    className="input mt-1"
+                    value={form.role}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        role: e.target.value as "manager" | "courier",
+                      })
+                    }
+                  >
+                    <option value="courier">Kuryer</option>
+                    <option value="manager">Menejer</option>
+                  </select>
+                </label>
+
+                {err && (
+                  <div className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{err}</div>
+                )}
+
+                <div className="flex gap-2 justify-end pt-1">
+                  <button type="button" className="btn-ghost" onClick={() => setForm(null)}>
+                    <CircleX size={16} /> Bekor
+                  </button>
+                  <button
+                    type="button"
+                    className="btn"
+                    disabled={saving || !form.username.trim() || !form.password.trim()}
+                    onClick={() => void saveCreate(form)}
+                  >
+                    <CircleCheck size={16} /> {saving ? "Saqlanmoqda…" : "Yaratish"}
+                  </button>
+                </div>
+              </>
             )}
 
-            <label className="block">
-              <span className="text-xs text-slate-500">Ism</span>
-              <input
-                className="input mt-1"
-                placeholder="Aziz Karimov"
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-              />
-            </label>
+            {form.mode === "edit" && (
+              <>
+                <h2 className="font-bold text-lg">Xodimni tahrirlash</h2>
+                <p className="text-sm text-slate-500 -mt-2">
+                  Login, ism, telefon va rolni o&apos;zgartirish.
+                </p>
 
-            <label className="block">
-              <span className="text-xs text-slate-500">Telefon</span>
-              <input
-                className="input mt-1"
-                placeholder="+998901234567"
-                value={form.phone}
-                onChange={(e) => setForm({ ...form, phone: e.target.value })}
-              />
-            </label>
+                <label className="block">
+                  <span className="text-xs text-slate-500">Ism</span>
+                  <input
+                    className="input mt-1"
+                    placeholder="Aziz Karimov"
+                    value={form.name}
+                    onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  />
+                </label>
 
-            <label className="block">
-              <span className="text-xs text-slate-500">Login</span>
-              <input
-                className="input mt-1"
-                placeholder="kuryer1"
-                value={form.username}
-                onChange={(e) => setForm({ ...form, username: e.target.value })}
-              />
-            </label>
+                <label className="block">
+                  <span className="text-xs text-slate-500">Telefon</span>
+                  <input
+                    className="input mt-1"
+                    placeholder="+998901234567"
+                    value={form.phone}
+                    onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                  />
+                </label>
 
-            <label className="block">
-              <span className="text-xs text-slate-500">Parol</span>
-              <PasswordInput
-                className="input mt-1"
-                placeholder="••••••••"
-                value={form.password}
-                onChange={(e) => setForm({ ...form, password: e.target.value })}
-              />
-            </label>
+                <label className="block">
+                  <span className="text-xs text-slate-500">Login</span>
+                  <input
+                    className="input mt-1"
+                    value={form.username}
+                    onChange={(e) => setForm({ ...form, username: e.target.value })}
+                  />
+                </label>
 
-            <label className="block">
-              <span className="text-xs text-slate-500">Rol</span>
-              <select
-                className="input mt-1"
-                value={form.role}
-                onChange={(e) => setForm({ ...form, role: e.target.value as "manager" | "courier" })}
-              >
-                <option value="courier">Kuryer</option>
-                <option value="manager">Menejer</option>
-              </select>
-            </label>
+                <label className="block">
+                  <span className="text-xs text-slate-500">Rol</span>
+                  <select
+                    className="input mt-1"
+                    value={form.role}
+                    onChange={(e) =>
+                      setForm({ ...form, role: e.target.value as StaffRole })
+                    }
+                  >
+                    <option value="courier">Kuryer</option>
+                    <option value="manager">Menejer</option>
+                    <option value="superadmin">Do&apos;kon egasi</option>
+                  </select>
+                </label>
 
-            {err && (
-              <div className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{err}</div>
+                {err && (
+                  <div className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{err}</div>
+                )}
+
+                <div className="flex gap-2 justify-end pt-1">
+                  <button type="button" className="btn-ghost" onClick={() => setForm(null)}>
+                    <CircleX size={16} /> Bekor
+                  </button>
+                  <button
+                    type="button"
+                    className="btn"
+                    disabled={saving || !form.username.trim()}
+                    onClick={() => void saveEdit(form)}
+                  >
+                    <CircleCheck size={16} /> {saving ? "Saqlanmoqda…" : "Saqlash"}
+                  </button>
+                </div>
+              </>
             )}
 
-            <div className="flex gap-2 justify-end pt-1">
-              <button className="btn-ghost" onClick={() => setForm(null)}>
-                <CircleX size={16} /> Bekor
-              </button>
-              <button
-                className="btn"
-                onClick={save}
-                disabled={!form.username.trim() || !form.password.trim()}
-              >
-                <CircleCheck size={16} /> Yaratish
-              </button>
-            </div>
+            {form.mode === "password" && (
+              <>
+                <div className="flex items-start gap-3">
+                  <span className="h-10 w-10 rounded-full bg-sky-50 text-sky-600 flex items-center justify-center shrink-0">
+                    <KeyRound size={18} />
+                  </span>
+                  <div>
+                    <h2 className="font-bold text-lg">Parolni o&apos;zgartirish</h2>
+                    <p className="text-sm text-slate-500 mt-0.5">
+                      <span className="font-medium text-slate-700">{form.username}</span> uchun
+                      yangi parol. Eski parol kerak emas.
+                    </p>
+                  </div>
+                </div>
+
+                <label className="block">
+                  <span className="text-xs text-slate-500">Yangi parol</span>
+                  <PasswordInput
+                    className="input mt-1"
+                    placeholder="Kamida 4 belgi"
+                    autoComplete="new-password"
+                    value={form.password}
+                    onChange={(e) => setForm({ ...form, password: e.target.value })}
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="text-xs text-slate-500">Parolni tasdiqlang</span>
+                  <PasswordInput
+                    className="input mt-1"
+                    placeholder="Qayta kiriting"
+                    autoComplete="new-password"
+                    value={form.password2}
+                    onChange={(e) => setForm({ ...form, password2: e.target.value })}
+                  />
+                </label>
+
+                {err && (
+                  <div className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{err}</div>
+                )}
+
+                <div className="flex gap-2 justify-end pt-1">
+                  <button type="button" className="btn-ghost" onClick={() => setForm(null)}>
+                    <CircleX size={16} /> Bekor
+                  </button>
+                  <button
+                    type="button"
+                    className="btn"
+                    disabled={
+                      saving || form.password.trim().length < 4 || !form.password2.trim()
+                    }
+                    onClick={() => void savePassword(form)}
+                  >
+                    <KeyRound size={16} />{" "}
+                    {saving ? "Saqlanmoqda…" : "Parolni saqlash"}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

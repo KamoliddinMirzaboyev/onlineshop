@@ -55,6 +55,9 @@ class Order {
     this.distanceKm,
     this.etaMinutes,
     this.assignedCourierId,
+    this.routeGroupId,
+    this.routeSequence,
+    this.routeLegKm,
     required this.createdAt,
     required this.items,
   });
@@ -75,6 +78,9 @@ class Order {
   final double? distanceKm;
   final int? etaMinutes;
   final int? assignedCourierId;
+  final String? routeGroupId;
+  final int? routeSequence;
+  final double? routeLegKm;
   final String createdAt;
   final List<OrderItem> items;
 
@@ -95,6 +101,9 @@ class Order {
         distanceKm: _toDouble(j['distance_km']),
         etaMinutes: _toInt(j['eta_minutes']),
         assignedCourierId: _toInt(j['assigned_courier_id']),
+        routeGroupId: j['route_group_id'] as String?,
+        routeSequence: _toInt(j['route_sequence']),
+        routeLegKm: _toDouble(j['route_leg_km']),
         createdAt: (j['created_at'] ?? '') as String,
         items: ((j['items'] ?? []) as List)
             .map((e) => OrderItem.fromJson(e as Map<String, dynamic>))

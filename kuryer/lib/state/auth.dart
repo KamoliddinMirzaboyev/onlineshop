@@ -2,16 +2,17 @@ import 'package:flutter/foundation.dart';
 
 import '../services/api.dart';
 import '../services/cache.dart';
+import '../services/fcm.dart';
+import '../services/location.dart';
 
-/// Auth store mirroring `src/store.ts` (zustand `useAuth`). Only `courier`
-/// accounts are allowed in.
+/// Auth store — faqat courier rolli akkauntlar.
 class AuthState extends ChangeNotifier {
   AuthState() {
-    // A 401 anywhere (token expired/revoked) clears the token in api.dart; here
-    // we drop the in-memory identity so the root AuthGate bounces to /login.
     api.onUnauthorized = () {
       if (username == null && role == null) return;
       username = null;
+      name = null;
+      phone = null;
       role = null;
       clearCache();
       notifyListeners();
@@ -19,7 +20,16 @@ class AuthState extends ChangeNotifier {
   }
 
   String? username;
+  String? name;
+  String? phone;
   String? role;
+
+  void _applyMe(Map<String, dynamic> me) {
+    username = me['username'] as String?;
+    name = me['name'] as String?;
+    phone = me['phone'] as String?;
+    role = me['role'] as String?;
+  }
 
   Future<void> login(String username, String password) async {
     final res = await api.post('/admin/auth/login', {
@@ -33,13 +43,17 @@ class AuthState extends ChangeNotifier {
         await api.setToken(null);
         throw Exception('Faqat kuryer hisobi ruxsat etilgan');
       }
-      this.username = me['username'] as String?;
-      role = me['role'] as String?;
+      _applyMe(me);
       notifyListeners();
+      // Login dan keyin FCM token backendga.
+      try {
+        await fcm.syncToken();
+      } catch (_) {}
     } catch (e) {
-      // /me failed after token was set — roll back to avoid a half-logged-in state.
       await api.setToken(null);
       this.username = null;
+      name = null;
+      phone = null;
       role = null;
       notifyListeners();
       rethrow;
@@ -47,17 +61,34 @@ class AuthState extends ChangeNotifier {
   }
 
   Future<void> logout() async {
-    await api.setToken(null);
-    clearCache();
+    try {
+      await fcm.clearToken();
+    } catch (_) {}
+    // Avval sessiyani yopish — UI darhol Login'ga o'tsin.
     username = null;
+    name = null;
+    phone = null;
     role = null;
+    clearCache();
+    await api.setToken(null);
     notifyListeners();
+    try {
+      await locationService.stop();
+    } catch (_) {}
   }
 
   Future<void> loadMe() async {
     final me = await api.get('/admin/auth/me') as Map<String, dynamic>;
-    username = me['username'] as String?;
-    role = me['role'] as String?;
+    _applyMe(me);
+    notifyListeners();
+  }
+
+  Future<void> updateProfile({String? name, String? phone}) async {
+    final me = await api.patch('/admin/auth/me', {
+      'name': name,
+      'phone': phone,
+    }) as Map<String, dynamic>;
+    _applyMe(me);
     notifyListeners();
   }
 

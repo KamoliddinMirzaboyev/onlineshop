@@ -27,7 +27,7 @@ class NavShell extends StatefulWidget {
 const _acceptable = {'pending', 'confirmed', 'preparing', 'ready'};
 bool _isAcceptable(String s) => _acceptable.contains(s);
 
-class _NavShellState extends State<NavShell> {
+class _NavShellState extends State<NavShell> with WidgetsBindingObserver {
   int _index = 0;
   late final Resource<List<Order>> _orders;
   Set<int>? _seenIds;
@@ -43,15 +43,26 @@ class _NavShellState extends State<NavShell> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _alerts = context.read<OrderAlerts>();
     _orders = Resource<List<Order>>(
       cacheKey: 'courier_orders',
       fetchRaw: () => api.get('/courier/orders'),
       parse: Order.listFrom,
-      pollMs: 20000,
+      // Tezroq poll — app ochiq/fon rejimida yangi buyurtmani erta ushlash
+      pollMs: 8000,
     );
     _orders.addListener(_onOrders);
     _onOrders();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Fon → old → darhol yangilash (bildirishnoma kechikmasin)
+    if (state == AppLifecycleState.resumed) {
+      _orders.refresh();
+      notifications.refreshPermission();
+    }
   }
 
   void _onOrders() {
@@ -84,6 +95,7 @@ class _NavShellState extends State<NavShell> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _orders.removeListener(_onOrders);
     _orders.dispose();
     super.dispose();

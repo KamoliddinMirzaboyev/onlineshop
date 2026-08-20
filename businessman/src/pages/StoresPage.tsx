@@ -60,20 +60,20 @@ export default function StoresPage() {
       }
 
       // Har bir do'kon uchun o'z savdo dinamikasi (kunlik) va top mahsulotlari —
-      // /business/reports faqat biznes bo'ylab jamlangan qator beradi.
+      // /admin/reports `series` qaytaradi (daily maydoni yo'q).
       const perStore = await Promise.all(
         storeList.map((s) =>
-          get<{ daily: PeriodPoint[]; top_products: TopProduct[] }>(withStore("/admin/reports", s.id)).catch(() => null)
+          get<{ series: PeriodPoint[]; top_products: TopProduct[] }>(
+            withStore("/admin/reports?period=daily", s.id),
+          ).catch(() => null)
         )
       );
       const trend: Record<number, PeriodPoint[]> = {};
       const top: Record<number, TopProduct[]> = {};
       storeList.forEach((s, i) => {
         const r = perStore[i];
-        if (r) {
-          trend[s.id] = r.daily;
-          top[s.id] = r.top_products.slice(0, 3);
-        }
+        trend[s.id] = r?.series ?? [];
+        if (r?.top_products) top[s.id] = r.top_products.slice(0, 3);
       });
       setTrendMap(trend);
       setTopMap(top);

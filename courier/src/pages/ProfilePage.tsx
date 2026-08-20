@@ -1,15 +1,23 @@
-import { KeyRound, LogOut, ShieldCheck, User } from "lucide-react";
+import { KeyRound, LogOut, Phone, User } from "lucide-react";
 import PasswordInput from "../components/PasswordInput";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import InstallButton from "../components/InstallButton";
 import PageHeader from "../components/PageHeader";
 import PushButton from "../components/PushButton";
 import { useAuth } from "../store";
 
+const inputCls =
+  "w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand bg-slate-50";
+
 export default function ProfilePage() {
   const nav = useNavigate();
-  const { username, role, logout, changePassword } = useAuth();
+  const { username, name, phone, role, logout, changePassword, updateProfile, loadMe } = useAuth();
+
+  const [fullName, setFullName] = useState(name ?? "");
+  const [phoneVal, setPhoneVal] = useState(phone ?? "");
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileMsg, setProfileMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   const [oldPw, setOldPw] = useState("");
   const [newPw, setNewPw] = useState("");
@@ -17,7 +25,41 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
-  const submit = async (e: React.FormEvent) => {
+  useEffect(() => {
+    void loadMe().catch(() => {});
+  }, [loadMe]);
+
+  useEffect(() => {
+    if (name && !fullName) setFullName(name);
+    if (phone && !phoneVal) setPhoneVal(phone);
+  }, [name, phone, fullName, phoneVal]);
+
+  const displayName = (name?.trim() || username || "Kuryer");
+  const initial = displayName.charAt(0).toUpperCase();
+
+  const saveProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setProfileMsg(null);
+    if (!fullName.trim()) {
+      setProfileMsg({ ok: false, text: "Ism-familiyani kiriting" });
+      return;
+    }
+    setProfileSaving(true);
+    try {
+      await updateProfile({ name: fullName.trim(), phone: phoneVal.trim() });
+      setProfileMsg({ ok: true, text: "Profil saqlandi ✓" });
+    } catch (err) {
+      const raw = String(err);
+      setProfileMsg({
+        ok: false,
+        text: raw.includes("band") ? "Bu telefon band" : "Saqlab bo'lmadi",
+      });
+    } finally {
+      setProfileSaving(false);
+    }
+  };
+
+  const submitPw = async (e: React.FormEvent) => {
     e.preventDefault();
     setMsg(null);
     if (newPw.length < 6) {
@@ -45,40 +87,83 @@ export default function ProfilePage() {
     }
   };
 
-  const inputCls =
-    "w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand";
-
   return (
     <>
       <PageHeader title="Profil" />
 
-      <div className="p-4 space-y-4">
-        {/* Profil kartasi */}
-        <div className="card p-4 flex items-center gap-3">
-          <div className="h-14 w-14 rounded-2xl bg-brand/10 flex items-center justify-center">
-            <User size={26} className="text-brand" />
-          </div>
-          <div>
-            <div className="text-lg font-bold">{username ?? "—"}</div>
-            <div className="flex items-center gap-1 text-xs text-slate-400">
-              <ShieldCheck size={13} /> {role === "courier" ? "Kuryer" : role ?? "—"}
+      <div className="p-4 space-y-3.5 pb-8">
+        {/* Hero */}
+        <div className="rounded-2xl p-5 bg-gradient-to-br from-brand-light to-brand text-white shadow-lg shadow-brand/25">
+          <div className="flex items-center gap-3.5">
+            <div className="h-16 w-16 rounded-2xl bg-white text-brand grid place-items-center text-2xl font-extrabold shrink-0">
+              {initial}
+            </div>
+            <div className="min-w-0">
+              <div className="text-xl font-extrabold truncate">{displayName}</div>
+              <div className="text-sm text-white/85 truncate">@{username ?? "—"}</div>
+              {phone && (
+                <div className="text-sm text-white/85 flex items-center gap-1 mt-0.5">
+                  <Phone size={13} /> {phone}
+                </div>
+              )}
+              <div className="text-xs text-white/70 mt-0.5">
+                {role === "courier" ? "Kuryer" : role ?? "—"}
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Ilovani o'rnatish */}
+        {/* Shaxsiy ma'lumot */}
+        <form onSubmit={saveProfile} className="card p-4 space-y-3">
+          <div className="flex items-center gap-2 text-sm font-bold text-slate-800">
+            <User size={16} className="text-brand" /> Shaxsiy ma'lumot
+          </div>
+          <p className="text-xs text-slate-400 -mt-1">
+            Admin qo'shgan ism va telefon shu yerda chiqadi
+          </p>
+          <div>
+            <label className="text-xs font-semibold text-slate-500 mb-1 block">Ism Familiya</label>
+            <input
+              className={inputCls}
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              placeholder="Sardor Karimov"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-slate-500 mb-1 block">Telefon</label>
+            <input
+              className={inputCls}
+              value={phoneVal}
+              onChange={(e) => setPhoneVal(e.target.value)}
+              placeholder="+998 90 123 45 67"
+              inputMode="tel"
+            />
+          </div>
+          {profileMsg && (
+            <div
+              className={`text-sm rounded-lg px-3 py-2 ${
+                profileMsg.ok ? "text-emerald-700 bg-emerald-50" : "text-red-600 bg-red-50"
+              }`}
+            >
+              {profileMsg.text}
+            </div>
+          )}
+          <button type="submit" className="btn w-full justify-center" disabled={profileSaving}>
+            {profileSaving ? "Saqlanmoqda…" : "Saqlash"}
+          </button>
+        </form>
+
         <div className="card px-4">
           <InstallButton />
         </div>
 
-        {/* Bildirishnoma */}
         <div className="card px-4">
           <PushButton />
         </div>
 
-        {/* Parol o'zgartirish */}
-        <form onSubmit={submit} className="card p-4 space-y-3">
-          <div className="flex items-center gap-2 text-sm font-semibold text-slate-600">
+        <form onSubmit={submitPw} className="card p-4 space-y-3">
+          <div className="flex items-center gap-2 text-sm font-bold text-slate-800">
             <KeyRound size={16} /> Parolni o'zgartirish
           </div>
           <PasswordInput
@@ -112,22 +197,22 @@ export default function ProfilePage() {
             </div>
           )}
           <button type="submit" className="btn w-full justify-center" disabled={saving}>
-            {saving ? "Saqlanmoqda…" : "Saqlash"}
+            {saving ? "Saqlanmoqda…" : "Parolni saqlash"}
           </button>
         </form>
 
-        {/* Chiqish */}
         <button
+          type="button"
           onClick={() => {
             logout();
             nav("/login");
           }}
-          className="w-full py-3 rounded-2xl border border-red-200 text-red-600 text-sm font-semibold flex items-center justify-center gap-2 active:scale-95 transition"
+          className="w-full py-3.5 rounded-2xl bg-red-50 border border-red-200 text-red-600 text-sm font-bold flex items-center justify-center gap-2 active:scale-[0.99] transition"
         >
           <LogOut size={16} /> Chiqish
         </button>
 
-        <p className="text-center text-xs text-slate-300">Barakali Bozor Kuryer · v1.1.0</p>
+        <p className="text-center text-xs text-slate-300">BB Kuryer · v1.2.0</p>
       </div>
     </>
   );

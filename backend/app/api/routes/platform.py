@@ -4,8 +4,11 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import require_platform_admin
+from app.core.cache import invalidate_restaurant_catalog
 from app.core.db import get_db
 from app.core.security import hash_password
+from sqlalchemy import delete as sqla_delete
+
 from app.models import Announcement, Business, Order, OrderItem, Restaurant, User
 from app.schemas.admin import AnnouncementIn, AnnouncementOut
 from app.schemas.catalog import RestaurantOut
@@ -17,6 +20,7 @@ from app.schemas.business import (
     PlatformStatsOut,
     PlatformStoreRow,
 )
+from app.services import analytics
 from app.services.announcements import broadcast
 
 # Butun platforma ustidan boshqaruv — faqat platform superadmin.
@@ -78,10 +82,8 @@ def delete_user(uid: int, db: Session = Depends(get_db)):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "User not found")
     order_ids = db.scalars(select(Order.id).where(Order.user_id == uid)).all()
     if order_ids:
-        db.query(OrderItem).filter(OrderItem.order_id.in_(order_ids)).delete(
-            synchronize_session=False
-        )
-        db.query(Order).filter(Order.id.in_(order_ids)).delete(synchronize_session=False)
+        db.execute(sqla_delete(OrderItem).where(OrderItem.order_id.in_(order_ids)))
+        db.execute(sqla_delete(Order).where(Order.id.in_(order_ids)))
     db.delete(user)  # addresses cascade via relationship
     db.commit()
 
@@ -183,6 +185,7 @@ def reassign_store(rid: int, data: StoreBusinessIn, db: Session = Depends(get_db
     store.business_id = business.id
     db.commit()
     db.refresh(store)
+    invalidate_restaurant_catalog(store.id)
     return PlatformStoreRow(
         **RestaurantOut.model_validate(store).model_dump(),
         business_id=store.business_id,
@@ -201,6 +204,7 @@ def toggle_store(rid: int, db: Session = Depends(get_db)):
     store.is_active = not store.is_active
     db.commit()
     db.refresh(store)
+    invalidate_restaurant_catalog(store.id)
     business = db.get(Business, store.business_id)
     return PlatformStoreRow(
         **RestaurantOut.model_validate(store).model_dump(),
@@ -226,10 +230,11 @@ def delete_store(rid: int, force: bool = False, db: Session = Depends(get_db)):
             status.HTTP_409_CONFLICT, "Buyurtma tarixi bor do'konni o'chirib bo'lmaydi"
         )
     if order_ids:
-        db.query(OrderItem).filter(OrderItem.order_id.in_(order_ids)).delete(synchronize_session=False)
-        db.query(Order).filter(Order.id.in_(order_ids)).delete(synchronize_session=False)
+        db.execute(sqla_delete(OrderItem).where(OrderItem.order_id.in_(order_ids)))
+        db.execute(sqla_delete(Order).where(Order.id.in_(order_ids)))
     db.delete(store)
     db.commit()
+    invalidate_restaurant_catalog(rid)
 
 
 # ── Platform-wide stats ──────────────────────────────────────────
@@ -237,7 +242,6 @@ def delete_store(rid: int, force: bool = False, db: Session = Depends(get_db)):
 def platform_stats(period: str = "month", db: Session = Depends(get_db)):
     """Butun platforma kesimida: nechta biznes/do'kon/mijoz, va har bir biznes
     bo'yicha buyurtma / aylanma / harajat / foyda."""
-    from app.api.routes.admin import _agg
     from app.api.routes.business import _period_start
 
     start = _period_start(period)
@@ -250,7 +254,7 @@ def platform_stats(period: str = "month", db: Session = Depends(get_db)):
         ).all()
         orders = revenue = profit = 0
         for store in stores:
-            o, r, p = _agg(db, [store.id], start)
+            o, r, p = analytics.agg(db, [store.id], start)
             orders += o
             revenue += r
             profit += p

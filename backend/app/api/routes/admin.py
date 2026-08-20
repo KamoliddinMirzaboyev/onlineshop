@@ -1,8 +1,9 @@
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import func, select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
 from app.api.deps import (
@@ -12,27 +13,30 @@ from app.api.deps import (
 from app.core.config import settings
 from app.core.cache import invalidate_restaurant_catalog
 from app.core.db import get_db
+from app.core.tz import tashkent_today_start_utc
+from app.core.security import hash_password
+from app.services.events import courier_events
 from app.models import (
     AdminUser, Business, Category, CategoryGroup, Order, OrderItem, Product,
     PushSubscription, Restaurant, SupplyRecord, User,
 )
 from app.models.enums import OrderStatus
 from app.schemas.admin import (
-    DashboardStats, NotificationEvent, PeriodPoint, PushSubscriptionIn, ReportsOut,
+    DashboardStats, NotificationEvent, PeriodPoint, PushSubscriptionIn, ReportsOut, ReportTotals,
     StockUpdate, SupplyRecordIn, SupplyRecordOut, TopProduct,
 )
 from app.schemas.admin import AdminUserOut
 from app.schemas.catalog import (
-    CategoryGroupIn, CategoryGroupOut, CategoryIn, CategoryOut, ProductIn, ProductOut,
+    CategoryGroupIn, CategoryGroupOut, CategoryIn, CategoryOut, ProductIn, ProductAdminOut,
     RestaurantOut, StoreSettingsIn,
 )
 from app.schemas.admin import DeliveryZoneIn, DeliveryZoneOut
 from app.models import DeliveryZone
 from app.models.enums import AdminRole
 from app.schemas.order import OrderOut, OrderStatusUpdate
-from app.services import webpush
+from app.services import analytics, webpush
 from app.services.notify import broadcast_post, notify_status_change
-from app.services.orders import ensure_transition
+from app.services.orders import cancel_order
 
 # Autentifikatsiya poli: hech bir endpoint tokensiz ochilib qolmasligi uchun.
 # Har bir endpoint ustiga o'z scoping/ruxsat dependency'sini qo'shadi.
@@ -54,10 +58,12 @@ def update_store(
     store: Restaurant = Depends(current_restaurant),
     db: Session = Depends(get_db),
 ):
-    for k, v in data.model_dump().items():
+    # exclude_unset: frontend yubormagan maydonlar (lat/lng va h.k.) o'chirilib ketmasin.
+    for k, v in data.model_dump(exclude_unset=True).items():
         setattr(store, k, v)
     db.commit()
     db.refresh(store)
+    invalidate_restaurant_catalog(store.id)
     return store
 
 
@@ -128,119 +134,48 @@ def push_public_key(_: AdminUser = Depends(require_staff)):
 def push_subscribe(
     data: PushSubscriptionIn,
     _: AdminUser = Depends(require_staff),
+    store: Restaurant = Depends(current_restaurant),
     db: Session = Depends(get_db),
 ):
     sub = db.scalar(select(PushSubscription).where(PushSubscription.endpoint == data.endpoint))
     if sub:
         sub.p256dh = data.keys.p256dh
         sub.auth = data.keys.auth
+        sub.restaurant_id = store.id
     else:
-        db.add(PushSubscription(endpoint=data.endpoint, p256dh=data.keys.p256dh, auth=data.keys.auth))
+        db.add(
+            PushSubscription(
+                endpoint=data.endpoint,
+                p256dh=data.keys.p256dh,
+                auth=data.keys.auth,
+                restaurant_id=store.id,
+            )
+        )
     db.commit()
     return {"ok": True}
 
 
 @router.post("/push/test")
-def push_test(_: AdminUser = Depends(require_staff)):
-    webpush.notify_admins("Barakali Bozor", "Bildirishnoma ishlayapti ✅", "/")
+def push_test(
+    _: AdminUser = Depends(require_staff), store: Restaurant = Depends(current_restaurant)
+):
+    webpush.notify_admins("Barakali Bozor", "Bildirishnoma ishlayapti ✅", store.id, "/")
     return {"ok": True}
 
 
-# ── Aggregation helpers ──────────────────────────────────────────
-# Profit = Σ (sotuv narxi − tannarx) × soni, faqat yetkazilgan buyurtmalar.
-# Tannarx OrderItem.cost dan olinadi — sotuv vaqtidagi snapshot (Product.cost
-# keyin o'zgarsa ham tarixiy foyda buzilmaydi).
-def _agg(db: Session, rids: list[int], start: datetime | None = None) -> tuple[int, int, int]:
-    delivered = OrderStatus.delivered
-    cond = [Order.status == delivered, Order.restaurant_id.in_(rids)]
-    if start is not None:
-        cond.append(Order.created_at >= start)
-
-    orders = db.scalar(select(func.count(Order.id)).where(*cond)) or 0
-    revenue = db.scalar(
-        select(func.coalesce(func.sum(Order.total), 0)).where(*cond)
-    ) or 0
-    profit = db.scalar(
-        select(
-            func.coalesce(
-                func.sum((OrderItem.price - OrderItem.cost) * OrderItem.quantity), 0
-            )
-        )
-        .select_from(Order)
-        .join(OrderItem, OrderItem.order_id == Order.id)
-        .where(*cond)
-    ) or 0
-    return int(orders), int(revenue), int(profit)
-
-
-def _series(db: Session, rids: list[int], trunc: str, start: datetime) -> list[PeriodPoint]:
-    delivered = OrderStatus.delivered
-    period = func.date_trunc(trunc, Order.created_at)
-    rows = db.execute(
-        select(
-            period.label("p"),
-            func.count(func.distinct(Order.id)),
-            func.coalesce(func.sum(OrderItem.price * OrderItem.quantity), 0),
-            func.coalesce(
-                func.sum((OrderItem.price - OrderItem.cost) * OrderItem.quantity), 0
-            ),
-        )
-        .select_from(Order)
-        .join(OrderItem, OrderItem.order_id == Order.id)
-        .where(
-            Order.status == delivered,
-            Order.created_at >= start,
-            Order.restaurant_id.in_(rids),
-        )
-        .group_by(period)
-        .order_by(period)
-    ).all()
-    return [
-        PeriodPoint(period=p.isoformat(), orders=o, revenue=int(r), profit=int(pf))
-        for p, o, r, pf in rows
-    ]
-
-
-def _top_products(db: Session, rids: list[int], start: datetime | None = None, limit: int = 20) -> list[TopProduct]:
-    delivered = OrderStatus.delivered
-    cond = [Order.status == delivered, Order.restaurant_id.in_(rids)]
-    if start is not None:
-        cond.append(Order.created_at >= start)
-        
-    rows = db.execute(
-        select(
-            Product.id,
-            Product.name_uz,
-            Product.image_url,
-            func.coalesce(func.sum(OrderItem.quantity), 0).label("qty"),
-            func.coalesce(func.sum(OrderItem.price * OrderItem.quantity), 0).label("rev"),
-            func.coalesce(
-                func.sum((OrderItem.price - OrderItem.cost) * OrderItem.quantity), 0
-            ).label("prof"),
-        )
-        .select_from(OrderItem)
-        .join(Order, Order.id == OrderItem.order_id)
-        .join(Product, Product.id == OrderItem.product_id)
-        .where(*cond)
-        .group_by(Product.id, Product.name_uz, Product.image_url)
-        .order_by(func.sum(OrderItem.quantity).desc())
-        .limit(limit)
-    ).all()
-    return [
-        TopProduct(
-            product_id=pid, name_uz=name, image_url=img,
-            quantity=float(qty), revenue=int(rev), profit=int(prof),
-        )
-        for pid, name, img, qty, rev, prof in rows
-    ]
+# ── Aggregation helpers — app/services/analytics.py'ga ko'chirildi (business.py
+# va platform.py ham ishlatadi; avval ular bu yerdan _agg kabi "xususiy"
+# funksiyalarni import qilardi).
+_agg = analytics.agg
+_series = analytics.series
+_top_products = analytics.top_products
 
 
 # ── Dashboard ────────────────────────────────────────────────────
 @router.get("/stats", response_model=DashboardStats)
 def stats(store: Restaurant = Depends(current_restaurant), db: Session = Depends(get_db)):
     rid = store.id
-    now = datetime.now(timezone.utc)
-    today = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    today = tashkent_today_start_utc()
     week = today - timedelta(days=7)
     month = today - timedelta(days=30)
 
@@ -281,29 +216,20 @@ def stats(store: Restaurant = Depends(current_restaurant), db: Session = Depends
 
 # ── Reports (hisobot) ────────────────────────────────────────────
 @router.get("/reports", response_model=ReportsOut)
-def reports(period: str = "daily", store: Restaurant = Depends(current_restaurant), db: Session = Depends(get_db)):
+def reports(
+    period: str = "30days",
+    start_date: str | None = None,
+    end_date: str | None = None,
+    store: Restaurant = Depends(current_restaurant),
+    db: Session = Depends(get_db),
+):
     rid = store.id
-    now = datetime.now(timezone.utc)
-    today = now.replace(hour=0, minute=0, second=0, microsecond=0)
-    
-    if period == "daily":
-        start = today # Bugun
-        trunc = "hour"
-    elif period == "weekly":
-        start = today - timedelta(days=7) # Oxirgi 7 kun
-        trunc = "day"
-    elif period == "monthly":
-        start = today - timedelta(days=30) # Oxirgi 30 kun
-        trunc = "day"
-    else:
-        start = today - timedelta(days=30)
-        trunc = "day"
-
-    o, r, p = _agg(db, [rid], start)
+    start, end, trunc = analytics.parse_report_period(period, start_date, end_date)
+    o, r, p = _agg(db, [rid], start=start, end=end)
     return ReportsOut(
-        totals={"orders": o, "revenue": r, "profit": p},
-        series=_series(db, [rid], trunc, start),
-        top_products=_top_products(db, [rid], start=start, limit=20),
+        totals=ReportTotals(orders=o, revenue=r, profit=p),
+        series=_series(db, [rid], trunc=trunc, start=start, end=end),
+        top_products=_top_products(db, [rid], start=start, end=end, limit=20),
     )
 
 
@@ -442,7 +368,7 @@ def delete_category(
 
 
 # ── Products ─────────────────────────────────────────────────────
-@router.get("/restaurants/{rid}/products", response_model=list[ProductOut])
+@router.get("/restaurants/{rid}/products", response_model=list[ProductAdminOut])
 def list_products(
     rid: int, store: Restaurant = Depends(current_restaurant), db: Session = Depends(get_db)
 ):
@@ -462,7 +388,7 @@ def _check_subcategory(db: Session, category_id: int, restaurant_id: int) -> Non
         )
 
 
-@router.post("/products", response_model=ProductOut, status_code=201)
+@router.post("/products", response_model=ProductAdminOut, status_code=201)
 def create_product(
     data: ProductIn,
     store: Restaurant = Depends(current_restaurant),
@@ -473,10 +399,11 @@ def create_product(
     db.add(p)
     db.commit()
     db.refresh(p)
+    invalidate_restaurant_catalog(store.id)
     return p
 
 
-@router.put("/products/{pid}", response_model=ProductOut)
+@router.put("/products/{pid}", response_model=ProductAdminOut)
 def update_product(
     pid: int,
     data: ProductIn,
@@ -491,6 +418,7 @@ def update_product(
         setattr(p, k, v)
     db.commit()
     db.refresh(p)
+    invalidate_restaurant_catalog(store.id)
     return p
 
 
@@ -500,12 +428,21 @@ def delete_product(
 ):
     p = db.get(Product, pid)
     if p and p.restaurant_id == store.id:
-        db.delete(p)
-        db.commit()
+        try:
+            db.delete(p)
+            db.commit()
+        except IntegrityError:
+            db.rollback()
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                "Mahsulot buyurtmalar tarixida ishlatilgan — o'chirib bo'lmaydi, "
+                "'mavjud emas' qilib belgilang",
+            )
+        invalidate_restaurant_catalog(store.id)
 
 
 # ── Warehouse / stock (ombor) ────────────────────────────────────
-@router.patch("/products/{pid}/stock", response_model=ProductOut)
+@router.patch("/products/{pid}/stock", response_model=ProductAdminOut)
 def update_stock(
     pid: int,
     data: StockUpdate,
@@ -520,6 +457,7 @@ def update_stock(
         p.low_stock_threshold = data.low_stock_threshold
     db.commit()
     db.refresh(p)
+    invalidate_restaurant_catalog(store.id)
     return p
 
 
@@ -555,7 +493,11 @@ def update_order_status(
 ):
     """Admin faqat kuzatib boradi va buyurtmani bekor qila oladi — qabul qilish
     va kuryer biriktirish kuryerning o'zi tomonidan amalga oshiriladi."""
-    order = db.get(Order, order_id)
+    order = db.scalar(
+        select(Order)
+        .where(Order.id == order_id)
+        .options(selectinload(Order.items), selectinload(Order.user))
+    )
     if not order or order.restaurant_id != store.id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Order not found")
     if data.status != OrderStatus.cancelled:
@@ -564,16 +506,40 @@ def update_order_status(
             "Admin faqat buyurtmani bekor qila oladi",
         )
 
-    ensure_transition(order.status, data.status)
-    order.status = data.status
-
-    db.commit()
-    db.refresh(order)
     user_tg = order.user.telegram_id if order.user else None
     user_lang = (order.user.language if order.user else None) or "uz"
+    order = cancel_order(db, order)
+    courier_events.publish({"type": "orders_updated", "restaurant_id": store.id})
     if user_tg:
         background.add_task(notify_status_change, order, user_tg, user_lang)
     return order
+
+
+@router.delete("/orders/{order_id}", status_code=204)
+def delete_order(
+    order_id: int,
+    _principal=Depends(require_store_admin_or_business),
+    store: Restaurant = Depends(current_restaurant),
+    db: Session = Depends(get_db),
+):
+    """Tadbirkor/do'kon superadmini istalgan holatdagi buyurtmani hard-delete
+    qiladi. Hisobot/statistika Order jadvalidan hisoblanadi — qator yo'qolsa
+    aylanma/foyda/grafikdan ham tushadi.
+
+    Faol (pending/accepted/delivering) buyurtma avval bekor qilinadi — zaxira
+    omborga qaytadi. Yetkazilganida stock qaytarilmaydi (allaqachon sotilgan)."""
+    order = db.get(Order, order_id)
+    if not order or order.restaurant_id != store.id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Order not found")
+    if order.status not in (OrderStatus.delivered, OrderStatus.cancelled):
+        cancel_order(db, order)
+        order = db.get(Order, order_id)
+        if not order:
+            courier_events.publish({"type": "orders_updated", "restaurant_id": store.id})
+            return
+    db.delete(order)
+    db.commit()
+    courier_events.publish({"type": "orders_updated", "restaurant_id": store.id})
 
 
 @router.get("/delivery-stats")
@@ -658,7 +624,7 @@ def broadcast(
         .where(~User.is_blocked)
     ).all()
 
-    background.add_task(broadcast_post, list(telegram_ids), text, data.image_url)
+    background.add_task(broadcast_post, [t for t in telegram_ids if t is not None], text, data.image_url)
     return {"sent_to": len(telegram_ids)}
 
 
@@ -728,13 +694,11 @@ def delete_supply(
 
 
 # ── Admin users (kuryer akkauntlarini boshqarish) ───────────────
-from app.core.security import hash_password  # noqa: E402
-from app.models.enums import AdminRole  # noqa: E402
 
 
 class _AdminUserCreateIn(BaseModel):
     username: str
-    password: str
+    password: str = Field(min_length=6, max_length=128)
     name: str | None = None
     phone: str | None = None
     role: AdminRole = AdminRole.courier
@@ -795,8 +759,59 @@ def toggle_admin_user(
     return u
 
 
+class _AdminUserUpdateIn(BaseModel):
+    """Tadbirkor/do'kon egasi xodim ma'lumotlarini tahrirlaydi (eski parol shart emas)."""
+    username: str | None = None
+    name: str | None = None
+    phone: str | None = None
+    role: AdminRole | None = None
+
+
+@router.patch("/admin-users/{uid}", response_model=AdminUserOut)
+def update_admin_user(
+    uid: int,
+    data: _AdminUserUpdateIn,
+    principal = Depends(require_store_admin_or_business),
+    store: Restaurant = Depends(current_restaurant),
+    db: Session = Depends(get_db),
+):
+    u = db.get(AdminUser, uid)
+    if not u or u.restaurant_id != store.id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Not found")
+    if isinstance(principal, AdminUser) and u.id == principal.id:
+        # O'zining rolini o'zgartirishni taqiqlash (qulflanib qolmasin).
+        if data.role is not None and data.role != u.role:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "O'zingizning rolingizni o'zgartira olmaysiz")
+
+    if data.username is not None:
+        username = data.username.strip()
+        if not username:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "Login bo'sh bo'lishi mumkin emas")
+        if username != u.username:
+            if db.scalar(select(AdminUser).where(AdminUser.username == username)):
+                raise HTTPException(status.HTTP_409_CONFLICT, "Username already taken")
+            u.username = username
+
+    if data.name is not None:
+        u.name = data.name.strip() or None
+
+    if data.phone is not None:
+        phone = data.phone.strip() or None
+        if phone and phone != u.phone:
+            if db.scalar(select(AdminUser).where(AdminUser.phone == phone, AdminUser.id != u.id)):
+                raise HTTPException(status.HTTP_409_CONFLICT, "Bu telefon raqam allaqachon band")
+        u.phone = phone
+
+    if data.role is not None:
+        u.role = data.role
+
+    db.commit()
+    db.refresh(u)
+    return u
+
+
 class _PasswordUpdateIn(BaseModel):
-    password: str
+    password: str = Field(min_length=6, max_length=128)
 
 
 @router.patch("/admin-users/{uid}/password", response_model=AdminUserOut)
@@ -807,10 +822,14 @@ def update_admin_user_password(
     store: Restaurant = Depends(current_restaurant),
     db: Session = Depends(get_db),
 ):
+    """Admin/tadbirkor xodim parolini eskisini bilmasdan o'rnatadi (reset)."""
     u = db.get(AdminUser, uid)
     if not u or u.restaurant_id != store.id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Not found")
-    u.hashed_password = hash_password(data.password)
+    pw = data.password.strip()
+    if len(pw) < 6:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Parol kamida 6 belgi bo'lishi kerak")
+    u.hashed_password = hash_password(pw)
     db.commit()
     db.refresh(u)
     return u
@@ -829,10 +848,22 @@ def delete_admin_user(
     if isinstance(principal, AdminUser) and u.id == principal.id:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "O'zingizni o'chira olmaysiz")
     if u.role == AdminRole.courier:
+        # Faqat assigned_courier_id'ni bo'shatish yetarli emas: status
+        # accepted/delivering'da qolib ketsa, boshqa kuryer uni qayta ololmas
+        # edi (claim faqat pending'dan) — buyurtma "osilib" qolardi. Hali
+        # yakunlanmagan buyurtmalar pending'ga qaytariladi, qayta taqsimlansin.
         db.execute(
             update(Order)
-            .where(Order.courier_id == uid)
-            .values(courier_id=None)
+            .where(
+                Order.assigned_courier_id == uid,
+                Order.status.in_((OrderStatus.accepted, OrderStatus.delivering)),
+            )
+            .values(
+                assigned_courier_id=None,
+                status=OrderStatus.pending,
+                courier_accepted_at=None,
+                delivering_started_at=None,
+            )
         )
     db.delete(u)
     db.commit()

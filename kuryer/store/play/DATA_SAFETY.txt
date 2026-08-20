@@ -1,0 +1,40 @@
+Google Play Console → App content → Data safety (to‘ldirish bo‘yicha)
+
+Ilova: BB Kuryer (uz.barakalibozor.kuryer)
+
+────────────────────────────────────
+Yig‘iladigan ma’lumotlar
+────────────────────────────────────
+✓ Joylashuv — aniq joylashuv (GPS)
+  Maqsad: App functionality (yetkazish / tracking)
+  Majburiy: ha (kuryer ishi uchun)
+  Uchinchi tomonga sotiladi: YO‘Q
+
+✓ Shaxsiy ma’lumot — ism, telefon, foydalanuvchi ID
+  Maqsad: App functionality, Account management
+  Sotiladi: YO‘Q
+
+✓ Qurilma yoki boshqa ID — device ID / push token
+  Maqsad: App functionality, Analytics (ixtiyoriy)
+  Sotiladi: YO‘Q
+
+✓ Buyurtma / manzil ma’lumotlari (boshqa)
+  Maqsad: App functionality
+  Sotiladi: YO‘Q
+
+────────────────────────────────────
+Xavfsizlik amaliyotlari
+────────────────────────────────────
+✓ Ma’lumotlar tranzitda shifrlangan (HTTPS)
+✓ Foydalanuvchi ma’lumotlarni o‘chirishni so‘rashi mumkin (admin orqali)
+
+────────────────────────────────────
+Reklama ID
+────────────────────────────────────
+Ilova reklama ko‘rsatmaydi → Advertising ID ishlatilmaydi: NO
+
+────────────────────────────────────
+Bolalar
+────────────────────────────────────
+Target audience: 18+ (ishchi kuryerlar)
+Not designed for children

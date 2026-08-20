@@ -17,8 +17,11 @@ import app.models  # noqa: F401  (register all models on Base.metadata)
 # ustunlarini idempotent ravishda qoʻshamiz (Postgres).
 _PRODUCT_COLUMNS = (
     "ALTER TABLE products ADD COLUMN IF NOT EXISTS cost INTEGER NOT NULL DEFAULT 0",
-    "ALTER TABLE products ADD COLUMN IF NOT EXISTS stock INTEGER NOT NULL DEFAULT 0",
-    "ALTER TABLE products ADD COLUMN IF NOT EXISTS low_stock_threshold INTEGER NOT NULL DEFAULT 10",
+    "ALTER TABLE products ADD COLUMN IF NOT EXISTS stock DOUBLE PRECISION NOT NULL DEFAULT 0",
+    "ALTER TABLE products ADD COLUMN IF NOT EXISTS low_stock_threshold DOUBLE PRECISION NOT NULL DEFAULT 10",
+    # Eski INTEGER ustunlar model Float bilan moslashsin.
+    "ALTER TABLE products ALTER COLUMN stock TYPE DOUBLE PRECISION USING stock::double precision",
+    "ALTER TABLE products ALTER COLUMN low_stock_threshold TYPE DOUBLE PRECISION USING low_stock_threshold::double precision",
 )
 
 # Kategoriyalarga rasm (kartochka foni) + subkategoriya uchun parent_id — idempotent.
@@ -59,6 +62,9 @@ _ORDER_COLUMNS = (
     "ALTER TABLE orders ADD COLUMN IF NOT EXISTS eta_minutes INTEGER",
     "ALTER TABLE orders ADD COLUMN IF NOT EXISTS courier_accepted_at TIMESTAMPTZ",
     "ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivering_started_at TIMESTAMPTZ",
+    "ALTER TABLE orders ADD COLUMN IF NOT EXISTS route_group_id VARCHAR(36)",
+    "ALTER TABLE orders ADD COLUMN IF NOT EXISTS route_sequence INTEGER",
+    "ALTER TABLE orders ADD COLUMN IF NOT EXISTS route_leg_km DOUBLE PRECISION",
 )
 _ZONE_COLUMNS = (
     "ALTER TABLE delivery_zones ADD COLUMN IF NOT EXISTS center_lat DOUBLE PRECISION",
@@ -68,6 +74,10 @@ _ZONE_COLUMNS = (
 _PUSH_COLUMNS = (
     "ALTER TABLE push_subscriptions ADD COLUMN IF NOT EXISTS admin_user_id INTEGER "
     "REFERENCES admin_users(id) ON DELETE CASCADE",
+    # Admin-panel obunalarni do'konga bog'laydi — bo'lmasa har bir do'kon
+    # boshqasining buyurtma push'larini ham olar edi (cross-tenant leak).
+    "ALTER TABLE push_subscriptions ADD COLUMN IF NOT EXISTS restaurant_id INTEGER "
+    "REFERENCES restaurants(id) ON DELETE CASCADE",
 )
 # Foydalanuvchini bloklash (admin paneldan) — buyurtma bera olmaydi.
 # password_hash / fcm_token — mijoz app (telefon login + push); create_all
@@ -81,6 +91,11 @@ _USER_COLUMNS = (
 _ADMIN_USER_COLUMNS = (
     "ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS name VARCHAR(128)",
     "ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS phone VARCHAR(32)",
+    "ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS lat DOUBLE PRECISION",
+    "ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS lng DOUBLE PRECISION",
+    "ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS last_location_update TIMESTAMPTZ",
+    # Native kuryer APK push (Firebase Cloud Messaging).
+    "ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS fcm_token VARCHAR(512)",
 )
 # Do'kon sozlamalari: manzil, ega, telefonlar (JSONB array), ijtimoiy tarmoq (JSONB obyekt).
 _STORE_COLUMNS = (
@@ -186,6 +201,27 @@ def main(engine=engine) -> None:
                     {"rid": first_restaurant[0]},
                 )
             conn.execute(text(f"ALTER TABLE {table} ALTER COLUMN restaurant_id SET NOT NULL"))
+
+        # Phone unique (NULL ruxsat — faqat telegram userlar). Dublikatlarni
+        # eng kichik id saqlab, qolganlarini NULL qilamiz (keyin index).
+        try:
+            conn.execute(text(
+                """
+                UPDATE users u SET phone = NULL
+                WHERE u.phone IS NOT NULL AND u.phone <> ''
+                  AND u.id NOT IN (
+                    SELECT MIN(id) FROM users
+                    WHERE phone IS NOT NULL AND phone <> ''
+                    GROUP BY phone
+                  )
+                """
+            ))
+            conn.execute(text(
+                "CREATE UNIQUE INDEX IF NOT EXISTS uq_users_phone_not_null "
+                "ON users (phone) WHERE phone IS NOT NULL AND phone <> ''"
+            ))
+        except Exception as e:  # noqa: BLE001
+            print(f"phone unique index skip: {e}")
     print("Tables created / verified.")
 
 

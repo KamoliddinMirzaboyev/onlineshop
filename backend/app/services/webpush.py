@@ -11,7 +11,7 @@ propagate — a push problem must not break an order.
 import json
 import logging
 
-from pywebpush import WebPushException, webpush
+from pywebpush import WebPushException, webpush  # type: ignore
 from sqlalchemy import delete, select
 
 from app.core.config import settings
@@ -33,7 +33,8 @@ def _send(sub: PushSubscription, payload: dict) -> None:
     )
 
 
-def _deliver(subs: list[PushSubscription], payload: dict) -> None:
+from typing import Sequence
+def _deliver(subs: Sequence[PushSubscription], payload: dict) -> None:
     dead: list[int] = []
     for s in subs:
         try:
@@ -52,12 +53,22 @@ def _deliver(subs: list[PushSubscription], payload: dict) -> None:
             db.commit()
 
 
-def notify_admins(title: str, body: str, url: str = "/", tag: str | None = None) -> None:
+def notify_admins(
+    title: str, body: str, restaurant_id: int, url: str = "/", tag: str | None = None
+) -> None:
+    """Faqat shu restoranga bog'langan admin-panel obunalariga.
+
+    restaurant_id — majburiy: aks holda bitta do'konning buyurtmasi hamma
+    do'konlar planshetiga tushib qolardi (avvalgi cross-tenant leak).
+    """
     if not settings.vapid_private_key:
         return  # push not configured
     with SessionLocal() as db:
         subs = db.scalars(
-            select(PushSubscription).where(PushSubscription.admin_user_id.is_(None))
+            select(PushSubscription).where(
+                PushSubscription.admin_user_id.is_(None),
+                PushSubscription.restaurant_id == restaurant_id,
+            )
         ).all()
     _deliver(subs, {"title": title, "body": body, "url": url, "tag": tag})
 

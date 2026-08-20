@@ -4,11 +4,20 @@ Used by API to ping the user and the orders channel on order events.
 Failures are swallowed — a notification problem must never break an order.
 """
 
+import html
+
 import httpx
 
 from app.core.config import settings
 from app.models import Order
 from app.services import webpush
+
+
+def _e(s: str | None) -> str:
+    """parse_mode=HTML xabarlariga qo'yiladigan erkin matnni escape qiladi
+    (address_line/phone/comment/courier nomi — mijoz/xodim kiritadi, tag
+    tashlab yuborilsa Telegram API 400 qaytaradi yoki matn soxtalashtiriladi)."""
+    return html.escape(s or "", quote=False)
 
 _API = f"https://api.telegram.org/bot{settings.bot_token}/sendMessage"
 _PHOTO_API = f"https://api.telegram.org/bot{settings.bot_token}/sendPhoto"
@@ -57,9 +66,9 @@ def _courier_block(
     l = _lang(lang)
     lines = ["", "🚴 <b>Kuryer:</b>" if l == "uz" else "🚴 <b>Курьер:</b>"]
     if courier_name:
-        lines.append(f"👤 {courier_name}")
+        lines.append(f"👤 {_e(courier_name)}")
     if courier_phone:
-        lines.append(f"📞 {courier_phone}")
+        lines.append(f"📞 {_e(courier_phone)}")
     return lines
 
 
@@ -126,45 +135,60 @@ def _ask_location(chat_id: int) -> None:
 
 
 def notify_new_order(
-    order: Order, user_telegram_id: int, receipt_png: bytes | None = None,
+    order: Order, user_telegram_id: int | None, receipt_png: bytes | None = None,
     needs_location: bool = True,
 ) -> None:
     lines = [
         f"🆕 <b>Yangi buyurtma {order.number}</b>",
         f"Restoran ID: {order.restaurant_id}",
         f"Summa: {order.total:,} so'm",
-        f"Manzil: {order.address_line}",
-        f"Tel: {order.phone or '-'}",
+        f"Manzil: {_e(order.address_line)}",
+        f"Tel: {_e(order.phone) or '-'}",
     ]
     text = "\n".join(lines)
     if settings.orders_chat_id:
         _send(settings.orders_chat_id, text)
 
     # Foydalanuvchiga chek (rasm) + status.
-    if receipt_png:
-        _send_photo(
-            user_telegram_id, receipt_png,
-            caption=f"🧾 Buyurtmangiz qabul qilindi · № {order.number}",
-        )
-    else:
-        _send(user_telegram_id, _STATUS_TEXT["pending"] + f"\n№ {order.number}")
+    if user_telegram_id:
+        if receipt_png:
+            _send_photo(
+                user_telegram_id, receipt_png,
+                caption=f"🧾 Buyurtmangiz qabul qilindi · № {order.number}",
+            )
+        else:
+            _send(user_telegram_id, _STATUS_TEXT["uz"]["pending"] + f"\n№ {order.number}")
 
-    # Joylashuv hali yo'q bo'lsa — so'raymiz (TMA xaritadan yuborgan bo'lsa, kerak emas).
-    if needs_location:
-        _ask_location(user_telegram_id)
+        # Joylashuv hali yo'q bo'lsa — so'raymiz (TMA xaritadan yuborgan bo'lsa, kerak emas).
+        if needs_location:
+            _ask_location(user_telegram_id)
 
-    # admin PWA push
+    # admin PWA push — faqat shu buyurtmaning do'koniga
     webpush.notify_admins(
         f"🆕 Yangi buyurtma {order.number}",
         f"{order.total:,} so'm · {order.address_line}",
+        order.restaurant_id,
         url="/orders",
         tag=f"order-{order.id}",
     )
 
     # Shu do'kon kuryerlariga — yangi buyurtma mavjud (birinchi qabul qilgan oladi).
+    # Courier PWA serverda /courier/ ostida joylashgan.
+    title = f"🆕 Yangi buyurtma № {order.number}"
+    body = f"{order.total:,} so'm · {order.address_line}"
     webpush.notify_all_couriers(
-        f"🆕 Yangi buyurtma № {order.number}",
-        f"{order.total:,} so'm · {order.address_line}",
+        title,
+        body,
+        order.restaurant_id,
+        url="/courier/orders",
+        tag=f"neworder-{order.id}",
+    )
+    # Native kuryer APK (FCM) — app yopiq / ekran o'chiq bo'lsa ham.
+    from app.services import fcm
+
+    fcm.notify_all_couriers(
+        title,
+        body,
         order.restaurant_id,
         url="/orders",
         tag=f"neworder-{order.id}",
@@ -172,11 +196,22 @@ def notify_new_order(
 
 
 def notify_courier_assigned(order: Order, courier_admin_id: int) -> None:
-    """Push to the assigned courier's app (web push)."""
+    """Push to the assigned courier (web push + FCM)."""
+    title = f"🛵 Yangi buyurtma № {order.number}"
+    body = f"{order.total:,} so'm · {order.address_line}"
     webpush.notify_courier(
         courier_admin_id,
-        f"🛵 Yangi buyurtma № {order.number}",
-        f"{order.total:,} so'm · {order.address_line}",
+        title,
+        body,
+        url=f"/courier/orders/{order.id}",
+        tag=f"assign-{order.id}",
+    )
+    from app.services import fcm
+
+    fcm.notify_courier(
+        courier_admin_id,
+        title,
+        body,
         url=f"/orders/{order.id}",
         tag=f"assign-{order.id}",
     )
@@ -232,20 +267,85 @@ def notify_delivering_eta(
     courier_name: str | None = None,
     courier_phone: str | None = None,
     lang: str | None = "uz",
+    receipt_png: bytes | None = None,
 ) -> None:
-    """Kuryer 'yetkazilmoqda' — ETA + masofa + kuryer, mijoz tilida."""
+    """Kuryer 'yetkazilmoqda' — ETA + masofa + kuryer + (ixtiyoriy) yangilangan chek."""
     l = _lang(lang)
+    total = int(order.total or 0)
     if l == "ru":
         lines = [f"🛵 <b>Ваш заказ в пути · № {order.number}</b>"]
         if eta_minutes:
             lines.append(f"⏱ Ориентировочно через <b>{eta_minutes} мин</b>")
         if distance_km:
             lines.append(f"📍 Расстояние: ~{distance_km:g} км")
+        lines.append(f"💳 Итого: <b>{total:,} сум</b>".replace(",", " "))
+        receipt_caption = f"🧾 Актуальный чек · № {order.number} · {total:,} сум".replace(",", " ")
     else:
         lines = [f"🛵 <b>Buyurtmangiz yo'lda · № {order.number}</b>"]
         if eta_minutes:
             lines.append(f"⏱ Taxminan <b>{eta_minutes} daqiqada</b> yetkaziladi")
         if distance_km:
             lines.append(f"📍 Masofa: ~{distance_km:g} km")
+        lines.append(f"💳 Jami: <b>{total:,} so'm</b>".replace(",", " "))
+        receipt_caption = f"🧾 Yangilangan chek · № {order.number} · {total:,} so'm".replace(",", " ")
     lines.extend(_courier_block(l, courier_name, courier_phone))
-    _send(user_telegram_id, "\n".join(lines))
+    text = "\n".join(lines)
+
+    # Avval yangilangan chek (miqdor/summa o'zgargan bo'lishi mumkin), keyin ETA matni.
+    if receipt_png:
+        _send_photo(user_telegram_id, receipt_png, caption=receipt_caption[:1024])
+        _send(user_telegram_id, text)
+    else:
+        _send(user_telegram_id, text)
+
+
+def notify_eta_update(
+    order: Order,
+    user_telegram_id: int,
+    eta_minutes: int,
+    lang: str | None = "uz",
+) -> None:
+    """Marshrut qayta hisoblanganda qisqa ETA yangilanishi (spam'siz)."""
+    l = _lang(lang)
+    if l == "ru":
+        text = (
+            f"⏱ <b>Обновление ETA · № {order.number}</b>\n"
+            f"Курьер перестроил маршрут — ориентировочно через <b>{eta_minutes} мин</b>"
+        )
+    else:
+        text = (
+            f"⏱ <b>ETA yangilandi · № {order.number}</b>\n"
+            f"Kuryer marshrutni yangiladi — taxminan <b>{eta_minutes} daqiqa</b>"
+        )
+    _send(user_telegram_id, text)
+
+
+def notify_order_adjusted(
+    order: Order,
+    user_telegram_id: int,
+    lang: str | None = "uz",
+    receipt_png: bytes | None = None,
+) -> None:
+    """Kuryer miqdorni tahrirlaganda — mijozga yangi chek + summa."""
+    l = _lang(lang)
+    total = int(order.total or 0)
+    if l == "ru":
+        text = (
+            f"✏️ <b>Заказ обновлён · № {order.number}</b>\n"
+            f"Количество/состав изменены курьером.\n"
+            f"💳 Новая сумма: <b>{total:,} сум</b>".replace(",", " ")
+        )
+        caption = f"🧾 Обновлённый чек · № {order.number} · {total:,} сум".replace(",", " ")
+    else:
+        text = (
+            f"✏️ <b>Buyurtma yangilandi · № {order.number}</b>\n"
+            f"Kuryer miqdor/tarkibni tahrirladi.\n"
+            f"💳 Yangi summa: <b>{total:,} so'm</b>".replace(",", " ")
+        )
+        caption = f"🧾 Yangilangan chek · № {order.number} · {total:,} so'm".replace(",", " ")
+
+    if receipt_png:
+        _send_photo(user_telegram_id, receipt_png, caption=caption[:1024])
+        _send(user_telegram_id, text)
+    else:
+        _send(user_telegram_id, text)

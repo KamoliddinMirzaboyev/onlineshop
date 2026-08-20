@@ -3,18 +3,206 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../core/format.dart';
 import '../core/theme.dart';
+import 'toast.dart';
 
 /// Dial a phone number (`tel:` link).
 Future<void> launchPhone(String phone) async {
   final uri = Uri(scheme: 'tel', path: phone);
-  if (await canLaunchUrl(uri)) await launchUrl(uri);
+  try {
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  } catch (_) {
+    if (await canLaunchUrl(uri)) await launchUrl(uri);
+  }
 }
 
-/// Open an external URL (e.g. Yandex Maps navigation).
-Future<void> launchExternal(String url) async {
+/// Open an external URL / deep link (Maps, Navigator).
+Future<bool> launchExternal(String url) async {
   final uri = Uri.parse(url);
-  if (await canLaunchUrl(uri)) {
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  try {
+    final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (ok) return true;
+  } catch (_) {}
+  try {
+    return await launchUrl(uri, mode: LaunchMode.platformDefault);
+  } catch (_) {
+    return false;
+  }
+}
+
+/// Marshrut tanlash: Google Maps yoki Yandex Navigator.
+/// [waypoints] berilsa multi-stop marshrut ochiladi.
+Future<void> showNavigationChooser(
+  BuildContext context, {
+  double? lat,
+  double? lng,
+  String? address,
+  List<({double lat, double lng})>? waypoints,
+}) async {
+  final multi = waypoints != null && waypoints.isNotEmpty;
+  if (!multi && !canNavigate(lat: lat, lng: lng, address: address)) {
+    toast.error("Manzil yoki koordinata yo'q");
+    return;
+  }
+
+  final google = googleMapsNavUrl(
+    lat: lat,
+    lng: lng,
+    address: address,
+    waypoints: multi ? waypoints : null,
+  );
+  final yandexApp = multi
+      ? null
+      : yandexNaviUrl(lat: lat, lng: lng);
+  final yandexWeb = yandexMapsUrl(
+    lat,
+    lng,
+    address: address,
+    waypoints: multi ? waypoints : null,
+  );
+
+  await showModalBottomSheet<void>(
+    context: context,
+    backgroundColor: Colors.white,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    builder: (ctx) {
+      return SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.slate200,
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+              const Text(
+                'Navigatsiya',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                multi
+                    ? '${waypoints.length} ta stop — optimal marshrut'
+                    : address?.trim().isNotEmpty == true
+                        ? address!.trim()
+                        : (lat != null && lng != null
+                            ? '${lat.toStringAsFixed(5)}, ${lng.toStringAsFixed(5)}'
+                            : 'Manzil'),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 13, color: AppColors.slate500),
+              ),
+              const SizedBox(height: 16),
+              if (google != null)
+                _NavOption(
+                  icon: Icons.map_outlined,
+                  color: const Color(0xFF4285F4),
+                  title: 'Google Maps',
+                  subtitle: 'Marshrut ochish',
+                  onTap: () async {
+                    Navigator.of(ctx).pop();
+                    final ok = await launchExternal(google);
+                    if (!ok) toast.error("Google Maps ochilmadi");
+                  },
+                ),
+              if (google != null) const SizedBox(height: 10),
+              _NavOption(
+                icon: Icons.navigation,
+                color: const Color(0xFFFC3F1D),
+                title: 'Yandex Navigator',
+                subtitle: lat != null ? 'Ilovada marshrut' : 'Yandex Xarita',
+                onTap: () async {
+                  Navigator.of(ctx).pop();
+                  // Avval native Navigator, bo'lmasa Yandex Maps web.
+                  bool ok = false;
+                  if (yandexApp != null) {
+                    ok = await launchExternal(yandexApp);
+                  }
+                  if (!ok && yandexWeb != null) {
+                    ok = await launchExternal(yandexWeb);
+                  }
+                  if (!ok) toast.error("Yandex ochilmadi");
+                },
+              ),
+              const SizedBox(height: 8),
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text('Bekor', style: TextStyle(color: AppColors.slate500)),
+              ),
+            ],
+          ),
+        ),
+      );
+    },
+  );
+}
+
+class _NavOption extends StatelessWidget {
+  const _NavOption({
+    required this.icon,
+    required this.color,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final Color color;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.slate50,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, color: color, size: 22),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title,
+                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+                    Text(subtitle,
+                        style: const TextStyle(fontSize: 12, color: AppColors.slate400)),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right, color: AppColors.slate300),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 

@@ -21,12 +21,35 @@ def verify_password(plain: str, hashed: str) -> bool:
     return pwd_context.verify(plain, hashed)
 
 
+# Login enumeratsiyasiga qarshi: user/username topilmasa ham bcrypt shu qadar
+# vaqt yeydi — "user yo'q" (tezkor 401) va "parol xato" (sekin 401) javoblari
+# javob vaqtidan farqlanmasin.
+_DUMMY_HASH = hash_password("dummy-constant-time-padding")
+
+
+def verify_password_safe(plain: str, hashed: str | None) -> bool:
+    ok = pwd_context.verify(plain, hashed or _DUMMY_HASH)
+    return ok if hashed else False
+
+
 # ── JWT ──────────────────────────────────────────────────────────
-def create_access_token(subject: str, role: str) -> str:
-    expire = datetime.now(timezone.utc) + timedelta(
-        minutes=settings.access_token_expire_minutes
+def create_access_token(
+    subject: str,
+    role: str,
+    *,
+    expires_minutes: int | None = None,
+    purpose: str | None = None,
+) -> str:
+    """JWT chiqaradi. `purpose` (masalan 'sse') qisqa muddatli stream ticket uchun."""
+    minutes = (
+        expires_minutes
+        if expires_minutes is not None
+        else settings.access_token_expire_minutes
     )
-    payload = {"sub": str(subject), "role": role, "exp": expire}
+    expire = datetime.now(timezone.utc) + timedelta(minutes=minutes)
+    payload: dict = {"sub": str(subject), "role": role, "exp": expire}
+    if purpose:
+        payload["purpose"] = purpose
     return jwt.encode(payload, settings.secret_key, algorithm=settings.algorithm)
 
 
@@ -50,6 +73,10 @@ def verify_telegram_init_data(init_data: str, max_age_seconds: int = 86400) -> d
     if not received_hash:
         return None
 
+    # HMAC data-check-string: barcha maydonlar (signature HAM), faqat hash chiqariladi.
+    # Ed25519 `signature` faqat third-party validate3rd da alohida — bot-token HMAC dan
+    # olib tashlanmaydi (@telegram-apps/init-data-node validateFp).
+    # 19ea485 dagi pop(signature) real Telegram initData ni buzardi → 401.
     data_check_string = "\n".join(
         f"{k}={v}" for k, v in sorted(parsed.items())
     )
@@ -61,16 +88,40 @@ def verify_telegram_init_data(init_data: str, max_age_seconds: int = 86400) -> d
     ).hexdigest()
 
     if not hmac.compare_digest(computed_hash, received_hash):
-        return None
-
-    # freshness check
-    auth_date = parsed.get("auth_date")
-    if auth_date:
-        age = datetime.now(timezone.utc).timestamp() - int(auth_date)
-        if age > max_age_seconds:
+        # Ba'zi eski klientlar signature ni hash ga kiritmasligi mumkin — fallback.
+        if "signature" in parsed:
+            without_sig = {k: v for k, v in parsed.items() if k != "signature"}
+            alt = "\n".join(f"{k}={v}" for k, v in sorted(without_sig.items()))
+            alt_hash = hmac.new(
+                secret_key, alt.encode(), hashlib.sha256
+            ).hexdigest()
+            if not hmac.compare_digest(alt_hash, received_hash):
+                return None
+        else:
             return None
+
+    # freshness: auth_date majburiy
+    auth_date_raw = parsed.get("auth_date")
+    if not auth_date_raw:
+        return None
+    try:
+        auth_ts = int(auth_date_raw)
+    except (TypeError, ValueError):
+        return None
+    now = datetime.now(timezone.utc).timestamp()
+    age = now - auth_ts
+    # kelajakdagi soat farqi (max 2 daqiqa)
+    if age < -120:
+        return None
+    if age > max_age_seconds:
+        return None
 
     user_raw = parsed.get("user")
     if user_raw:
-        parsed["user"] = json.loads(user_raw)
+        try:
+            parsed["user"] = json.loads(user_raw)
+        except (json.JSONDecodeError, TypeError):
+            return None
+        if not isinstance(parsed["user"], dict) or "id" not in parsed["user"]:
+            return None
     return parsed

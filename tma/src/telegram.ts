@@ -1,40 +1,94 @@
 // Thin wrapper over the Telegram WebApp SDK with a browser fallback for local dev.
 
-export const tg = window.Telegram?.WebApp;
+/** Live WebApp — har chaqiruvda window dan (import-time freeze yo'q). */
+export function getWebApp(): TelegramWebApp | undefined {
+  return window.Telegram?.WebApp;
+}
+
+/** Live binding: initTelegram() yangilaydi; effect/handler'da ham getWebApp() afzal. */
+export let tg = getWebApp();
+
+/** Bizning erta capture + SDK kesh. Redirect/hash yo'qolsa ham saqlanadi. */
+const AF_INIT_KEY = "__af_tgWebAppData";
 
 // initData captured ONCE at startup, before BrowserRouter can rewrite the URL
 // and drop the #tgWebAppData fragment. Empty string in plain-browser dev.
 let cachedInitData = "";
 
+function isNonEmpty(s: unknown): s is string {
+  return typeof s === "string" && s.length > 0;
+}
+
+function persistInitData(data: string) {
+  if (!isNonEmpty(data)) return;
+  cachedInitData = data;
+  try {
+    sessionStorage.setItem(AF_INIT_KEY, data);
+  } catch {
+    /* private mode / blocked */
+  }
+}
+
+function fromUrlParams(raw: string): string {
+  if (!raw) return "";
+  try {
+    return new URLSearchParams(raw).get("tgWebAppData") ?? "";
+  } catch {
+    return "";
+  }
+}
+
 /**
- * Read the signed launch params from every channel Telegram may use, keeping the
- * first non-empty result. Different launch entry points (menu/attachment button
- * vs a reply-keyboard `web_app` button) don't all populate `tg.initData`, so a
- * single-source read renders the user context empty for some of them.
+ * Read the signed launch params from every channel Telegram may use.
+ * Tartib: live SDK → WebView.initParams → bizning kesh → TG sessionStorage → URL.
  */
 function readInitData(): string {
-  const fromSdk = tg?.initData;
-  if (fromSdk) return fromSdk;
+  // 1) Live SDK (eng ishonchli — har doim window dan)
+  const fromSdk = getWebApp()?.initData;
+  if (isNonEmpty(fromSdk)) return fromSdk;
 
+  // 2) Telegram WebView parse qilgan raw params (SDK ichki)
+  try {
+    const webView = (
+      window as Window & {
+        Telegram?: { WebView?: { initParams?: { tgWebAppData?: string } } };
+      }
+    ).Telegram?.WebView?.initParams?.tgWebAppData;
+    if (isNonEmpty(webView)) return webView;
+  } catch {
+    /* ignore */
+  }
+
+  // 3) Bizning erta inline capture / oldingi muvaffaqiyatli o'qish
+  try {
+    const ours = sessionStorage.getItem(AF_INIT_KEY);
+    if (isNonEmpty(ours)) return ours;
+  } catch {
+    /* ignore */
+  }
+
+  // 4) Rasmiy SDK sessionStorage kesh (hash tozalangandan keyin)
   try {
     const cached = sessionStorage.getItem("__telegram__initParams");
     if (cached) {
       const data = JSON.parse(cached)?.tgWebAppData;
-      if (data) return data;
+      if (isNonEmpty(data)) return data;
     }
   } catch {
     /* ignore */
   }
 
-  const raw = window.location.hash.slice(1) || window.location.search.slice(1);
-  return new URLSearchParams(raw).get("tgWebAppData") ?? "";
+  // 5) URL hash yoki query (oxirgi chora)
+  const fromHash = fromUrlParams(window.location.hash.slice(1));
+  if (isNonEmpty(fromHash)) return fromHash;
+  return fromUrlParams(window.location.search.slice(1));
 }
 
 /** LocationManager init bir marta — keyin isAccessGranted ishonchli bo'ladi. */
 let locationManagerReady: Promise<boolean> | null = null;
 
 export function ensureLocationManager(): Promise<boolean> {
-  const lm = tg?.LocationManager;
+  const lm = getWebApp()?.LocationManager;
   if (!lm) return Promise.resolve(false);
   if (isTelegramDesktopLike()) return Promise.resolve(false);
   if (lm.isInited) return Promise.resolve(true);
@@ -56,7 +110,11 @@ export function ensureLocationManager(): Promise<boolean> {
 }
 
 export function initTelegram() {
-  cachedInitData = readInitData();
+  tg = getWebApp();
+  // Capture birinchi, synchronous — location o'zgarmasdan oldin.
+  const data = readInitData();
+  if (data) persistInitData(data);
+
   if (!tg) return;
   tg.ready();
   tg.expand();
@@ -66,29 +124,35 @@ export function initTelegram() {
   } catch {
     /* eski klient */
   }
-  // Joylashuv ruxsatini ilova ochilishi bilan tayyorlash (keyin getLocation tez).
+  // ready() dan keyin ba'zi klientlar initData ni to'ldiradi — qayta o'qi.
+  const again = readInitData();
+  if (again) persistInitData(again);
+
   void ensureLocationManager();
 }
 
 export function getInitData(): string {
-  return cachedInitData || readInitData();
+  if (isNonEmpty(cachedInitData)) return cachedInitData;
+  const data = readInitData();
+  if (data) persistInitData(data);
+  return data || cachedInitData || "";
 }
 
 export function getLanguage(): "uz" | "ru" {
-  const code = tg?.initDataUnsafe?.user?.language_code ?? "uz";
+  const code = getWebApp()?.initDataUnsafe?.user?.language_code ?? "uz";
   return code.startsWith("ru") ? "ru" : "uz";
 }
 
 export function haptic(type: "light" | "medium" | "heavy" = "light") {
-  tg?.HapticFeedback?.impactOccurred(type);
+  getWebApp()?.HapticFeedback?.impactOccurred(type);
 }
 
 export type TelegramLocationResult =
-  | { status: "ok"; lat: number; lng: number }
+  | { status: "ok"; lat: number; lng: number; accuracyM?: number }
   | { status: "unsupported" | "device_off" | "denied" | "error" };
 
 export function isTelegramDesktopLike(): boolean {
-  const p = (tg?.platform ?? "").toLowerCase();
+  const p = (getWebApp()?.platform ?? "").toLowerCase();
   return (
     p === "tdesktop" ||
     p === "macos" ||
@@ -100,9 +164,16 @@ export function isTelegramDesktopLike(): boolean {
 }
 
 export function isTelegramLocationGranted(): boolean {
-  const lm = tg?.LocationManager;
+  const lm = getWebApp()?.LocationManager;
   return !!(lm?.isAccessGranted);
 }
+
+export type TelegramLocationOpts = {
+  /** Kutish (ms). Checkout uchun uzunasiga — sekin GPS ham chiqsin. */
+  timeoutMs?: number;
+  /** true: isLocationAvailable=false bo'lsa ham getLocation urinadi (ba'zi klientlar). */
+  requireFresh?: boolean;
+};
 
 /**
  * Telegram joylashuvi.
@@ -110,8 +181,10 @@ export function isTelegramLocationGranted(): boolean {
  * - Ruxsat bor → qayta prompt yo'q, faqat koordinata
  * - Rad etilgan → denied (openSettings kerak)
  */
-export async function requestTelegramLocation(): Promise<TelegramLocationResult> {
-  const lm = tg?.LocationManager;
+export async function requestTelegramLocation(
+  opts: TelegramLocationOpts = {},
+): Promise<TelegramLocationResult> {
+  const lm = getWebApp()?.LocationManager;
   if (!lm || isTelegramDesktopLike()) {
     return { status: "unsupported" };
   }
@@ -124,11 +197,13 @@ export async function requestTelegramLocation(): Promise<TelegramLocationResult>
   }
 
   // Ruxsat bor, GPS o'chiq — getLocation befoyda/sekin bo'lishi mumkin.
-  if (lm.isAccessGranted && !lm.isLocationAvailable) {
+  // requireFresh: baribir urinish (ba'zi TG versiyalarida isLocationAvailable yolg'on negative).
+  if (lm.isAccessGranted && !lm.isLocationAvailable && !opts.requireFresh) {
     return { status: "device_off" };
   }
 
-  const timeoutMs = lm.isAccessGranted ? 2500 : 8000;
+  const timeoutMs =
+    opts.timeoutMs ?? (lm.isAccessGranted ? 5_000 : 10_000);
 
   return new Promise<TelegramLocationResult>((resolve) => {
     let done = false;
@@ -148,8 +223,17 @@ export async function requestTelegramLocation(): Promise<TelegramLocationResult>
       // getLocation: ruxsat yo'q bo'lsa Telegram prompt; bor bo'lsa jim o'qiydi.
       lm.getLocation((loc) => {
         window.clearTimeout(timer);
-        if (loc) {
-          finish({ status: "ok", lat: loc.latitude, lng: loc.longitude });
+        if (loc && typeof loc.latitude === "number" && typeof loc.longitude === "number") {
+          const acc =
+            typeof loc.horizontal_accuracy === "number" && loc.horizontal_accuracy > 0
+              ? loc.horizontal_accuracy
+              : undefined;
+          finish({
+            status: "ok",
+            lat: loc.latitude,
+            lng: loc.longitude,
+            accuracyM: acc,
+          });
           return;
         }
         if (lm.isAccessGranted) {
@@ -170,8 +254,8 @@ export async function requestTelegramLocation(): Promise<TelegramLocationResult>
 }
 
 export function openTelegramLocationSettings() {
-  tg?.LocationManager?.openSettings();
+  getWebApp()?.LocationManager?.openSettings();
 }
 
-export const mainButton = tg?.MainButton;
-export const backButton = tg?.BackButton;
+export const mainButton = getWebApp()?.MainButton;
+export const backButton = getWebApp()?.BackButton;

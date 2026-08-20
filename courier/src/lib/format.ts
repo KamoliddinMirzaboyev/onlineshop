@@ -50,11 +50,43 @@ export const PAYMENT_LABEL: Record<string, string> = {
 export const paymentLabel = (m?: PaymentMethod) =>
   m ? PAYMENT_LABEL[m] ?? m : "—";
 
-/** Google Maps navigatsiya havolasi (lat/lng bo'lsa). */
+/** Google Maps marshrut. */
+export const googleMapsNavUrl = (
+  lat?: number | null,
+  lng?: number | null,
+  address?: string | null,
+) => {
+  if (lat != null && lng != null) {
+    return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`;
+  }
+  const a = address?.trim();
+  if (a) return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(a)}&travelmode=driving`;
+  return null;
+};
+
+/** Yandex Navigator / Maps marshrut. */
+export const yandexMapsNavUrl = (
+  lat?: number | null,
+  lng?: number | null,
+  address?: string | null,
+) => {
+  if (lat != null && lng != null) {
+    return `https://yandex.com/maps/?rtext=~${lat},${lng}&rtt=auto`;
+  }
+  const a = address?.trim();
+  if (a) return `https://yandex.com/maps/?text=${encodeURIComponent(a)}`;
+  return null;
+};
+
+/** Legacy alias — Google. */
 export const mapsUrl = (lat?: number | null, lng?: number | null) =>
-  lat != null && lng != null
-    ? `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`
-    : null;
+  googleMapsNavUrl(lat, lng);
+
+export const canNavigate = (
+  lat?: number | null,
+  lng?: number | null,
+  address?: string | null,
+) => (lat != null && lng != null) || !!(address && address.trim());
 
 /** Miqdor + o'lchov birligi: "1 kg", "3 dona". */
 export const qtyUnit = (quantity: number, unit?: string | null) =>
@@ -64,6 +96,19 @@ export const qtyUnit = (quantity: number, unit?: string | null) =>
 export const distanceLabel = (km?: number | null) => {
   if (km == null) return null;
   return km < 1 ? `${Math.round(km * 1000)} m` : `${km.toFixed(1)} km`;
+};
+
+/** Delivering da leg (oldingi stopdan), aks holda ombor masofasi. */
+export const orderDistanceLabel = (o: {
+  status: string;
+  route_leg_km?: number | null;
+  distance_km?: number | null;
+}) => {
+  if (o.status === "delivering" && o.route_leg_km != null) {
+    const d = distanceLabel(o.route_leg_km);
+    return d ? `oldingidan ${d}` : null;
+  }
+  return distanceLabel(o.distance_km);
 };
 
 /** ETA: "~25 daqiqa". */

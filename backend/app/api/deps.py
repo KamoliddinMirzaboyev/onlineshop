@@ -13,6 +13,14 @@ def _bearer(authorization: str | None) -> str:
     return authorization.split(" ", 1)[1]
 
 
+def _sub_id(payload: dict, detail: str) -> int:
+    """`sub` claim'ni int'ga aylantiradi; buzilgan bo'lsa 500 emas — 401."""
+    try:
+        return int(payload["sub"])
+    except (KeyError, TypeError, ValueError):
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail)
+
+
 def get_current_user(
     authorization: str | None = Header(default=None),
     db: Session = Depends(get_db),
@@ -20,9 +28,14 @@ def get_current_user(
     payload = decode_token(_bearer(authorization))
     if not payload or payload.get("role") != "user":
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid token")
-    user = db.get(User, int(payload["sub"]))
+    # Qisqa muddatli stream ticket'lar oddiy API uchun yaroqsiz.
+    if payload.get("purpose"):
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid token")
+    user = db.get(User, _sub_id(payload, "Invalid token"))
     if not user:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "User not found")
+    if user.is_blocked:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Akkauntingiz bloklangan")
     return user
 
 
@@ -33,7 +46,9 @@ def get_current_admin(
     payload = decode_token(_bearer(authorization))
     if not payload or payload.get("role") not in {r.value for r in AdminRole}:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid admin token")
-    admin = db.get(AdminUser, int(payload["sub"]))
+    if payload.get("purpose"):
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid admin token")
+    admin = db.get(AdminUser, _sub_id(payload, "Invalid admin token"))
     if not admin or not admin.is_active:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Admin not found")
     return admin
@@ -60,7 +75,9 @@ def get_current_business(
     payload = decode_token(_bearer(authorization))
     if not payload or payload.get("role") != "businessman":
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid business token")
-    business = db.get(Business, int(payload["sub"]))
+    if payload.get("purpose"):
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid business token")
+    business = db.get(Business, _sub_id(payload, "Invalid business token"))
     if not business or not business.is_active:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Business not found")
     return business
@@ -77,7 +94,9 @@ def get_current_platform_admin(
     payload = decode_token(_bearer(authorization))
     if not payload or payload.get("role") != "platform_superadmin":
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid platform token")
-    admin = db.get(PlatformAdmin, int(payload["sub"]))
+    if payload.get("purpose"):
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid platform token")
+    admin = db.get(PlatformAdmin, _sub_id(payload, "Invalid platform token"))
     if not admin or not admin.is_active:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Platform admin not found")
     return admin
@@ -101,16 +120,18 @@ def get_current_staff_or_business(
     payload = decode_token(_bearer(authorization))
     if not payload:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid token")
+    if payload.get("purpose"):
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid token")
     role = payload.get("role")
 
     if role == "businessman":
-        business = db.get(Business, int(payload["sub"]))
+        business = db.get(Business, _sub_id(payload, "Invalid token"))
         if not business or not business.is_active:
             raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Business not found")
         return business
 
     if role in {AdminRole.superadmin.value, AdminRole.manager.value}:
-        admin = db.get(AdminUser, int(payload["sub"]))
+        admin = db.get(AdminUser, _sub_id(payload, "Invalid token"))
         if not admin or not admin.is_active:
             raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Admin not found")
         return admin
@@ -160,7 +181,7 @@ def require_uploader(
     admin (e'lon rasmi). Kuryer va oddiy foydalanuvchi kira olmaydi."""
     payload = decode_token(_bearer(authorization))
     if payload and payload.get("role") == "platform_superadmin":
-        admin = db.get(PlatformAdmin, int(payload["sub"]))
+        admin = db.get(PlatformAdmin, _sub_id(payload, "Invalid token"))
         if not admin or not admin.is_active:
             raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Platform admin not found")
         return admin

@@ -16,6 +16,12 @@ WEBP_QUALITY = 80
 # Mavjud fayllarni qayta yozishda (URL o'zgarmasin) format saqlanadi.
 JPEG_QUALITY = 82
 
+# Decompression-bomb himoyasi: 8MB fayl ichida header'da 100000x100000 kabi
+# piksel o'lchamini e'lon qilib, dekodlashda serverni xotiradan chiqarib
+# yuborish mumkin. 25MP (masalan 6000x4000) har qanday oddiy mahsulot rasmi
+# uchun yetarli; Pillow bundan katta bo'lsa DecompressionBombError chiqaradi.
+Image.MAX_IMAGE_PIXELS = 25_000_000
+
 
 def process_upload(data: bytes) -> tuple[bytes, str]:
     """Yangi upload: har doim WebP qaytaradi.
@@ -67,9 +73,11 @@ def reprocess_file(path: Path) -> bool:
 
 
 def _open(data: bytes) -> Image.Image:
-    im = Image.open(io.BytesIO(data))
+    im: Image.Image = Image.open(io.BytesIO(data))
     # EXIF orientation (telefon kameralari)
-    im = ImageOps.exif_transpose(im)
+    im_t = ImageOps.exif_transpose(im)
+    if im_t is not None:
+        im = im_t
     # Animatsiyali GIF/WebP — faqat birinchi freym
     if getattr(im, "is_animated", False):
         im.seek(0)
