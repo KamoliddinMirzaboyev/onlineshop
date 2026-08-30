@@ -379,7 +379,9 @@ export function getCoords(
 
   const run = (async () => {
     // ── Checkout / buyurtma: yuqori aniqlik, parallel manbalar ──
-    if (highAccuracy || force) {
+    // Diqqat: faqat highAccuracy shu og'ir yo'lni tanlaydi. `force` yolg'iz —
+    // faqat eski keshni yubormaslik degani (nearest-store uchun tezlik yetarli).
+    if (highAccuracy) {
       const best = await fetchHighAccuracyCoords();
       if (best) return rememberCoords(best);
 
