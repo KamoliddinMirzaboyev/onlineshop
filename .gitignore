@@ -44,6 +44,7 @@ backups/
 
 # Backend: isolated implementation workspaces + user uploads
 .worktrees/
+.claude/worktrees/
 uploads/
 
 # OS / editor
