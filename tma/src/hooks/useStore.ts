@@ -135,8 +135,7 @@ export function useStore() {
           return;
         }
         retryCoordsIfPreviouslyFailed();
-        cache = null;
-        setLoading(true);
+        // Fonda jim yangilash — mavjud ma'lumot ekranda qoladi, skeleton ko'rsatilmaydi.
         fetchStore(true, true).then((s) => {
           if (cancelled) return;
           setSnap(s);
@@ -162,7 +161,10 @@ export function useStore() {
     const onResume = () => {
       if (document.visibilityState === "hidden") return;
       // Faqat oldin joylashuv olinmagan/muammo bo'lsa — ruxsat qayta so'ralmaydi, GPS o'qiladi.
-      if (getLastLocationIssue() != null) {
+      // "denied" sozlamalardan tashqarida o'zgarmaydi — uni qayta-qayta urinish foydasiz,
+      // faqat har resume'da keraksiz fetch va (ilgari) skeleton flash keltirib chiqargan.
+      const issue = getLastLocationIssue();
+      if (issue != null && issue !== "denied") {
         scheduleRetries();
       }
     };
