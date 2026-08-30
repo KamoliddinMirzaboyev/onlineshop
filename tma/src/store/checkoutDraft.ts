@@ -4,6 +4,8 @@ interface CheckoutDraftState {
   phone: string;
   comment: string;
   loc: { lat: number; lng: number; accuracyM?: number } | null;
+  /** loc qayerdan kelgani: submit paytida "map" bo'lsa GPS bilan qayta yozilmaydi */
+  locSource: "gps" | "map" | null;
   /** GPS + reverse-geocode dan bir qator manzil */
   addressLine: string;
   /** Foydalanuvchi matnni qo'lda tahrirlagan — geocode ustiga yozmasin */
@@ -11,7 +13,7 @@ interface CheckoutDraftState {
   locating: boolean;
   setPhone: (phone: string) => void;
   setComment: (comment: string) => void;
-  setLocation: (lat: number, lng: number, accuracyM?: number) => void;
+  setLocation: (lat: number, lng: number, accuracyM?: number, source?: "gps" | "map") => void;
   /** fromUser: true — dirty; false — avto geocode */
   setAddressLine: (line: string, fromUser?: boolean) => void;
   setLocating: (v: boolean) => void;
@@ -23,12 +25,14 @@ export const useCheckoutDraft = create<CheckoutDraftState>((set) => ({
   phone: "",
   comment: "",
   loc: null,
+  locSource: null,
   addressLine: "",
   addressDirty: false,
   locating: false,
   setPhone: (phone) => set({ phone }),
   setComment: (comment) => set({ comment }),
-  setLocation: (lat, lng, accuracyM) => set({ loc: { lat, lng, accuracyM } }),
+  setLocation: (lat, lng, accuracyM, source = "gps") =>
+    set({ loc: { lat, lng, accuracyM }, locSource: source }),
   setAddressLine: (addressLine, fromUser = true) =>
     set((s) => ({
       addressLine,
@@ -40,6 +44,7 @@ export const useCheckoutDraft = create<CheckoutDraftState>((set) => ({
       phone: "",
       comment: "",
       loc: null,
+      locSource: null,
       addressLine: "",
       addressDirty: false,
       locating: false,

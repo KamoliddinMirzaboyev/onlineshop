@@ -143,7 +143,7 @@ export default function CheckoutPage() {
   /** Xaritadan qo'lda tanlangan joy — GPS o'rniga shu koordinata ishlatiladi. */
   const applyPickedLocation = async (lat: number, lng: number) => {
     setShowMapPicker(false);
-    setLocation(lat, lng, undefined);
+    setLocation(lat, lng, undefined, "map");
     setLocating(true);
     try {
       const geo = await reverseGeocodeParts(lat, lng);
@@ -193,9 +193,14 @@ export default function CheckoutPage() {
       return;
     }
 
-    // Buyurtma: FAQAT hozir olingan yuqori aniqlikdagi GPS; matn (dirty) saqlanadi.
+    // Buyurtma: xaritadan qo'lda tanlangan manzil bo'lsa — o'sha ishlatiladi;
+    // aks holda hozir olingan yuqori aniqlikdagi GPS (matn dirty bo'lsa saqlanadi).
     setError(null);
-    const coords = await fetchLocation({ force: true, overwriteText: false });
+    const draft = useCheckoutDraft.getState();
+    const coords =
+      draft.locSource === "map" && draft.loc
+        ? draft.loc
+        : await fetchLocation({ force: true, overwriteText: false });
     const line = useCheckoutDraft.getState().addressLine.trim() || addressLine.trim();
 
     if (!coords) {
