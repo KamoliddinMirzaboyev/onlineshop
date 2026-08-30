@@ -137,8 +137,8 @@ export default function HomePage() {
                       className={`relative h-[200px] sm:h-[220px] rounded-[22px] overflow-hidden text-left active:scale-[0.97] transition-transform ${spanClass}`}
                     >
                       <h3
-                        className={`absolute top-3 left-3 z-10 font-semibold text-[18px] leading-snug text-slate-900 ${
-                          kind === "narrow" ? "max-w-[92%] pr-1" : "max-w-[55%]"
+                        className={`absolute top-3 left-3 z-10 font-bold text-[21px] leading-[1.15] text-slate-900 ${
+                          kind === "narrow" ? "max-w-[92%] pr-1" : "max-w-[62%]"
                         }`}
                         style={{ textShadow: "0 1px 0 rgba(255,255,255,0.4)" }}
                       >
