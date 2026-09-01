@@ -77,6 +77,12 @@ def telegram_auth(data: TelegramAuthIn, db: Session = Depends(get_db)):
     user = _get_or_create_tg_user(db, tg)
     if user.is_blocked:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Akkauntingiz bloklangan")
+    # Botdagi onboarding (telefon + ism) yakunlanmagan bo'lsa — Mini App'ga
+    # kirishga ruxsat yo'q. "Open" tugmasi bot FSM'ni chetlab o'tadi; yagona
+    # chokepoint shu yer.
+    if not (user.phone and user.first_name):
+        db.commit()
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "onboarding_required")
     db.commit()
     db.refresh(user)
 

@@ -191,8 +191,12 @@ export async function requestTelegramLocation(
 
   await ensureLocationManager();
 
-  // Aniq rad — getLocation qayta dialog ochmaydi.
-  if (lm.isAccessRequested && !lm.isAccessGranted) {
+  // isAccessRequested+!isAccessGranted har doim ham "aniq rad" emas: bir marta
+  // yopilgan/javobsiz promptdan keyin ham true bo'lib qoladi. Shuning uchun
+  // faqat requireFresh bo'lmagan (katalog) yo'lda bloklaymiz — checkout'da
+  // getLocation'ni baribir chaqiramiz, u qayta prompt ko'rsatadi; haqiqiy rad
+  // bo'lsa TG darhol null qaytaradi va pastdagi tekshiruv "denied" deb belgilaydi.
+  if (!opts.requireFresh && lm.isAccessRequested && !lm.isAccessGranted) {
     return { status: "denied" };
   }
 

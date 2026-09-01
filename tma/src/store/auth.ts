@@ -46,7 +46,10 @@ export const useAuth = create<AuthState>((set) => ({
             clearToken();
             const msg = String(e);
             let error = "Kirish amalga oshmadi. Qayta urinib ko'ring.";
-            if (msg.includes("403") || msg.toLowerCase().includes("blok")) {
+            if (msg.includes("onboarding_required")) {
+              error =
+                "Avval botda ro'yxatdan o'tishni yakunlang: telefon raqami va ismingizni yuboring, so'ng ilovani qayta oching.";
+            } else if (msg.includes("403") || msg.toLowerCase().includes("blok")) {
               error = "Akkauntingiz bloklangan.";
             } else if (msg.includes("401") || msg.includes("Invalid initData")) {
               error =
