@@ -27,7 +27,7 @@ function resolveBg(hex: string | null | undefined, fallbackIndex: number): strin
 }
 
 /**
- * Rasm pastki zona — o'rtacha o'lcham (kichik burchak emas, haddan tashqari katta emas).
+ * Rasm butun kartani egallaydi, pastki-o'ngga tiraladi — sarlavha (tepa-chap) ochiq qoladi.
  */
 function CategoryImage({
   src,
@@ -38,22 +38,15 @@ function CategoryImage({
   kind: "wide" | "narrow" | "full";
   priority: boolean;
 }) {
-  const zone =
-    kind === "narrow"
-      ? "absolute inset-x-0 bottom-0 top-[28%] overflow-hidden pointer-events-none"
-      : kind === "full"
-        ? "absolute inset-x-0 bottom-0 top-[22%] overflow-hidden pointer-events-none"
-        : "absolute inset-x-0 bottom-0 top-[24%] overflow-hidden pointer-events-none";
-
   const img =
     kind === "narrow"
-      ? "absolute bottom-0 right-0 h-[96%] w-auto min-w-[100%] max-w-none object-contain object-right-bottom origin-bottom-right scale-[1.12] translate-x-[3%] translate-y-[2%]"
+      ? "absolute bottom-0 right-0 h-full w-auto min-w-[118%] max-w-none object-contain object-right-bottom"
       : kind === "full"
-        ? "absolute bottom-0 right-0 h-[98%] w-auto min-w-[52%] max-w-[62%] object-contain object-right-bottom origin-bottom-right scale-100"
-        : "absolute bottom-0 right-0 h-[98%] w-auto min-w-[88%] max-w-none object-contain object-right-bottom origin-bottom-right scale-[1.06] translate-x-[2%] translate-y-[1%]";
+        ? "absolute bottom-0 right-0 h-full w-auto min-w-[62%] max-w-none object-contain object-right-bottom"
+        : "absolute bottom-0 right-0 h-full w-auto min-w-[100%] max-w-none object-contain object-right-bottom";
 
   return (
-    <div className={zone}>
+    <div className="absolute inset-0 overflow-hidden pointer-events-none">
       <OptimizedImage src={src} priority={priority} className={img} />
     </div>
   );
@@ -136,11 +129,15 @@ export default function HomePage() {
                       style={{ backgroundColor: bg }}
                       className={`relative h-[200px] sm:h-[220px] rounded-[22px] overflow-hidden text-left active:scale-[0.97] transition-transform ${spanClass}`}
                     >
+                      <div
+                        className="absolute inset-x-0 top-0 h-1/2 z-[5] pointer-events-none"
+                        style={{ background: `linear-gradient(to bottom, ${bg}, ${bg}cc 35%, transparent)` }}
+                      />
                       <h3
                         className={`absolute top-3 left-3 z-10 font-bold text-[21px] leading-[1.15] text-slate-900 ${
                           kind === "narrow" ? "max-w-[92%] pr-1" : "max-w-[62%]"
                         }`}
-                        style={{ textShadow: "0 1px 0 rgba(255,255,255,0.4)" }}
+                        style={{ textShadow: "0 1px 2px rgba(255,255,255,0.7)" }}
                       >
                         {loc(c, "name", lang)}
                       </h3>
