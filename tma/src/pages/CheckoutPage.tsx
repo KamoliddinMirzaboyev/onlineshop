@@ -1,15 +1,16 @@
-import { Map as MapIcon, MapPin } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { LocateFixed, Map as MapIcon, MapPin } from "lucide-react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   api,
   cacheAddressLabel,
   clearAddressLabel,
   getCoords,
+  getLastLocationIssue,
   peekAddressLabel,
 } from "../api/client";
+import { prewarmCheckoutLocation } from "../lib/prewarmLocation";
 import type { Restaurant } from "../api/types";
-import MapPicker from "../components/MapPicker";
 import PageHeader from "../components/PageHeader";
 import { useI18n } from "../i18n";
 import { formatUzPhone, money } from "../lib/format";
@@ -17,10 +18,22 @@ import { reverseGeocodeParts } from "../lib/geocode";
 import { useAuth } from "../store/auth";
 import { useCart } from "../store/cart";
 import { isAddressComplete, useCheckoutDraft } from "../store/checkoutDraft";
-import { haptic } from "../telegram";
+import { canOpenLocationSettings, haptic, openTelegramLocationSettings } from "../telegram";
+
+// Xarita (leaflet ~150KB) faqat "Xaritadan tanlash" bosilganda yuklansin.
+const MapPicker = lazy(() => import("../components/MapPicker"));
+
+/** Admin/kuryerga izoh orqali yetadi (alohida maydon shart emas). */
+const FEMALE_COURIER_TAG = "🚺 Buyurtmani AYOL kuryer yetkazsin";
+/** GPS aniqligi past (100–200 m) — kuryer manzilni tasdiqlashi uchun izoh. */
+const ADDRESS_VERIFY_TAG = "📍 GPS aniqligi past — manzilni mijoz bilan tasdiqlang";
 
 const DEFAULT_FREE_FROM = 50_000;
 const DEFAULT_PER_KM = 2_000;
+/** Bundan yaxshi aniqlik — belgisiz o'tadi. */
+const CLEAN_ACCURACY_M = 100;
+/** Bundan yomon GPS bilan buyurtma bermaymiz — xaritadan tanlash kerak. */
+const MAX_SUBMIT_ACCURACY_M = 200;
 
 /** Backend xato matnini ({"detail": "..."}) ajratib oladi. */
 function errorText(e: unknown): string {
@@ -72,6 +85,7 @@ export default function CheckoutPage() {
     phone,
     comment,
     loc,
+    locSource,
     addressLine,
     locating,
     setPhone,
@@ -81,10 +95,12 @@ export default function CheckoutPage() {
     setLocating,
     reset: resetDraft,
   } = useCheckoutDraft();
+  const [femaleCourier, setFemaleCourier] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [store, setStore] = useState<Restaurant | null>(null);
   const [showMapPicker, setShowMapPicker] = useState(false);
+  const [locDenied, setLocDenied] = useState(false);
 
   useEffect(() => {
     if (!phone && user?.phone) setPhone(formatUzPhone(user.phone));
@@ -111,7 +127,11 @@ export default function CheckoutPage() {
       }
 
       const coords = await getCoords({ force, highAccuracy: true });
-      if (!coords) return null;
+      if (!coords) {
+        setLocDenied(getLastLocationIssue() === "denied");
+        return null;
+      }
+      setLocDenied(false);
       setLocation(coords.lat, coords.lng, coords.accuracyM);
 
       const st = useCheckoutDraft.getState();
@@ -156,10 +176,28 @@ export default function CheckoutPage() {
   };
 
   useEffect(() => {
-    // Checkout ochilishi: darhol yangi GPS (kesh emas).
+    // Checkout ochilishi: savatchada boshlangan yuqori aniqlik so'rovidan
+    // foydalanamiz — Manzil maydoni darhol to'la. Fix bo'lmasa majburiy urin.
     const cached = peekAddressLabel();
     if (cached && !addressLine.trim()) setAddressLine(cached, false);
-    void fetchLocation({ force: true, overwriteText: true });
+
+    void (async () => {
+      setLocating(true);
+      let warm: Awaited<ReturnType<typeof prewarmCheckoutLocation>> = null;
+      try {
+        warm = await prewarmCheckoutLocation();
+      } finally {
+        setLocating(false);
+      }
+      const st = useCheckoutDraft.getState();
+      if (warm && st.locSource !== "map") {
+        setLocation(warm.lat, warm.lng, warm.accuracyM);
+        const label = peekAddressLabel();
+        if (label && !st.addressDirty) setAddressLine(label, false);
+      } else if (!warm) {
+        await fetchLocation({ force: true, overwriteText: true });
+      }
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -200,7 +238,10 @@ export default function CheckoutPage() {
     const coords =
       draft.locSource === "map" && draft.loc
         ? draft.loc
-        : await fetchLocation({ force: true, overwriteText: false });
+        : useCheckoutDraft.getState().locating
+          ? // Ochilish/tugma aniqlashi ketyapti — o'shani kutamiz (yangi so'rovsiz).
+            await getCoords({ force: true, highAccuracy: true })
+          : await fetchLocation({ force: true, overwriteText: false });
     const line = useCheckoutDraft.getState().addressLine.trim() || addressLine.trim();
 
     if (!coords) {
@@ -213,10 +254,27 @@ export default function CheckoutPage() {
     }
     const deliveryLoc = coords;
 
+    // Xaritadan tanlanmagan GPS aniqligi.
+    const gpsAcc = draft.locSource === "map" ? null : deliveryLoc.accuracyM ?? null;
+
+    // Juda noaniq (>200 m) bo'lsa — bloklaymiz, xarita kerak.
+    if (gpsAcc != null && gpsAcc > MAX_SUBMIT_ACCURACY_M) {
+      setError(t.address_inaccurate);
+      return;
+    }
+
     if (!isAddressComplete(line)) {
       setError(t.address_required);
       return;
     }
+
+    // 100–200 m: o'tkazamiz, lekin kuryerga "manzilni tasdiqla" izohi.
+    const tags = [
+      femaleCourier ? FEMALE_COURIER_TAG : "",
+      gpsAcc != null && gpsAcc > CLEAN_ACCURACY_M ? ADDRESS_VERIFY_TAG : "",
+    ].filter(Boolean);
+    const finalComment =
+      [...tags, comment.trim()].filter(Boolean).join(" — ") || undefined;
 
     setSubmitting(true);
     try {
@@ -230,7 +288,7 @@ export default function CheckoutPage() {
         lat: deliveryLoc.lat,
         lng: deliveryLoc.lng,
         phone,
-        comment: comment.trim() || undefined,
+        comment: finalComment,
         payment_method: "cash",
       });
       haptic("medium");
@@ -239,7 +297,8 @@ export default function CheckoutPage() {
       resetDraft();
       nav(`/orders/${order.id}?placed=1`, { replace: true });
     } catch (e) {
-      setError(errorText(e));
+      const msg = errorText(e);
+      setError(/hudud|hududidan tashqarida|зон|доставки/i.test(msg) ? t.out_of_range : msg);
       setSubmitting(false);
     }
   };
@@ -253,6 +312,16 @@ export default function CheckoutPage() {
       <PageHeader title={t.checkout} back />
 
       <div className="p-4 space-y-5 bg-white">
+        <label className="flex items-center gap-3 rounded-[16px] border border-brand/40 bg-brand/5 px-4 py-4 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={femaleCourier}
+            onChange={(e) => setFemaleCourier(e.target.checked)}
+            className="h-5 w-5 shrink-0 accent-brand"
+          />
+          <span className="text-base font-medium text-slate-900">{t.female_courier}</span>
+        </label>
+
         <div className="space-y-2">
           <label className="text-sm text-slate-400 font-medium px-1">{t.phone}</label>
           <input
@@ -268,25 +337,15 @@ export default function CheckoutPage() {
         <div className="space-y-2">
           <div className="flex items-center justify-between px-1">
             <label className="text-sm text-slate-400 font-medium">{t.address}</label>
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                disabled={locating}
-                onClick={() => setShowMapPicker(true)}
-                title={t.address_pick_map}
-                className="p-1 text-brand disabled:opacity-50"
-              >
-                <MapIcon size={16} />
-              </button>
-              <button
-                type="button"
-                disabled={locating}
-                onClick={() => void fetchLocation({ force: true, overwriteText: true })}
-                className="text-xs font-medium text-brand disabled:opacity-50"
-              >
-                {locating ? t.address_locating : t.address_refresh}
-              </button>
-            </div>
+            <button
+              type="button"
+              disabled={locating}
+              onClick={() => setShowMapPicker(true)}
+              className="flex items-center gap-1.5 text-sm font-medium text-brand disabled:opacity-50"
+            >
+              <MapIcon size={16} />
+              {t.address_pick_map}
+            </button>
           </div>
 
           <div className="rounded-[16px] bg-[#F4F5F7] px-4 py-3">
@@ -298,7 +357,7 @@ export default function CheckoutPage() {
                 <div className="min-w-0 flex-1">
                   <p className="text-[11px] text-slate-400 mb-1">
                     {loc
-                      ? `${t.address_auto} · ${loc.lat.toFixed(6)}, ${loc.lng.toFixed(6)}`
+                      ? `${locSource === "map" ? t.address_pick_map : t.address_auto} · ${loc.lat.toFixed(6)}, ${loc.lng.toFixed(6)}`
                       : t.address_auto}
                   </p>
                   <textarea
@@ -308,7 +367,11 @@ export default function CheckoutPage() {
                     placeholder={t.address_ph}
                     className="w-full resize-none bg-transparent text-base text-slate-900 font-medium leading-snug outline-none placeholder:text-slate-400 placeholder:font-normal"
                   />
-                  {loc?.accuracyM != null && (
+                  {locSource === "map" ? (
+                    <p className="text-[11px] mt-1.5 font-medium text-emerald-600">
+                      ✓ {t.address_accuracy_good}
+                    </p>
+                  ) : loc?.accuracyM != null ? (
                     <p
                       className={`text-[11px] mt-1.5 font-medium ${
                         loc.accuracyM <= 25
@@ -324,15 +387,40 @@ export default function CheckoutPage() {
                           ? `~ ${t.address_accuracy_ok} (±${Math.round(loc.accuracyM)} m)`
                           : `! ${t.address_accuracy_weak} (±${Math.round(loc.accuracyM)} m)`}
                     </p>
-                  )}
+                  ) : null}
                 </div>
               </div>
             )}
           </div>
 
+          <button
+            type="button"
+            disabled={locating}
+            onClick={() => void fetchLocation({ force: true, overwriteText: true })}
+            className="flex w-full items-center justify-center gap-2 rounded-[14px] border border-brand/30 bg-brand/5 py-3 text-sm font-medium text-brand active:scale-[0.99] transition disabled:opacity-50"
+          >
+            <LocateFixed size={16} className={locating ? "animate-pulse" : ""} />
+            {locating ? t.address_locating : t.address_refresh}
+          </button>
+
           <p className="text-xs text-amber-700/80 px-1 leading-snug">
             {t.address_confirm}
           </p>
+
+          {locDenied && !loc && (
+            <div className="px-1 space-y-2">
+              <p className="text-xs text-rose-500 leading-snug">{t.loc_denied_help}</p>
+              {canOpenLocationSettings() && (
+                <button
+                  type="button"
+                  onClick={openTelegramLocationSettings}
+                  className="text-xs font-medium text-brand underline"
+                >
+                  {t.enable_location}
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="space-y-2">
@@ -384,12 +472,23 @@ export default function CheckoutPage() {
       </div>
 
       {showMapPicker && (
-        <MapPicker
-          initialLat={loc?.lat}
-          initialLng={loc?.lng}
-          onConfirm={(lat, lng) => void applyPickedLocation(lat, lng)}
-          onClose={() => setShowMapPicker(false)}
-        />
+        <Suspense fallback={null}>
+          <MapPicker
+            initialLat={loc?.lat}
+            initialLng={loc?.lng}
+            onConfirm={(lat, lng) => void applyPickedLocation(lat, lng)}
+            onClose={() => setShowMapPicker(false)}
+            validate={async (lat, lng) => {
+              try {
+                await api.nearest(lat, lng);
+                return null;
+              } catch (e) {
+                if (String(e).includes("OUT_OF_RANGE")) return t.out_of_range;
+                return null; // tarmoq xatosi — submit'da baribir tekshiriladi
+              }
+            }}
+          />
+        </Suspense>
       )}
     </div>
   );

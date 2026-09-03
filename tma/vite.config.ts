@@ -9,14 +9,21 @@ export default defineConfig({
     hmr: { host: "localhost", port: 5173 },
   },
   preview: { host: true, port: 5173 },
+  // Prod bundle'dan console/debugger olib tashlanadi.
+  esbuild: { drop: ["console", "debugger"] },
   build: {
     target: "es2020",
     cssMinify: true,
+    reportCompressedSize: false,
+    // Telegram WebView zamonaviy — legacy modulepreload polyfill shart emas.
+    modulePreload: { polyfill: false },
     rollupOptions: {
       output: {
-        // Framer-motion asosiy route'larda kam ishlatiladi — alohida chunk.
         manualChunks: {
+          // Framer-motion asosiy route'larda kam — alohida chunk.
           motion: ["framer-motion"],
+          // Xarita faqat checkout'da — boshlang'ich bundle'ni shishirmasin.
+          leaflet: ["leaflet"],
         },
       },
     },

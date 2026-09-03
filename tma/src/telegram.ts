@@ -149,7 +149,7 @@ export function haptic(type: "light" | "medium" | "heavy" = "light") {
 
 export type TelegramLocationResult =
   | { status: "ok"; lat: number; lng: number; accuracyM?: number }
-  | { status: "unsupported" | "device_off" | "denied" | "error" };
+  | { status: "unsupported" | "device_off" | "slow" | "denied" | "error" };
 
 export function isTelegramDesktopLike(): boolean {
   const p = (getWebApp()?.platform ?? "").toLowerCase();
@@ -218,9 +218,11 @@ export async function requestTelegramLocation(
     };
 
     const timer = window.setTimeout(() => {
-      // Ruxsat berilgan lekin timeout → GPS sekin/o'chiq
-      if (lm.isAccessGranted) finish({ status: "device_off" });
-      else finish({ status: "error" });
+      // Ruxsat bor + timeout: isLocationAvailable bo'lsa GPS sekin (ochiq joy kerak),
+      // aks holda haqiqatan o'chiq.
+      if (lm.isAccessGranted) {
+        finish({ status: lm.isLocationAvailable ? "slow" : "device_off" });
+      } else finish({ status: "error" });
     }, timeoutMs);
 
     try {
@@ -241,7 +243,7 @@ export async function requestTelegramLocation(
           return;
         }
         if (lm.isAccessGranted) {
-          finish({ status: "device_off" });
+          finish({ status: lm.isLocationAvailable ? "slow" : "device_off" });
           return;
         }
         if (lm.isAccessRequested && !lm.isAccessGranted) {
@@ -257,8 +259,14 @@ export async function requestTelegramLocation(
   });
 }
 
+/** Bu klientda LocationManager.openSettings mavjudmi (desktop/eski klientlarda yo'q). */
+export function canOpenLocationSettings(): boolean {
+  return typeof getWebApp()?.LocationManager?.openSettings === "function";
+}
+
 export function openTelegramLocationSettings() {
-  getWebApp()?.LocationManager?.openSettings();
+  const lm = getWebApp()?.LocationManager;
+  if (typeof lm?.openSettings === "function") lm.openSettings();
 }
 
 export const mainButton = getWebApp()?.MainButton;

@@ -3,7 +3,7 @@ import { MapPin } from "lucide-react";
 import type { LocationIssue } from "../api/client";
 import { hasLocationPermissionHint } from "../api/client";
 import { useI18n } from "../i18n";
-import { openTelegramLocationSettings } from "../telegram";
+import { canOpenLocationSettings, openTelegramLocationSettings } from "../telegram";
 
 interface Props {
   issue: LocationIssue | null;
@@ -35,12 +35,38 @@ export default function LocationNeeded({ issue, onRetry }: Props) {
       <div className="flex flex-col items-center gap-4 py-16 px-4 text-center">
         <MapPin size={32} className="text-tg-hint" />
         <p className="text-tg-hint">{t.location_denied}</p>
+        {canOpenLocationSettings() ? (
+          <button
+            type="button"
+            onClick={openTelegramLocationSettings}
+            className="bg-brand text-white font-medium px-6 py-3 rounded-2xl active:scale-95 transition"
+          >
+            {t.enable_location}
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={onRetry}
+            className="bg-brand text-white font-medium px-6 py-3 rounded-2xl active:scale-95 transition"
+          >
+            {t.check_again}
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  if (issue === "slow") {
+    return (
+      <div className="flex flex-col items-center gap-4 py-16 px-4 text-center">
+        <MapPin size={32} className="text-tg-hint" />
+        <p className="text-tg-hint">{t.location_slow}</p>
         <button
           type="button"
-          onClick={openTelegramLocationSettings}
+          onClick={onRetry}
           className="bg-brand text-white font-medium px-6 py-3 rounded-2xl active:scale-95 transition"
         >
-          {t.enable_location}
+          {t.check_again}
         </button>
       </div>
     );

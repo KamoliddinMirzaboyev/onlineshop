@@ -12,14 +12,21 @@ interface Props {
   initialLng?: number;
   onConfirm: (lat: number, lng: number) => void;
   onClose: () => void;
+  /** Nuqtani tekshirish; xato matn qaytsa tasdiqlanmaydi (masalan hudud tashqarisi). */
+  validate?: (lat: number, lng: number) => Promise<string | null>;
 }
 
 /** Xaritadan qo'lda joy tanlash — markazdagi pin, xaritani surib joyni belgilaydi. */
-export default function MapPicker({ initialLat, initialLng, onConfirm, onClose }: Props) {
+export default function MapPicker({ initialLat, initialLng, onConfirm, onClose, validate }: Props) {
   const { t } = useI18n();
   const mapRef = useRef<HTMLDivElement>(null);
   const mapObj = useRef<L.Map | null>(null);
   const [locating, setLocating] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  // Boshlanish nuqtasi GPS'dan kelgan bo'lsa ishonchli; aks holda default (Toshkent)
+  // markazini yuborib qo'ymaslik uchun foydalanuvchi xaritani surishi shart.
+  const [touched, setTouched] = useState(initialLat != null && initialLng != null);
 
   useEffect(() => {
     if (!mapRef.current || mapObj.current) return;
@@ -32,6 +39,10 @@ export default function MapPicker({ initialLat, initialLng, onConfirm, onClose }
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       maxZoom: 19,
     }).addTo(map);
+    map.on("movestart", () => {
+      setTouched(true);
+      setError(null);
+    });
     mapObj.current = map;
     // Konteyner o'lchami layout tugagach aniq bo'ladi — aks holda xarita yarim/kul rang.
     const inv = window.setTimeout(() => map.invalidateSize(), 150);
@@ -43,9 +54,21 @@ export default function MapPicker({ initialLat, initialLng, onConfirm, onClose }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const confirm = () => {
+  const confirm = async () => {
     const c = mapObj.current?.getCenter();
-    if (!c) return;
+    if (!c || checking) return;
+    if (validate) {
+      setChecking(true);
+      try {
+        const msg = await validate(c.lat, c.lng);
+        if (msg) {
+          setError(msg);
+          return;
+        }
+      } finally {
+        setChecking(false);
+      }
+    }
     onConfirm(c.lat, c.lng);
   };
 
@@ -53,7 +76,11 @@ export default function MapPicker({ initialLat, initialLng, onConfirm, onClose }
     setLocating(true);
     const c = await getCoords({ force: true, highAccuracy: true });
     setLocating(false);
-    if (c) mapObj.current?.setView([c.lat, c.lng], 17);
+    if (c) {
+      mapObj.current?.setView([c.lat, c.lng], 17);
+      setTouched(true);
+      setError(null);
+    }
   };
 
   return (
@@ -93,13 +120,19 @@ export default function MapPicker({ initialLat, initialLng, onConfirm, onClose }
         </button>
       </div>
 
-      <div className="shrink-0 p-4 border-t border-slate-100">
+      <div className="shrink-0 p-4 border-t border-slate-100 space-y-2">
+        {error ? (
+          <p className="text-center text-sm font-medium text-rose-500">{error}</p>
+        ) : !touched ? (
+          <p className="text-center text-xs text-slate-400">{t.address_pick_move_first}</p>
+        ) : null}
         <button
           type="button"
-          onClick={confirm}
-          className="w-full rounded-[16px] bg-brand text-white text-base font-semibold py-4"
+          onClick={() => void confirm()}
+          disabled={!touched || checking}
+          className="w-full rounded-[16px] bg-brand text-white text-base font-semibold py-4 disabled:opacity-50"
         >
-          {t.address_pick_confirm}
+          {checking ? "…" : t.address_pick_confirm}
         </button>
       </div>
     </div>

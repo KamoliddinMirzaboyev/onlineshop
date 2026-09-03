@@ -91,15 +91,17 @@ export type GetCoordsOpts = {
   highAccuracy?: boolean;
 };
 
-/** Checkout: shu metrdan yomon aniqlikni qayta urinish / multi-sample */
-const MAX_ACCEPT_ACCURACY_M = 50;
+/** Bundan yomon aniqlik → qisqa ikkinchi urinish (submit chegarasi bilan bir xil). */
+const MAX_ACCEPT_ACCURACY_M = 100;
 /** Ideal GPS (bino darajasi) */
 const GOOD_ACCURACY_M = 25;
 
 let coordsCache: Coords | null | undefined;
 let coordsPromise: Promise<Coords | null> | null = null;
+/** highAccuracy (checkout/xarita) so'rovi uchun alohida dedupe — parallel chaqiruvlar bitta GPS sessiyasini bo'lishadi. */
+let hiAccPromise: Promise<Coords | null> | null = null;
 
-export type LocationIssue = "device_off" | "denied" | "other";
+export type LocationIssue = "device_off" | "denied" | "other" | "slow";
 let lastLocationIssue: LocationIssue | null = null;
 export function getLastLocationIssue(): LocationIssue | null {
   return lastLocationIssue;
@@ -193,6 +195,8 @@ function browserCoords(
   timeoutMs: number,
   silent: boolean,
   highAccuracy: boolean,
+  /** navigator.permissions yo'q bo'lsa ham jim urinish (iOS TG WebView, ruxsat allaqachon bor). */
+  allowNoPerms = false,
 ): Promise<Coords | null> {
   if (!navigator.geolocation) return Promise.resolve(null);
 
@@ -232,10 +236,10 @@ function browserCoords(
   if (silent && navigator.permissions?.query) {
     return navigator.permissions
       .query({ name: "geolocation" })
-      .then((st) => (st.state === "granted" ? run() : null))
-      .catch(() => null);
+      .then((st) => (st.state === "granted" || allowNoPerms ? run() : null))
+      .catch(() => (allowNoPerms ? run() : null));
   }
-  if (silent) return Promise.resolve(null);
+  if (silent) return allowNoPerms ? run() : Promise.resolve(null);
   return run();
 }
 
@@ -246,6 +250,7 @@ function browserCoords(
 function watchBestBrowserCoords(
   windowMs: number,
   silent: boolean,
+  allowNoPerms = false,
 ): Promise<Coords | null> {
   if (!navigator.geolocation) return Promise.resolve(null);
 
@@ -297,10 +302,10 @@ function watchBestBrowserCoords(
   if (silent && navigator.permissions?.query) {
     return navigator.permissions
       .query({ name: "geolocation" })
-      .then((st) => (st.state === "granted" ? run() : null))
-      .catch(() => null);
+      .then((st) => (st.state === "granted" || allowNoPerms ? run() : null))
+      .catch(() => (allowNoPerms ? run() : null));
   }
-  if (silent) return Promise.resolve(null);
+  if (silent) return allowNoPerms ? run() : Promise.resolve(null);
   return run();
 }
 
@@ -309,10 +314,17 @@ function watchBestBrowserCoords(
  * Eng kichik accuracyM g'olib.
  */
 async function fetchHighAccuracyCoords(): Promise<Coords | null> {
-  const attempt = async (): Promise<Coords | null> => {
-    const tgP = isTelegramDesktopLike()
+  const desktop = isTelegramDesktopLike();
+  const silentBrowser = !desktop;
+
+  const attempt = async (budgetMs: number): Promise<Coords | null> => {
+    // iOS TG WebView'da navigator.permissions ko'pincha yo'q; TG ruxsati bor
+    // (yoki desktop) bo'lsa brauzer GPS'ni jim, ikkinchi promptsiz ishlatamiz.
+    const allowNoPerms = desktop || isTelegramLocationGranted();
+
+    const tgP = desktop
       ? Promise.resolve(null as Coords | null)
-      : requestTelegramLocation({ timeoutMs: 14_000, requireFresh: true }).then((r) =>
+      : requestTelegramLocation({ timeoutMs: budgetMs, requireFresh: true }).then((r) =>
           r.status === "ok"
             ? {
                 lat: r.lat,
@@ -323,24 +335,22 @@ async function fetchHighAccuracyCoords(): Promise<Coords | null> {
             : null,
         );
 
-    const silentBrowser = !isTelegramDesktopLike();
-    // Parallel: bitta getCurrentPosition + 4s watch (eng aniq)
+    // Parallel: bitta getCurrentPosition + qisqa watch (eng aniq)
     const browserP = Promise.all([
-      browserCoords(12_000, silentBrowser, true),
-      watchBestBrowserCoords(isTelegramDesktopLike() ? 5000 : 4000, silentBrowser),
+      browserCoords(budgetMs, silentBrowser, true, allowNoPerms),
+      watchBestBrowserCoords(desktop ? 5000 : 4000, silentBrowser, allowNoPerms),
     ]).then(([a, b]) => pickBest(a, b));
 
     const [tg, browser] = await Promise.all([tgP, browserP]);
     return pickBest(tg, browser);
   };
 
-  let best = await attempt();
-  // Noaniq → ikkinchi urinish (GPS isinishi)
+  let best = await attempt(12_000);
+  // Faqat submit uchun yaroqsiz (>100 m) yoki umuman fix yo'q bo'lsa — qisqa
+  // ikkinchi urinish (GPS isishi). Yaroqli fixni cho'zib o'tirmaymiz.
   if (!best || (best.accuracyM != null && best.accuracyM > MAX_ACCEPT_ACCURACY_M)) {
-    const again = await attempt();
-    best = pickBest(best, again);
+    best = pickBest(best, await attempt(7_000));
   }
-  // Hali yomon bo'lsa ham eng yaxshisini qaytaramiz
   return best;
 }
 
@@ -356,6 +366,10 @@ export function getCoords(
     typeof forceOrOpts === "boolean" ? { force: forceOrOpts } : forceOrOpts;
   const force = !!opts.force;
   const highAccuracy = !!opts.highAccuracy;
+
+  // Parallel highAccuracy chaqiruvlar (checkout ochilishi + "Qayta aniqlash" +
+  // xaritadagi "joylashuvimni aniqlash") bitta GPS sessiyasini bo'lishadi.
+  if (highAccuracy && hiAccPromise) return hiAccPromise;
 
   if (coordsCache === undefined && !force) {
     const stored = readStoredCoords();
@@ -418,6 +432,7 @@ export function getCoords(
 
     if (tgResult.status === "device_off") lastLocationIssue = "device_off";
     else if (tgResult.status === "denied") lastLocationIssue = "denied";
+    else if (tgResult.status === "slow") lastLocationIssue = "slow";
     else lastLocationIssue = "other";
 
     const tgGranted = isTelegramLocationGranted();
@@ -440,6 +455,13 @@ export function getCoords(
     coordsCache = null;
     return null;
   })();
+
+  if (highAccuracy) {
+    hiAccPromise = run.finally(() => {
+      hiAccPromise = null;
+    });
+    return hiAccPromise;
+  }
 
   if (!force && !highAccuracy) {
     coordsPromise = run.finally(() => {
@@ -526,6 +548,10 @@ export const api = {
   restaurants: (q?: string) =>
     req<Restaurant[]>(`/restaurants${q ? `?q=${encodeURIComponent(q)}` : ""}`),
   restaurant: (id: number) => req<RestaurantDetail>(`/restaurants/${id}`),
+
+  /** Nuqta yetkazish hududida-yo'qligini tekshirish. OUT_OF_RANGE → 404 (xato). */
+  nearest: (lat: number, lng: number) =>
+    req<RestaurantDetail>(`/restaurants/nearest?lat=${lat}&lng=${lng}`),
 
   // faol do'kon — joylashuv bo'lsa eng yaqin; OUT_OF_RANGE yutilmaydi.
   // GPS yo'q — default do'kon (katalog ochiq qoladi).

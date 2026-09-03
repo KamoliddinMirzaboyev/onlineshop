@@ -10,11 +10,18 @@ import { MenuSkeleton } from "../components/Skeleton";
 import { useStore } from "../hooks/useStore";
 import { loc, useI18n } from "../i18n";
 
-function ProductGrid({ products }: { products: Subcategory["products"] }) {
+function ProductGrid({
+  products,
+  eager = false,
+}: {
+  products: Subcategory["products"];
+  eager?: boolean;
+}) {
   return (
     <div className="grid grid-cols-3 gap-2.5 items-stretch">
-      {products.map((p) => (
-        <ProductCard key={p.id} product={p} />
+      {products.map((p, i) => (
+        // Faqat birinchi bo'limning ilk qatori (3 dona) — darhol yuklash.
+        <ProductCard key={p.id} product={p} priority={eager && i < 3} />
       ))}
     </div>
   );
@@ -23,9 +30,11 @@ function ProductGrid({ products }: { products: Subcategory["products"] }) {
 function SubSection({
   title,
   products,
+  eager = false,
 }: {
   title: string;
   products: Subcategory["products"];
+  eager?: boolean;
 }) {
   return (
     <section className="mb-6 last:mb-0">
@@ -36,7 +45,7 @@ function SubSection({
           {products.length}
         </span>
       </div>
-      <ProductGrid products={products} />
+      <ProductGrid products={products} eager={eager} />
     </section>
   );
 }
@@ -68,11 +77,12 @@ export default function CategoryPage() {
         {!cat || withProducts.length === 0 ? (
           <p className="text-center text-tg-hint py-16">{t.empty_category}</p>
         ) : (
-          withProducts.map((sc) => (
+          withProducts.map((sc, i) => (
             <SubSection
               key={sc.id}
               title={loc(sc, "name", lang)}
               products={sc.products}
+              eager={i === 0}
             />
           ))
         )}

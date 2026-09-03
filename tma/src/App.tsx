@@ -1,21 +1,24 @@
 import { AnimatePresence } from "framer-motion";
-import { useEffect, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, type ReactNode } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { getCoords } from "./api/client";
 import BottomNav from "./components/BottomNav";
 import Splash from "./components/Splash";
 import { useTelegramBackButton } from "./hooks/useTelegramBackButton";
 import { prefetchStore } from "./hooks/useStore";
-import CartPage from "./pages/CartPage";
-import CategoryPage from "./pages/CategoryPage";
-import CheckoutPage from "./pages/CheckoutPage";
 import HomePage from "./pages/HomePage";
-import OrderDetailPage from "./pages/OrderDetailPage";
-import OrdersPage from "./pages/OrdersPage";
-import ProfilePage from "./pages/ProfilePage";
-import SearchPage from "./pages/SearchPage";
 import { useAuth } from "./store/auth";
 import { useI18n } from "./i18n";
+
+// Home'dan tashqari sahifalar — alohida chunk (leaflet/checkout boshlang'ich
+// bundle'ni shishirmasin). Home landing bo'lgani uchun eager qoladi.
+const CategoryPage = lazy(() => import("./pages/CategoryPage"));
+const SearchPage = lazy(() => import("./pages/SearchPage"));
+const CartPage = lazy(() => import("./pages/CartPage"));
+const CheckoutPage = lazy(() => import("./pages/CheckoutPage"));
+const OrdersPage = lazy(() => import("./pages/OrdersPage"));
+const OrderDetailPage = lazy(() => import("./pages/OrderDetailPage"));
+const ProfilePage = lazy(() => import("./pages/ProfilePage"));
 
 function AuthGate({ children }: { children: ReactNode }) {
   const user = useAuth((s) => s.user);
@@ -51,6 +54,7 @@ function AppRoutes() {
 
   return (
     <div className="min-h-full pb-20">
+      <Suspense fallback={null}>
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/category/:id" element={<CategoryPage />} />
@@ -90,6 +94,7 @@ function AppRoutes() {
         />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      </Suspense>
       <BottomNav />
     </div>
   );

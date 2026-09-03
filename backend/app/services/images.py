@@ -11,8 +11,9 @@ from pathlib import Path
 from PIL import Image, ImageOps
 
 # Mobil kartochka/banner uchun yetarli; undan kattasi faqat trafik yeydi.
-MAX_SIDE = 1200
-WEBP_QUALITY = 80
+# 1000px — to'liq ekran mahsulot rasmi (telefon ~400dp × 2-2.5 DPR) uchun kifoya.
+MAX_SIDE = 1000
+WEBP_QUALITY = 78
 # Mavjud fayllarni qayta yozishda (URL o'zgarmasin) format saqlanadi.
 JPEG_QUALITY = 82
 

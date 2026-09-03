@@ -12,7 +12,14 @@ const spring = { type: "spring" as const, stiffness: 420, damping: 28, mass: 0.7
 /**
  * 3 ustunli mahsulot kartasi — bir xil balandlik, + bosilganda yumshoq expand.
  */
-export default function ProductCard({ product }: { product: Product }) {
+export default function ProductCard({
+  product,
+  priority = false,
+}: {
+  product: Product;
+  /** Ekranda ko'rinadigan ilk qator — rasm darhol yuklansin (LCP). */
+  priority?: boolean;
+}) {
   const { t, lang } = useI18n();
   const cart = useCart();
   const qty = cart.lines[product.id]?.quantity ?? 0;
@@ -32,6 +39,7 @@ export default function ProductCard({ product }: { product: Product }) {
         {product.image_url ? (
           <OptimizedImage
             src={product.image_url}
+            priority={priority}
             className="absolute inset-0 h-full w-full object-cover"
           />
         ) : (

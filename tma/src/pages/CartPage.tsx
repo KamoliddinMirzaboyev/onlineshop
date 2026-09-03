@@ -1,9 +1,11 @@
 import { Minus, Plus, Trash2 } from "lucide-react";
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import OptimizedImage from "../components/OptimizedImage";
 import PageHeader from "../components/PageHeader";
 import { loc, useI18n } from "../i18n";
 import { money, unitLabel } from "../lib/format";
+import { prewarmCheckoutLocation } from "../lib/prewarmLocation";
 import { useCart } from "../store/cart";
 import { haptic } from "../telegram";
 
@@ -12,6 +14,12 @@ export default function CartPage() {
   const nav = useNavigate();
   const cart = useCart();
   const lines = Object.values(cart.lines);
+
+  // Savatchada mahsulot bor — checkout ehtimoli yuqori. Joylashuvni oldindan ol.
+  useEffect(() => {
+    if (lines.length > 0) void prewarmCheckoutLocation();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (lines.length === 0) {
     return (
@@ -98,7 +106,10 @@ export default function CartPage() {
             <p className="font-semibold text-xl leading-none text-slate-900">{money(cart.total())}</p>
           </div>
           <button
-            onClick={() => nav("/checkout")}
+            onClick={() => {
+              void prewarmCheckoutLocation();
+              nav("/checkout");
+            }}
             className="flex items-center gap-2 bg-brand text-white text-sm font-medium rounded-[20px] px-6 py-4 active:scale-95 transition shadow-md shadow-brand/30"
           >
             {t.place_order}
