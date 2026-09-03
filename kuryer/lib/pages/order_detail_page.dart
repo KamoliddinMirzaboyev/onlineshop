@@ -695,8 +695,8 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
 const _acceptable = {'pending', 'confirmed', 'preparing', 'ready'};
 bool _isAcceptable(String s) => _acceptable.contains(s);
 
-// Backend: accepted / preparing / ready da miqdor o'zgartirish mumkin.
-const _adjustable = {'accepted', 'preparing', 'ready'};
+// Backend (courier.py): faqat "accepted" da — kuryer buyurtmani olib bo'lgach.
+const _adjustable = {'accepted'};
 bool _isAdjustable(String s) => _adjustable.contains(s);
 
 class _ItemThumb extends StatelessWidget {

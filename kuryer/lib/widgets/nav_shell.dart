@@ -5,6 +5,7 @@ import '../core/theme.dart';
 import '../models/order.dart';
 import '../services/api.dart';
 import '../services/cache.dart';
+import '../services/location.dart';
 import '../services/notifications.dart';
 import '../state/order_alerts.dart';
 import '../pages/dashboard_page.dart';
@@ -62,6 +63,7 @@ class _NavShellState extends State<NavShell> with WidgetsBindingObserver {
     if (state == AppLifecycleState.resumed) {
       _orders.refresh();
       notifications.refreshPermission();
+      locationService.refreshState();
     }
   }
 
@@ -114,13 +116,63 @@ class _NavShellState extends State<NavShell> with WidgetsBindingObserver {
       backgroundColor: AppColors.slate50,
       body: SafeArea(
         bottom: false,
-        child: IndexedStack(index: _index, children: pages),
+        child: Column(
+          children: [
+            const _LocationBanner(),
+            Expanded(child: IndexedStack(index: _index, children: pages)),
+          ],
+        ),
       ),
       bottomNavigationBar: _BottomNav(
         index: _index,
         tabs: _tabs,
         onTap: (i) => setState(() => _index = i),
       ),
+    );
+  }
+}
+
+/// Joylashuv ruxsati yo'q bo'lsa — barcha tab tepasida ogohlantiruvchi banner.
+class _LocationBanner extends StatelessWidget {
+  const _LocationBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<LocState>(
+      valueListenable: locState,
+      builder: (context, s, _) {
+        if (s == LocState.ok) return const SizedBox.shrink();
+        final (String msg, String action) = switch (s) {
+          LocState.serviceOff => ('GPS o‘chiq — yetkazish masofasi noaniq', 'Yoqish'),
+          LocState.denied => ('Joylashuvga ruxsat berilmagan', 'Ruxsat'),
+          _ => ('Joylashuv bloklangan — Sozlamalardan yoqing', 'Sozlama'),
+        };
+        return Material(
+          color: const Color(0xFFFFFBEB),
+          child: InkWell(
+            onTap: locationService.requestAgain,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Row(
+                children: [
+                  const Icon(Icons.location_off, size: 18, color: AppColors.amber600),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(msg,
+                        style: const TextStyle(fontSize: 12.5, color: AppColors.amber600)),
+                  ),
+                  Text(action,
+                      style: const TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.amber600)),
+                  const Icon(Icons.chevron_right, size: 16, color: AppColors.amber600),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }
