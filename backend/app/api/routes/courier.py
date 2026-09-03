@@ -49,6 +49,7 @@ from app.services.orders import (
     calc_delivery_fee,
     ensure_transition,
     mark_order_paid_if_cash,
+    reserve_stock_atomic,
     restore_stock_atomic,
 )
 from app.services.receipt import render_receipt
@@ -254,20 +255,15 @@ def courier_adjust_order(
 
     adjust_map = {item.order_item_id: item.quantity for item in data.items}
 
-    # Oldindan yakuniy miqdorlarni hisoblab, bo'sh buyurtmani va omborni tekshiramiz.
-    # Faqat kamaytirish ruxsat etiladi — kuryer mijoz roziligisiz savatni oshira
-    # olmaydi (oshirish kerak bo'lsa — yangi buyurtma).
+    # Oldindan yakuniy miqdorlarni hisoblab, bo'sh buyurtmani tekshiramiz.
+    # Kuryer tarozida vaznni aniqlagach oshirishi ham, kamaytirishi ham mumkin;
+    # mijozga har o'zgarishda yangi chek yuboriladi.
     planned: list[tuple[OrderItem, float]] = []
     changed = False
     for item in order.items:
         new_qty = adjust_map[item.id] if item.id in adjust_map else item.quantity
         if new_qty < 0:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "Miqdor manfiy bo'lishi mumkin emas")
-        if new_qty > item.quantity + 1e-9:
-            raise HTTPException(
-                status.HTTP_400_BAD_REQUEST,
-                "Miqdorni faqat kamaytirish mumkin (mijoz roziligisiz oshirib bo'lmaydi)",
-            )
         if abs(new_qty - item.quantity) > 1e-9:
             changed = True
         planned.append((item, new_qty))
@@ -283,6 +279,8 @@ def courier_adjust_order(
         delta = new_qty - item.quantity
         if delta < 0:
             restore_stock_atomic(db, item.product_id, -delta)
+        elif delta > 0:
+            reserve_stock_atomic(db, item.product_id, delta)
         item.quantity = new_qty
 
     order.items = [item for item, _q in remaining]
