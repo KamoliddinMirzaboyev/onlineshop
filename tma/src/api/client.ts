@@ -315,14 +315,20 @@ function watchBestBrowserCoords(
  */
 async function fetchHighAccuracyCoords(): Promise<Coords | null> {
   const desktop = isTelegramDesktopLike();
-  const silentBrowser = !desktop;
   // TG'dan kelgan oxirgi sabab — fix bo'lmasa checkout aniq xabar bersin.
   let tgStatus: string | null = null;
 
-  const attempt = async (budgetMs: number): Promise<Coords | null> => {
-    // iOS TG WebView'da navigator.permissions ko'pincha yo'q; TG ruxsati bor
-    // (yoki desktop) bo'lsa brauzer GPS'ni jim, ikkinchi promptsiz ishlatamiz.
-    const allowNoPerms = desktop || isTelegramLocationGranted();
+  /**
+   * @param promptBrowser true — brauzerning o'z ruxsat oynasini ochamiz
+   *   (TG LocationManager bermaganda oxirgi chora).
+   */
+  const attempt = async (
+    budgetMs: number,
+    promptBrowser: boolean,
+  ): Promise<Coords | null> => {
+    // Jim brauzer: desktop yoki TG ruxsati bor. promptBrowser — ochiq so'raymiz.
+    const silentBrowser = !desktop && !promptBrowser;
+    const allowNoPerms = desktop || promptBrowser || isTelegramLocationGranted();
 
     const tgP = desktop
       ? Promise.resolve(null as Coords | null)
@@ -348,11 +354,11 @@ async function fetchHighAccuracyCoords(): Promise<Coords | null> {
     return pickBest(tg, browser);
   };
 
-  let best = await attempt(12_000);
-  // Faqat submit uchun yaroqsiz (>100 m) yoki umuman fix yo'q bo'lsa — qisqa
-  // ikkinchi urinish (GPS isishi). Yaroqli fixni cho'zib o'tirmaymiz.
+  // 1-urinish: TG prompt + (ruxsat bor bo'lsa) jim brauzer.
+  let best = await attempt(12_000, false);
+  // 2-urinish: TG bermadi yoki noaniq — brauzerning o'z ruxsat oynasini ochamiz.
   if (!best || (best.accuracyM != null && best.accuracyM > MAX_ACCEPT_ACCURACY_M)) {
-    best = pickBest(best, await attempt(7_000));
+    best = pickBest(best, await attempt(12_000, true));
   }
 
   if (!best) {
