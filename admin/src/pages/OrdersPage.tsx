@@ -297,6 +297,11 @@ export default function OrdersPage() {
                       <Phone size={15} className="shrink-0 text-slate-400" /> {o.phone}
                     </a>
                   )}
+                  {o.comment && (
+                    <div className="text-sm text-slate-700 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5 leading-snug">
+                      💬 {o.comment}
+                    </div>
+                  )}
                 </div>
               </div>
 

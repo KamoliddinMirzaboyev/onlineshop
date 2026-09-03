@@ -145,6 +145,8 @@ def notify_new_order(
         f"Manzil: {_e(order.address_line)}",
         f"Tel: {_e(order.phone) or '-'}",
     ]
+    if order.comment:
+        lines.append(f"Izoh: {_e(order.comment)}")
     text = "\n".join(lines)
     if settings.orders_chat_id:
         _send(settings.orders_chat_id, text)
