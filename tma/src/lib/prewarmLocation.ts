@@ -8,10 +8,17 @@ import { reverseGeocodeParts } from "./geocode";
 let inflight: Promise<Coords | null> | null = null;
 /** Shu vaqtdan yangi fix bo'lsa qayta olmaymiz. */
 const FRESH_MS = 60_000;
+/** Kesh shu aniqlikda bo'lsagina qayta olmaymiz — katalogning ±1km nuqtasi checkout'ga yaramaydi. */
+const ACCURATE_M = 100;
 
 export function prewarmCheckoutLocation(): Promise<Coords | null> {
   const warm = peekCoords();
-  if (warm?.at != null && Date.now() - warm.at < FRESH_MS) {
+  if (
+    warm?.at != null &&
+    Date.now() - warm.at < FRESH_MS &&
+    warm.accuracyM != null &&
+    warm.accuracyM <= ACCURATE_M
+  ) {
     return Promise.resolve(warm);
   }
   if (inflight) return inflight;

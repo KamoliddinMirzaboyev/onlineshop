@@ -316,6 +316,8 @@ function watchBestBrowserCoords(
 async function fetchHighAccuracyCoords(): Promise<Coords | null> {
   const desktop = isTelegramDesktopLike();
   const silentBrowser = !desktop;
+  // TG'dan kelgan oxirgi sabab — fix bo'lmasa checkout aniq xabar bersin.
+  let tgStatus: string | null = null;
 
   const attempt = async (budgetMs: number): Promise<Coords | null> => {
     // iOS TG WebView'da navigator.permissions ko'pincha yo'q; TG ruxsati bor
@@ -324,16 +326,17 @@ async function fetchHighAccuracyCoords(): Promise<Coords | null> {
 
     const tgP = desktop
       ? Promise.resolve(null as Coords | null)
-      : requestTelegramLocation({ timeoutMs: budgetMs, requireFresh: true }).then((r) =>
-          r.status === "ok"
+      : requestTelegramLocation({ timeoutMs: budgetMs, requireFresh: true }).then((r) => {
+          tgStatus = r.status;
+          return r.status === "ok"
             ? {
                 lat: r.lat,
                 lng: r.lng,
                 accuracyM: r.accuracyM,
                 at: Date.now(),
               }
-            : null,
-        );
+            : null;
+        });
 
     // Parallel: bitta getCurrentPosition + qisqa watch (eng aniq)
     const browserP = Promise.all([
@@ -350,6 +353,12 @@ async function fetchHighAccuracyCoords(): Promise<Coords | null> {
   // ikkinchi urinish (GPS isishi). Yaroqli fixni cho'zib o'tirmaymiz.
   if (!best || (best.accuracyM != null && best.accuracyM > MAX_ACCEPT_ACCURACY_M)) {
     best = pickBest(best, await attempt(7_000));
+  }
+
+  if (!best) {
+    if (tgStatus === "denied") lastLocationIssue = "denied";
+    else if (tgStatus === "device_off") lastLocationIssue = "device_off";
+    else if (tgStatus === "slow") lastLocationIssue = "slow";
   }
   return best;
 }
@@ -385,7 +394,10 @@ export function getCoords(
   }
   if (!force && !highAccuracy && coordsPromise) return coordsPromise;
 
+  // force wipe'idan oldingi yaqin fix — GPS bir zumga uzilsa null o'rniga shuni beramiz.
+  let recentFix: Coords | null = null;
   if (force) {
+    recentFix = peekCoords();
     coordsPromise = null;
     coordsCache = undefined;
     clearStoredCoords();
@@ -396,11 +408,24 @@ export function getCoords(
     // Diqqat: faqat highAccuracy shu og'ir yo'lni tanlaydi. `force` yolg'iz —
     // faqat eski keshni yubormaslik degani (nearest-store uchun tezlik yetarli).
     if (highAccuracy) {
+      lastLocationIssue = null;
       const best = await fetchHighAccuracyCoords();
       if (best) return rememberCoords(best);
 
-      if (isTelegramLocationGranted()) lastLocationIssue = "device_off";
-      else lastLocationIssue = "other";
+      // Ruxsat rad etilgan bo'lsa eski joyni ham qaytarmaymiz (foydalanuvchi
+      // sozlamaga yo'naltirilsin). Aks holda yaqin (≤3 daq) fix null'dan yaxshi.
+      if (
+        lastLocationIssue !== "denied" &&
+        recentFix &&
+        (recentFix.at == null || Date.now() - recentFix.at < COORDS_TTL_MS)
+      ) {
+        return rememberCoords(recentFix);
+      }
+
+      // fetchHighAccuracyCoords aniq sabab (denied/device_off/slow) qo'ymagan bo'lsa.
+      if (lastLocationIssue == null) {
+        lastLocationIssue = isTelegramLocationGranted() ? "device_off" : "other";
+      }
       if (!force) coordsCache = null;
       return null; // eski kesh QAYTMASIN
     }

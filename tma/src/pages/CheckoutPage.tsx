@@ -101,6 +101,8 @@ export default function CheckoutPage() {
   const [store, setStore] = useState<Restaurant | null>(null);
   const [showMapPicker, setShowMapPicker] = useState(false);
   const [locDenied, setLocDenied] = useState(false);
+  /** GPS olinmaganda — nima bo'lgani + nima qilish kerakligi (jim qolmaslik uchun). */
+  const [locHint, setLocHint] = useState<string | null>(null);
 
   useEffect(() => {
     if (!phone && user?.phone) setPhone(formatUzPhone(user.phone));
@@ -128,10 +130,21 @@ export default function CheckoutPage() {
 
       const coords = await getCoords({ force, highAccuracy: true });
       if (!coords) {
-        setLocDenied(getLastLocationIssue() === "denied");
+        const issue = getLastLocationIssue();
+        setLocDenied(issue === "denied");
+        setLocHint(
+          issue === "denied"
+            ? t.loc_denied_help
+            : issue === "device_off"
+              ? t.location_off
+              : issue === "slow"
+                ? t.location_slow
+                : t.address_required,
+        );
         return null;
       }
       setLocDenied(false);
+      setLocHint(null);
       setLocation(coords.lat, coords.lng, coords.accuracyM);
 
       const st = useCheckoutDraft.getState();
@@ -163,6 +176,8 @@ export default function CheckoutPage() {
   /** Xaritadan qo'lda tanlangan joy — GPS o'rniga shu koordinata ishlatiladi. */
   const applyPickedLocation = async (lat: number, lng: number) => {
     setShowMapPicker(false);
+    setLocDenied(false);
+    setLocHint(null);
     setLocation(lat, lng, undefined, "map");
     setLocating(true);
     try {
@@ -191,10 +206,12 @@ export default function CheckoutPage() {
       }
       const st = useCheckoutDraft.getState();
       if (warm && st.locSource !== "map") {
+        setLocDenied(false);
+        setLocHint(null);
         setLocation(warm.lat, warm.lng, warm.accuracyM);
         const label = peekAddressLabel();
         if (label && !st.addressDirty) setAddressLine(label, false);
-      } else if (!warm) {
+      } else if (!warm && !useCheckoutDraft.getState().loc) {
         await fetchLocation({ force: true, overwriteText: true });
       }
     })();
@@ -245,10 +262,27 @@ export default function CheckoutPage() {
     const line = useCheckoutDraft.getState().addressLine.trim() || addressLine.trim();
 
     if (!coords) {
+      const issue = getLastLocationIssue();
+      const hint =
+        issue === "denied"
+          ? t.loc_denied_help
+          : issue === "device_off"
+            ? t.location_off
+            : issue === "slow"
+              ? t.location_slow
+              : null;
+      setLocDenied(issue === "denied");
+      setLocHint(
+        hint ??
+          (lang === "uz"
+            ? "Aniq joylashuv olinmadi. «Qayta aniqlash» ni bosing yoki xaritadan tanlang."
+            : "Точное местоположение не получено. Нажмите «Определить снова» или выберите на карте."),
+      );
       setError(
-        lang === "uz"
-          ? "Aniq joylashuv olinmadi. GPS ni yoqing va «Qayta aniqlash» ni bosing."
-          : "Точное местоположение не получено. Включите GPS и нажмите «Определить снова».",
+        hint ??
+          (lang === "uz"
+            ? "Aniq joylashuv olinmadi. GPS ni yoqing va «Qayta aniqlash» ni bosing."
+            : "Точное местоположение не получено. Включите GPS и нажмите «Определить снова»."),
       );
       return;
     }
@@ -339,9 +373,8 @@ export default function CheckoutPage() {
             <label className="text-sm text-slate-400 font-medium">{t.address}</label>
             <button
               type="button"
-              disabled={locating}
               onClick={() => setShowMapPicker(true)}
-              className="flex items-center gap-1.5 text-sm font-medium text-brand disabled:opacity-50"
+              className="flex items-center gap-1.5 text-sm font-medium text-brand"
             >
               <MapIcon size={16} />
               {t.address_pick_map}
@@ -407,10 +440,10 @@ export default function CheckoutPage() {
             {t.address_confirm}
           </p>
 
-          {locDenied && !loc && (
+          {locHint && !loc && (
             <div className="px-1 space-y-2">
-              <p className="text-xs text-rose-500 leading-snug">{t.loc_denied_help}</p>
-              {canOpenLocationSettings() && (
+              <p className="text-xs text-rose-500 leading-snug">{locHint}</p>
+              {locDenied && canOpenLocationSettings() && (
                 <button
                   type="button"
                   onClick={openTelegramLocationSettings}

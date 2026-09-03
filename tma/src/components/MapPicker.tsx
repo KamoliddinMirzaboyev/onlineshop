@@ -2,7 +2,7 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { LocateFixed, MapPin, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { getCoords } from "../api/client";
+import { getCoords, getLastLocationIssue } from "../api/client";
 import { useI18n } from "../i18n";
 
 const MARGILON: [number, number] = [40.4718, 71.7247];
@@ -85,14 +85,28 @@ export default function MapPicker({ initialLat, initialLng, onConfirm, onClose, 
   };
 
   const locateMe = async () => {
+    if (locating) return;
     setLocating(true);
-    const c = await getCoords({ force: true, highAccuracy: true });
+    setError(null);
+    // Aniq GPS bo'lmasa — taxminiy joy ham markazlash uchun yetarli (foydalanuvchi surib to'g'rilaydi).
+    let c = await getCoords({ force: true, highAccuracy: true });
+    if (!c) c = await getCoords({ force: true });
     setLocating(false);
     if (c) {
       mapObj.current?.setView([c.lat, c.lng], 17);
       setTouched(true);
-      setError(null);
+      return;
     }
+    const issue = getLastLocationIssue();
+    setError(
+      issue === "denied"
+        ? t.loc_denied_help
+        : issue === "device_off"
+          ? t.location_off
+          : issue === "slow"
+            ? t.location_slow
+            : t.address_required,
+    );
   };
 
   return (
