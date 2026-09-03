@@ -326,15 +326,20 @@ async function fetchHighAccuracyCoords(promptNow = false): Promise<Coords | null
    */
   const attempt = async (
     budgetMs: number,
-    promptBrowser: boolean,
+    doPrompt: boolean,
   ): Promise<Coords | null> => {
-    // Jim brauzer: desktop yoki TG ruxsati bor. promptBrowser — ochiq so'raymiz.
-    const silentBrowser = !desktop && !promptBrowser;
-    const allowNoPerms = desktop || promptBrowser || isTelegramLocationGranted();
+    // doPrompt — foydalanuvchi so'radi: TG + brauzer ruxsat oynasini ochamiz.
+    // Aks holda jim: ruxsat berilgan bo'lsagina o'qiymiz, prompt chiqarmaymiz.
+    const granted = isTelegramLocationGranted(); // 1-urinishda o'zgargan bo'lishi mumkin
+    const silentBrowser = !desktop && !doPrompt;
+    const allowNoPerms = desktop || doPrompt || granted;
 
     const tgP = desktop
       ? Promise.resolve(null as Coords | null)
-      : requestTelegramLocation({ timeoutMs: budgetMs, requireFresh: true }).then((r) => {
+      : requestTelegramLocation({
+          timeoutMs: budgetMs,
+          requireFresh: doPrompt || granted,
+        }).then((r) => {
           tgStatus = r.status;
           return r.status === "ok"
             ? {
@@ -356,11 +361,11 @@ async function fetchHighAccuracyCoords(promptNow = false): Promise<Coords | null
     return pickBest(tg, browser);
   };
 
-  // 1-urinish: promptNow bo'lsa darhol brauzer oynasi; aks holda TG prompt + jim brauzer.
+  // 1-urinish: promptNow bo'lsa ruxsat oynalari; aks holda jim.
   let best = await attempt(12_000, promptNow);
-  // 2-urinish: TG bermadi yoki noaniq — brauzerning o'z ruxsat oynasini ochamiz.
+  // 2-urinish: GPS isishi uchun — har doim jim (yangi prompt chiqarmaymiz).
   if (!best || (best.accuracyM != null && best.accuracyM > MAX_ACCEPT_ACCURACY_M)) {
-    best = pickBest(best, await attempt(12_000, true));
+    best = pickBest(best, await attempt(7_000, false));
   }
 
   if (!best) {
