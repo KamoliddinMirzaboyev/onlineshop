@@ -2,7 +2,7 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { LocateFixed, MapPin, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { getCoords, getLastLocationIssue } from "../api/client";
+import { getCoords, getLastLocationIssue, hasLocationPermissionHint } from "../api/client";
 import { useI18n } from "../i18n";
 
 const MARGILON: [number, number] = [40.4718, 71.7247];
@@ -105,7 +105,9 @@ export default function MapPicker({ initialLat, initialLng, onConfirm, onClose, 
           ? t.location_off
           : issue === "slow"
             ? t.location_slow
-            : t.address_required,
+            : !hasLocationPermissionHint()
+              ? t.loc_ask
+              : t.address_required,
     );
   };
 

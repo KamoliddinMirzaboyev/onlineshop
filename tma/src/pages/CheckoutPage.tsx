@@ -7,6 +7,7 @@ import {
   clearAddressLabel,
   getCoords,
   getLastLocationIssue,
+  hasLocationPermissionHint,
   peekAddressLabel,
 } from "../api/client";
 import { prewarmCheckoutLocation } from "../lib/prewarmLocation";
@@ -139,7 +140,9 @@ export default function CheckoutPage() {
               ? t.location_off
               : issue === "slow"
                 ? t.location_slow
-                : t.address_required,
+                : !hasLocationPermissionHint()
+                  ? t.loc_ask
+                  : t.address_required,
         );
         return null;
       }
@@ -270,7 +273,9 @@ export default function CheckoutPage() {
             ? t.location_off
             : issue === "slow"
               ? t.location_slow
-              : null;
+              : !hasLocationPermissionHint()
+                ? t.loc_ask
+                : null;
       setLocDenied(issue === "denied");
       setLocHint(
         hint ??

@@ -356,9 +356,23 @@ async function fetchHighAccuracyCoords(): Promise<Coords | null> {
   }
 
   if (!best) {
-    if (tgStatus === "denied") lastLocationIssue = "denied";
-    else if (tgStatus === "device_off") lastLocationIssue = "device_off";
+    if (tgStatus === "device_off") lastLocationIssue = "device_off";
     else if (tgStatus === "slow") lastLocationIssue = "slow";
+    else if (tgStatus === "denied") {
+      // TG "denied" ishonchsiz — yopilgan/javobsiz prompt ham shunday bo'ladi.
+      // Faqat brauzer permissions APIsi aniq "denied" desa — haqiqiy rad.
+      // Aks holda "other" qoldiramiz: "Qayta aniqlash" tugmasi promptni qayta ko'rsatadi.
+      let hardDenied = false;
+      try {
+        const p = await navigator.permissions?.query({
+          name: "geolocation" as PermissionName,
+        });
+        hardDenied = p?.state === "denied";
+      } catch {
+        /* permissions API yo'q (iOS TG WebView) — rad deb hisoblamaymiz */
+      }
+      lastLocationIssue = hardDenied ? "denied" : "other";
+    }
   }
   return best;
 }
