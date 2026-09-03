@@ -5,7 +5,21 @@ import { useEffect, useRef, useState } from "react";
 import { getCoords } from "../api/client";
 import { useI18n } from "../i18n";
 
-const TASHKENT: [number, number] = [41.2995, 69.2401];
+const MARGILON: [number, number] = [40.4718, 71.7247];
+
+// Mapbox public token — .env (VITE_MAPBOX_TOKEN) yoki deploy env'da beriladi.
+// Yo'q bo'lsa OpenStreetMap'ga tushadi (xarita baribir ishlaydi).
+const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
+// Sputnik + ko'cha nomlari — Marg'ilonda uyni tomidan tanlash uchun eng aniq.
+const TILES = MAPBOX_TOKEN
+  ? {
+      url: `https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12/tiles/512/{z}/{x}/{y}@2x?access_token=${MAPBOX_TOKEN}`,
+      opts: { tileSize: 512, zoomOffset: -1, maxZoom: 19, attribution: "© Mapbox © OpenStreetMap" },
+    }
+  : {
+      url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+      opts: { maxZoom: 19, attribution: "© OpenStreetMap" },
+    };
 
 interface Props {
   initialLat?: number;
@@ -24,21 +38,19 @@ export default function MapPicker({ initialLat, initialLng, onConfirm, onClose, 
   const [locating, setLocating] = useState(false);
   const [checking, setChecking] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Boshlanish nuqtasi GPS'dan kelgan bo'lsa ishonchli; aks holda default (Toshkent)
+  // Boshlanish nuqtasi GPS'dan kelgan bo'lsa ishonchli; aks holda default (Marg'ilon)
   // markazini yuborib qo'ymaslik uchun foydalanuvchi xaritani surishi shart.
   const [touched, setTouched] = useState(initialLat != null && initialLng != null);
 
   useEffect(() => {
     if (!mapRef.current || mapObj.current) return;
     const center: [number, number] =
-      initialLat != null && initialLng != null ? [initialLat, initialLng] : TASHKENT;
+      initialLat != null && initialLng != null ? [initialLat, initialLng] : MARGILON;
     const map = L.map(mapRef.current, { zoomControl: false, attributionControl: false }).setView(
       center,
       17,
     );
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      maxZoom: 19,
-    }).addTo(map);
+    L.tileLayer(TILES.url, TILES.opts).addTo(map);
     map.on("movestart", () => {
       setTouched(true);
       setError(null);
