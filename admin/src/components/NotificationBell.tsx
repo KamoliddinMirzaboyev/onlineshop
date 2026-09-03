@@ -1,4 +1,4 @@
-import { Bell, CheckCircle2, PackageCheck, Sparkles, X } from "lucide-react";
+import { Bell, CheckCircle2, PackageCheck, Pencil, Sparkles, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { get } from "../api";
 import type { NotificationEvent } from "../types";
@@ -9,13 +9,28 @@ const ICON: Record<NotificationEvent["type"], typeof Bell> = {
   new: Sparkles,
   accepted: CheckCircle2,
   delivered: PackageCheck,
+  adjusted: Pencil,
 };
 
 const LABEL: Record<NotificationEvent["type"], string> = {
   new: "Yangi buyurtma",
-  accepted: "Qabul qilindi",
-  delivered: "Yetkazildi",
+  accepted: "Kuryer qabul qildi",
+  delivered: "Yetkazib berildi",
+  adjusted: "Kuryer tahrirladi",
 };
+
+// Har hodisa uchun aniq izoh — "holati yangilandi" o'rniga.
+const BODY: Record<NotificationEvent["type"], string> = {
+  new: "Yangi buyurtma kelib tushdi",
+  accepted: "Kuryer buyurtmani qabul qildi",
+  delivered: "Buyurtma mijozga yetkazib berildi",
+  adjusted: "Buyurtma tarkibi kuryer tomonidan o'zgartirildi",
+};
+
+// so'm formatlash: 45000 -> "45 000 so'm"
+function money(n: number): string {
+  return `${n.toLocaleString("ru-RU").replace(/,/g, " ")} so'm`;
+}
 
 // Vaqtni hh:mm shaklida qaytaradi
 function formatTime(iso: string): string {
@@ -137,12 +152,12 @@ export default function NotificationBell() {
                         <div className="flex-1 min-w-0 pt-0.5">
                           <div className="flex items-start justify-between gap-2">
                             <h3 className={`text-sm font-medium truncate ${isNew ? "text-slate-900" : "text-slate-700"}`}>
-                              {LABEL[e.type]}
+                              № {e.order_number} · {LABEL[e.type]}
                             </h3>
                             <span className="text-xs text-slate-400 shrink-0 mt-0.5">{formatTime(e.at)}</span>
                           </div>
                           <p className="text-sm text-slate-500 mt-0.5 leading-relaxed truncate">
-                            #{e.order_id} raqamli buyurtma holati yangilandi
+                            {BODY[e.type]} · {money(e.total)}
                           </p>
                         </div>
                       </div>

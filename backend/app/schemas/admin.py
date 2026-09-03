@@ -148,7 +148,7 @@ class AnnouncementOut(BaseModel):
 
 
 class NotificationEvent(BaseModel):
-    type: str  # "new" | "accepted" | "delivered"
+    type: str  # "new" | "accepted" | "delivered" | "adjusted"
     order_id: int
     order_number: str
     total: int

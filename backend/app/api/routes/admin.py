@@ -898,6 +898,11 @@ def list_notifications(
                 type="delivered", order_id=o.id, order_number=o.number,
                 total=o.total, address_line=o.address_line, at=o.courier_delivered_at,
             ))
+        if o.items_adjusted_at:
+            events.append(NotificationEvent(
+                type="adjusted", order_id=o.id, order_number=o.number,
+                total=o.total, address_line=o.address_line, at=o.items_adjusted_at,
+            ))
 
     events.sort(key=lambda e: e.at, reverse=True)
     return events[:30]

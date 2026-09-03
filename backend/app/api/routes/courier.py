@@ -297,6 +297,8 @@ def courier_adjust_order(
             per_km=restaurant.delivery_fee,
         )
     order.total = order.items_total + order.delivery_fee
+    if changed:
+        order.items_adjusted_at = datetime.now(timezone.utc)
 
     customer = db.get(User, order.user_id)
     user_tg = customer.telegram_id if customer else None
@@ -324,6 +326,17 @@ def courier_adjust_order(
             user_tg,
             user_lang,
             receipt_png,
+        )
+
+    # Admin panelga — kuryer buyurtmani tahrirladi.
+    if changed:
+        background.add_task(
+            webpush.notify_admins,
+            f"✏️ Buyurtma № {order.number} tahrirlandi",
+            f"Kuryer buyurtma tarkibini o'zgartirdi · {order.total:,} so'm",
+            order.restaurant_id,
+            url="/orders",
+            tag=f"adjust-{order.id}",
         )
 
     courier_events.publish({"type": "orders_updated", "restaurant_id": order.restaurant_id})

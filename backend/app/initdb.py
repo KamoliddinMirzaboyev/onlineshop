@@ -58,6 +58,7 @@ _ORDER_COLUMNS = (
     "ALTER TABLE orders ADD COLUMN IF NOT EXISTS assigned_courier_id INTEGER "
     "REFERENCES admin_users(id)",
     "ALTER TABLE orders ADD COLUMN IF NOT EXISTS courier_delivered_at TIMESTAMPTZ",
+    "ALTER TABLE orders ADD COLUMN IF NOT EXISTS items_adjusted_at TIMESTAMPTZ",
     "ALTER TABLE orders ADD COLUMN IF NOT EXISTS distance_km DOUBLE PRECISION",
     "ALTER TABLE orders ADD COLUMN IF NOT EXISTS eta_minutes INTEGER",
     "ALTER TABLE orders ADD COLUMN IF NOT EXISTS courier_accepted_at TIMESTAMPTZ",

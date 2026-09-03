@@ -189,7 +189,7 @@ export interface Courier {
 }
 
 export interface NotificationEvent {
-  type: "new" | "accepted" | "delivered";
+  type: "new" | "accepted" | "delivered" | "adjusted";
   order_id: number;
   order_number: string;
   total: number;

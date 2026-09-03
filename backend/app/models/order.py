@@ -84,6 +84,8 @@ class Order(Base):
     delivering_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     # Kuryer "yetkazdim" bosgan vaqt — mijoz tasdig'i kutilmoqda (status hali delivering).
     courier_delivered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Kuryer buyurtma tarkibini (miqdor) oxirgi marta o'zgartirgan vaqt — admin bildirishnomasi.
+    items_adjusted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     # Multi-stop marshrut: bir "yo'lga chiqish"dagi guruh + tartib (1,2,3…).
     route_group_id: Mapped[str | None] = mapped_column(String(36), index=True)
