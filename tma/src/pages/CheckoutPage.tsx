@@ -115,7 +115,11 @@ export default function CheckoutPage() {
    * force/highAccuracy: har doim yangi GPS (kesh emas).
    * overwriteText: true — geocode matnni yozadi; false — dirty matn saqlanadi.
    */
-  const fetchLocation = async (opts?: { force?: boolean; overwriteText?: boolean }) => {
+  const fetchLocation = async (opts?: {
+    force?: boolean;
+    overwriteText?: boolean;
+    prompt?: boolean;
+  }) => {
     const force = opts?.force !== false;
     const overwriteText = !!opts?.overwriteText;
     if (useCheckoutDraft.getState().locating) return null;
@@ -129,7 +133,7 @@ export default function CheckoutPage() {
         }
       }
 
-      const coords = await getCoords({ force, highAccuracy: true });
+      const coords = await getCoords({ force, highAccuracy: true, prompt: opts?.prompt });
       if (!coords) {
         const issue = getLastLocationIssue();
         setLocDenied(issue === "denied");
@@ -215,7 +219,8 @@ export default function CheckoutPage() {
         const label = peekAddressLabel();
         if (label && !st.addressDirty) setAddressLine(label, false);
       } else if (!warm && !useCheckoutDraft.getState().loc) {
-        await fetchLocation({ force: true, overwriteText: true });
+        // Prewarm (TG + jim brauzer) bermadi — endi brauzer ruxsat oynasini ochamiz.
+        await fetchLocation({ force: true, overwriteText: true, prompt: true });
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -431,15 +436,29 @@ export default function CheckoutPage() {
             )}
           </div>
 
-          <button
-            type="button"
-            disabled={locating}
-            onClick={() => void fetchLocation({ force: true, overwriteText: true })}
-            className="flex w-full items-center justify-center gap-2 rounded-[14px] border border-brand/30 bg-brand/5 py-3 text-sm font-medium text-brand active:scale-[0.99] transition disabled:opacity-50"
-          >
-            <LocateFixed size={16} className={locating ? "animate-pulse" : ""} />
-            {locating ? t.address_locating : t.address_refresh}
-          </button>
+          {loc ? (
+            <button
+              type="button"
+              disabled={locating}
+              onClick={() => void fetchLocation({ force: true, overwriteText: true })}
+              className="flex w-full items-center justify-center gap-2 rounded-[14px] border border-brand/30 bg-brand/5 py-3 text-sm font-medium text-brand active:scale-[0.99] transition disabled:opacity-50"
+            >
+              <LocateFixed size={16} className={locating ? "animate-pulse" : ""} />
+              {locating ? t.address_locating : t.address_refresh}
+            </button>
+          ) : (
+            <button
+              type="button"
+              disabled={locating}
+              onClick={() =>
+                void fetchLocation({ force: true, overwriteText: true, prompt: true })
+              }
+              className="flex w-full items-center justify-center gap-2 rounded-[14px] bg-brand py-3.5 text-sm font-semibold text-white active:scale-[0.99] transition disabled:opacity-60 shadow-md shadow-brand/25"
+            >
+              <MapPin size={18} className={locating ? "animate-pulse" : ""} />
+              {locating ? t.address_locating : t.address_locate_me}
+            </button>
+          )}
 
           <p className="text-xs text-amber-700/80 px-1 leading-snug">
             {t.address_confirm}

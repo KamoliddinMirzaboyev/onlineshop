@@ -89,6 +89,8 @@ export type GetCoordsOpts = {
   force?: boolean;
   /** true: GPS yuqori aniqlik (checkout/buyurtma) — sekinroq, lekin aniq */
   highAccuracy?: boolean;
+  /** true: foydalanuvchi ochiq harakati — TG + brauzer ruxsat oynasini darhol ochamiz */
+  prompt?: boolean;
 };
 
 /** Bundan yomon aniqlik → qisqa ikkinchi urinish (submit chegarasi bilan bir xil). */
@@ -313,7 +315,7 @@ function watchBestBrowserCoords(
  * Yuqori aniqlik: Telegram + brauzer GPS + watch multi-sample.
  * Eng kichik accuracyM g'olib.
  */
-async function fetchHighAccuracyCoords(): Promise<Coords | null> {
+async function fetchHighAccuracyCoords(promptNow = false): Promise<Coords | null> {
   const desktop = isTelegramDesktopLike();
   // TG'dan kelgan oxirgi sabab — fix bo'lmasa checkout aniq xabar bersin.
   let tgStatus: string | null = null;
@@ -354,8 +356,8 @@ async function fetchHighAccuracyCoords(): Promise<Coords | null> {
     return pickBest(tg, browser);
   };
 
-  // 1-urinish: TG prompt + (ruxsat bor bo'lsa) jim brauzer.
-  let best = await attempt(12_000, false);
+  // 1-urinish: promptNow bo'lsa darhol brauzer oynasi; aks holda TG prompt + jim brauzer.
+  let best = await attempt(12_000, promptNow);
   // 2-urinish: TG bermadi yoki noaniq — brauzerning o'z ruxsat oynasini ochamiz.
   if (!best || (best.accuracyM != null && best.accuracyM > MAX_ACCEPT_ACCURACY_M)) {
     best = pickBest(best, await attempt(12_000, true));
@@ -396,9 +398,9 @@ export function getCoords(
   const force = !!opts.force;
   const highAccuracy = !!opts.highAccuracy;
 
-  // Parallel highAccuracy chaqiruvlar (checkout ochilishi + "Qayta aniqlash" +
-  // xaritadagi "joylashuvimni aniqlash") bitta GPS sessiyasini bo'lishadi.
-  if (highAccuracy && hiAccPromise) return hiAccPromise;
+  // Parallel highAccuracy chaqiruvlar bitta GPS sessiyasini bo'lishadi — lekin
+  // foydalanuvchi "ruxsat berish" bossa (prompt) yangi, oynali sessiya boshlaymiz.
+  if (highAccuracy && hiAccPromise && !opts.prompt) return hiAccPromise;
 
   if (coordsCache === undefined && !force) {
     const stored = readStoredCoords();
@@ -429,7 +431,7 @@ export function getCoords(
     // faqat eski keshni yubormaslik degani (nearest-store uchun tezlik yetarli).
     if (highAccuracy) {
       lastLocationIssue = null;
-      const best = await fetchHighAccuracyCoords();
+      const best = await fetchHighAccuracyCoords(!!opts.prompt);
       if (best) return rememberCoords(best);
 
       // Ruxsat rad etilgan bo'lsa eski joyni ham qaytarmaymiz (foydalanuvchi
