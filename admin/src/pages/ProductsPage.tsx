@@ -408,10 +408,10 @@ export default function ProductsPage() {
       {tab === "products" && (
         <>
           {err ? <ErrorRetry onRetry={reload} /> : loading ? <TableSkeleton cols={6} /> : (
-          <div className="card overflow-hidden">
+          <div className="card overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="sticky top-14 z-10 bg-slate-50">
+                <tr className="sticky top-0 z-10 bg-slate-50">
                   <th className="th bg-slate-50">Mahsulot</th>
                   <th className="th bg-slate-50">Ruscha nomi</th>
                   <th className="th bg-slate-50">Narx</th>
