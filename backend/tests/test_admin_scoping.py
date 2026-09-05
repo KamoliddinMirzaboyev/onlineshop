@@ -224,6 +224,41 @@ def test_users_list_only_shows_store_customers(client, db_session, tenant_a, ten
     assert ids == [order_a.user_id]
 
 
+def test_users_list_filter_all_includes_non_orderers(client, db_session, tenant_a):
+    from app.models import User
+
+    order_a = make_order(db_session, tenant_a, total=5_000)
+    lurker = User(telegram_id=999_999_001, language="uz")
+    db_session.add(lurker)
+    db_session.commit()
+
+    resp = client.get(
+        f"/api/admin/users?restaurant_id={tenant_a.restaurant_id}&filter=all",
+        headers=auth(tenant_a.business_token),
+    )
+    assert resp.status_code == 200
+    ids = {u["id"] for u in resp.json()}
+    assert ids == {order_a.user_id, lurker.id}
+
+
+def test_users_list_filter_not_ordered_excludes_orderers(client, db_session, tenant_a):
+    from app.models import User
+
+    order_a = make_order(db_session, tenant_a, total=5_000)
+    lurker = User(telegram_id=999_999_002, language="uz")
+    db_session.add(lurker)
+    db_session.commit()
+
+    resp = client.get(
+        f"/api/admin/users?restaurant_id={tenant_a.restaurant_id}&filter=not_ordered",
+        headers=auth(tenant_a.business_token),
+    )
+    assert resp.status_code == 200
+    ids = {u["id"] for u in resp.json()}
+    assert ids == {lurker.id}
+    assert order_a.user_id not in ids
+
+
 def test_admin_users_list_is_scoped(client, tenant_a, tenant_b):
     resp = client.get(
         f"/api/admin/admin-users?restaurant_id={tenant_a.restaurant_id}",

@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+from typing import Literal
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from pydantic import BaseModel, Field
@@ -572,24 +573,39 @@ def list_users(
     db: Session = Depends(get_db),
     limit: int = 100,
     offset: int = 0,
+    filter: Literal["all", "ordered", "not_ordered"] = "ordered",
 ):
-    """Faqat shu do'kondan buyurtma bergan mijozlar."""
+    """Do'kon mijozlari. `filter`: ordered (default, eski xatti-harakat) /
+    not_ordered / all.
+
+    ponytail: `users` jadvali botning barcha do'konlari uchun umumiy —
+    buyurtmasiz foydalanuvchini "aynan shu do'konga tegishli" deb bog'laydigan
+    signal yo'q. Hozircha platformada bitta do'kon bo'lgani uchun
+    not_ordered/all xavfsiz. 2-do'kon qo'shilganda bu filtrlar boshqa
+    do'konlar mijozlarini ham chiqaradi — o'shanda foydalanuvchini do'konga
+    bog'laydigan signal (masalan birinchi tashrif) qo'shish kerak.
+    """
     delivered = OrderStatus.delivered
-    
-    rows = db.execute(
+    has_ordered_here = select(Order.user_id).where(Order.restaurant_id == store.id)
+
+    stmt = (
         select(
             User,
             func.count(Order.id).label("order_count"),
             func.coalesce(func.sum(Order.total), 0).label("total_spent")
         )
         .outerjoin(Order, (Order.user_id == User.id) & (Order.restaurant_id == store.id) & (Order.status == delivered))
-        .where(User.id.in_(select(Order.user_id).where(Order.restaurant_id == store.id)))
         .group_by(User.id)
-        .order_by(User.created_at.desc())
-        .limit(limit)
-        .offset(offset)
+    )
+    if filter == "ordered":
+        stmt = stmt.where(User.id.in_(has_ordered_here))
+    elif filter == "not_ordered":
+        stmt = stmt.where(User.id.notin_(has_ordered_here))
+
+    rows = db.execute(
+        stmt.order_by(User.created_at.desc()).limit(limit).offset(offset)
     ).all()
-    
+
     return [
         {
             **_user_dict(u),

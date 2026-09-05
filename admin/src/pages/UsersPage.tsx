@@ -2,6 +2,7 @@ import { Search, SearchX, SortAsc, SortDesc, Ban, Phone } from "lucide-react";
 import { useEffect, useState, useMemo } from "react";
 import { get } from "../api";
 import { ErrorRetry, TableSkeleton } from "../components/Skeleton";
+import { useInfiniteList } from "../hooks/useInfiniteList";
 
 interface UserRow {
   id: number;
@@ -28,6 +29,13 @@ function getAvatarColor(id: number) {
 const money = (n?: number | null) => (n || 0).toLocaleString("ru-RU").replace(/,/g, " ");
 
 type SortField = "date" | "orders" | "spent";
+type OrderFilter = "all" | "ordered" | "not_ordered";
+
+const FILTERS: { value: OrderFilter; label: string }[] = [
+  { value: "all", label: "Barchasi" },
+  { value: "ordered", label: "Buyurtma bergan" },
+  { value: "not_ordered", label: "Buyurtma bermagan" },
+];
 
 export default function UsersPage() {
   const [items, setItems] = useState<UserRow[]>([]);
@@ -36,16 +44,17 @@ export default function UsersPage() {
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<SortField>("date");
   const [sortDesc, setSortDesc] = useState(true);
+  const [filter, setFilter] = useState<OrderFilter>("all");
 
-  const load = () => {
+  const load = (f: OrderFilter) => {
     setErr(false);
     setLoading(true);
-    get<UserRow[]>("/admin/users")
+    get<UserRow[]>(`/admin/users?filter=${f}`)
       .then((d) => { setItems(d); setLoading(false); })
       .catch(() => { setErr(true); setLoading(false); });
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(filter); }, [filter]);
 
   const toggleSort = (field: SortField) => {
     if (sortBy === field) {
@@ -75,6 +84,8 @@ export default function UsersPage() {
     });
     return res;
   }, [items, search, sortBy, sortDesc]);
+  const { visible: visibleUsers, sentinelRef: usersEndRef, hasMore: hasMoreUsers } =
+    useInfiniteList(filtered, `${search}|${filter}`);
 
   const SortIcon = ({ field }: { field: SortField }) => {
     if (sortBy !== field) return <SortDesc className="text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity" size={14} />;
@@ -88,19 +99,34 @@ export default function UsersPage() {
           <h1 className="text-2xl font-bold tracking-tight mb-1">Foydalanuvchilar</h1>
           <p className="text-slate-500">Mijozlar bazasi va ularning faolligi</p>
         </div>
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-          <input
-            type="text"
-            placeholder="Ism yoki telefon..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="pl-10 pr-4 py-2 w-full md:w-64 rounded-xl border-slate-200 focus:border-brand focus:ring-brand text-sm"
-          />
+        <div className="flex items-center gap-4">
+          <div className="flex rounded-xl border border-slate-200 p-1 bg-slate-50">
+            {FILTERS.map(f => (
+              <button
+                key={f.value}
+                onClick={() => setFilter(f.value)}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
+                  filter === f.value ? "bg-white shadow-sm text-slate-900" : "text-slate-500 hover:text-slate-700"
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+            <input
+              type="text"
+              placeholder="Ism yoki telefon..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="pl-10 pr-4 py-2 w-full md:w-64 rounded-xl border-slate-200 focus:border-brand focus:ring-brand text-sm"
+            />
+          </div>
         </div>
       </div>
 
-      {err ? <ErrorRetry onRetry={load} /> : loading ? <TableSkeleton cols={6} /> : (
+      {err ? <ErrorRetry onRetry={() => load(filter)} /> : loading ? <TableSkeleton cols={6} /> : (
       <div className="card overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[700px]">
@@ -120,7 +146,7 @@ export default function UsersPage() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((u) => {
+              {visibleUsers.map((u) => {
                 const initial = u.first_name ? u.first_name.charAt(0).toUpperCase() : (u.username ? u.username.charAt(0).toUpperCase() : "?");
                 return (
                   <tr key={u.id} className={`hover:bg-slate-50/60 transition-colors ${u.is_blocked ? "opacity-70" : ""}`}>
@@ -173,6 +199,7 @@ export default function UsersPage() {
             </tbody>
           </table>
         </div>
+        {hasMoreUsers && <div ref={usersEndRef} className="h-1" />}
       </div>
       )}
     </div>
