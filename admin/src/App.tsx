@@ -19,7 +19,7 @@ import UsersPage from "./pages/UsersPage";
 import WarehousePage from "./pages/WarehousePage";
 import { enablePush } from "./push";
 import { useAuth } from "./store";
-
+// Delete uchun shunchaki qo'shilgan comment
 function CourierBlocked() {
   const { logout } = useAuth();
   const nav = useNavigate();
