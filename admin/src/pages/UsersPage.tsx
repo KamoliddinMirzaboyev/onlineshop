@@ -1,6 +1,8 @@
-import { Search, SearchX, SortAsc, SortDesc, Ban, Phone } from "lucide-react";
+import { Search, SearchX, SortAsc, SortDesc, Ban, Phone, Trash2 } from "lucide-react";
 import { useEffect, useState, useMemo } from "react";
-import { get } from "../api";
+import { toast } from "sonner";
+import { del, get } from "../api";
+import { confirm } from "../components/Confirm";
 import { ErrorRetry, TableSkeleton } from "../components/Skeleton";
 import { useInfiniteList } from "../hooks/useInfiniteList";
 
@@ -55,6 +57,23 @@ export default function UsersPage() {
   };
 
   useEffect(() => { load(filter); }, [filter]);
+
+  const removeUser = async (u: UserRow) => {
+    const ok = await confirm({
+      title: `${u.first_name || "Mijoz"} butunlay o'chirilsinmi?`,
+      message: "Bu amalni orqaga qaytarib bo'lmaydi.",
+      confirmText: "O'chirish",
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      await del(`/admin/users/${u.id}`);
+      setItems((prev) => prev.filter((x) => x.id !== u.id));
+      toast.success("Mijoz o'chirildi");
+    } catch {
+      toast.error("O'chirib bo'lmadi — buyurtmalari bor bo'lishi mumkin");
+    }
+  };
 
   const toggleSort = (field: SortField) => {
     if (sortBy === field) {
@@ -143,6 +162,7 @@ export default function UsersPage() {
                   <div className="flex items-center gap-1.5">Sarflagan summa <SortIcon field="spent" /></div>
                 </th>
                 <th className="th">Status</th>
+                <th className="th"></th>
               </tr>
             </thead>
             <tbody>
@@ -183,12 +203,21 @@ export default function UsersPage() {
                         </span>
                       )}
                     </td>
+                    <td className="td">
+                      <button
+                        onClick={() => removeUser(u)}
+                        className="p-2 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                        title="O'chirish"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </td>
                   </tr>
                 );
               })}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="td py-16 text-center">
+                  <td colSpan={6} className="td py-16 text-center">
                     <div className="inline-flex items-center justify-center h-16 w-16 rounded-full bg-slate-50 mb-4">
                       <SearchX size={28} className="text-slate-400" />
                     </div>

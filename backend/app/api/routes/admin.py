@@ -616,6 +616,25 @@ def list_users(
     ]
 
 
+@router.delete("/users/{uid}", status_code=204)
+def delete_user(
+    uid: int,
+    _principal = Depends(require_store_admin_or_business),
+    db: Session = Depends(get_db),
+):
+    """Mijozni butunlay o'chiradi. Buyurtmasi bo'lsa (FK) o'chirilmaydi —
+    tarixni saqlab qolish uchun avval buyurtmalarini ko'rib chiqish kerak."""
+    user = db.get(User, uid)
+    if not user:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Not found")
+    db.delete(user)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status.HTTP_409_CONFLICT, "Bu mijozning buyurtmalari bor — o'chirib bo'lmaydi")
+
+
 # ── Post — botga mijozlarga xabar yuborish (rasm/matn/ikkalasi) ─
 class _BroadcastIn(BaseModel):
     text: str = ""
