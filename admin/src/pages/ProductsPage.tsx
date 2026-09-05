@@ -305,12 +305,6 @@ export default function ProductsPage() {
     ?? categories.find((c) => c.id === editing?.category_id)?.parent_id
     ?? topCategories[0]?.id;
   const childrenOfSelectedTop = categories.filter((c) => c.parent_id === selectedTopId);
-  const catPath = (id: number) => {
-    const c = categories.find((x) => x.id === id);
-    if (!c) return "—";
-    const parent = categories.find((x) => x.id === c.parent_id);
-    return parent ? `${parent.name_uz} > ${c.name_uz}` : c.name_uz;
-  };
   const margin = (p: Product) => (p.price > 0 ? Math.round(((p.price - p.cost) / p.price) * 100) : 0);
 
   const filteredProducts = products.filter((p) => {
@@ -417,14 +411,14 @@ export default function ProductsPage() {
           <div className="card overflow-hidden">
             <table className="w-full">
               <thead>
-                <tr className="bg-slate-50">
-                  <th className="th">Mahsulot</th>
-                  <th className="th">Kategoriya</th>
-                  <th className="th">Narx</th>
-                  <th className="th">Tannarx</th>
-                  <th className="th">Qoldiq</th>
-                  <th className="th">Mavjud</th>
-                  <th className="th"></th>
+                <tr className="sticky top-14 z-10 bg-slate-50">
+                  <th className="th bg-slate-50">Mahsulot</th>
+                  <th className="th bg-slate-50">Ruscha nomi</th>
+                  <th className="th bg-slate-50">Narx</th>
+                  <th className="th bg-slate-50">Tannarx</th>
+                  <th className="th bg-slate-50">Qoldiq</th>
+                  <th className="th bg-slate-50">Mavjud</th>
+                  <th className="th bg-slate-50"></th>
                 </tr>
               </thead>
               <tbody>
@@ -438,7 +432,7 @@ export default function ProductsPage() {
                         {p.name_uz}
                       </div>
                     </td>
-                    <td className="td">{catPath(p.category_id)}</td>
+                    <td className="td">{p.name_ru}</td>
                     <td className="td">{money(p.price)} so'm</td>
                     <td className="td">
                       {money(p.cost)} <span className="text-xs text-slate-400">({margin(p)}%)</span>
