@@ -12,9 +12,12 @@ export function useInfiniteList<T>(items: T[], resetKey?: unknown) {
   useEffect(() => {
     const el = sentinelRef.current;
     if (!el) return;
-    const io = new IntersectionObserver(([e]) => {
-      if (e.isIntersecting) setCount((c) => Math.min(c + PAGE_SIZE, items.length));
-    });
+    const io = new IntersectionObserver(
+      ([e]) => {
+        if (e.isIntersecting) setCount((c) => Math.min(c + PAGE_SIZE, items.length));
+      },
+      { rootMargin: "300px" }, // tagiga yetmasdan oldinroq yuklaydi — sakrash sezilmaydi
+    );
     io.observe(el);
     return () => io.disconnect();
   }, [items.length]);

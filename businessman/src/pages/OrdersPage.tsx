@@ -419,7 +419,7 @@ export default function OrdersPage() {
         {orders.length === 0 && (
           <div className="card p-10 text-center text-slate-400">Buyurtmalar yo'q</div>
         )}
-        {hasMoreOrders && <div ref={ordersEndRef} className="h-1" />}
+        {hasMoreOrders && <div ref={ordersEndRef} className="py-4 text-center text-xs text-slate-400">Yuklanmoqda...</div>}
       </div>
       )}
     </div>

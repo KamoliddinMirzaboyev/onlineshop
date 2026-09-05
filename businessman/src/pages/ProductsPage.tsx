@@ -528,7 +528,7 @@ export default function ProductsPage() {
             </table>
           </div>
           )}
-          {hasMoreProducts && <div ref={productsEndRef} className="h-1" />}
+          {hasMoreProducts && <div ref={productsEndRef} className="py-4 text-center text-xs text-slate-400">Yuklanmoqda...</div>}
         </>
       )}
 

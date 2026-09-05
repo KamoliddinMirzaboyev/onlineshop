@@ -85,7 +85,7 @@ export default function CustomersPage() {
             )}
           </tbody>
         </table>
-        {hasMoreItems && <div ref={itemsEndRef} className="h-1" />}
+        {hasMoreItems && <div ref={itemsEndRef} className="py-4 text-center text-xs text-slate-400">Yuklanmoqda...</div>}
       </div>
       )}
     </div>

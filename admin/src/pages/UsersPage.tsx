@@ -199,7 +199,7 @@ export default function UsersPage() {
             </tbody>
           </table>
         </div>
-        {hasMoreUsers && <div ref={usersEndRef} className="h-1" />}
+        {hasMoreUsers && <div ref={usersEndRef} className="py-4 text-center text-xs text-slate-400">Yuklanmoqda...</div>}
       </div>
       )}
     </div>
