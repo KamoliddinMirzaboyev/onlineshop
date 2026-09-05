@@ -6,6 +6,7 @@ import ColorPicker from "../components/ColorPicker";
 import { confirm } from "../components/Confirm";
 import ImageUpload from "../components/ImageUpload";
 import { ErrorRetry, TableSkeleton } from "../components/Skeleton";
+import { useInfiniteList } from "../hooks/useInfiniteList";
 import { DEFAULT_CATEGORY_COLOR } from "../lib/softColors";
 import { useStore } from "../store";
 import type { Category, CategoryGroup, Product } from "../types";
@@ -342,6 +343,8 @@ export default function ProductsPage() {
     if (q && !p.name_uz.toLowerCase().includes(q) && !p.name_ru.toLowerCase().includes(q)) return false;
     return true;
   });
+  const { visible: visibleProducts, sentinelRef: productsEndRef, hasMore: hasMoreProducts } =
+    useInfiniteList(filteredProducts, `${search}|${filterCat}`);
 
   if (storeId == null) {
     return (
@@ -480,7 +483,7 @@ export default function ProductsPage() {
                 </tr>
               </thead>
               <tbody>
-                {filteredProducts.map((p) => (
+                {visibleProducts.map((p) => (
                   <tr key={p.id} className="hover:bg-slate-50/60">
                     <td className="td font-medium text-slate-900">
                       <div className="flex items-center gap-3">
@@ -525,6 +528,7 @@ export default function ProductsPage() {
             </table>
           </div>
           )}
+          {hasMoreProducts && <div ref={productsEndRef} className="h-1" />}
         </>
       )}
 

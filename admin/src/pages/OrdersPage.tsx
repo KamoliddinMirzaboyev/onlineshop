@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { del, get, patch } from "../api";
 import { confirm } from "../components/Confirm";
 import { ErrorRetry, OrderListSkeleton } from "../components/Skeleton";
+import { useInfiniteList } from "../hooks/useInfiniteList";
 import { useAuth } from "../store";
 import type { Order, OrderStatus } from "../types";
 
@@ -234,6 +235,8 @@ export default function OrdersPage() {
       RANK[a.status] - RANK[b.status] ||
       +new Date(b.created_at) - +new Date(a.created_at)
   );
+  const { visible: visibleOrders, sentinelRef: ordersEndRef, hasMore: hasMoreOrders } =
+    useInfiniteList(sorted, filter);
 
   return (
     <div className="flex flex-col h-[calc(100dvh-3.5rem-2rem)] md:h-[calc(100dvh-3.5rem-4rem)]">
@@ -265,7 +268,7 @@ export default function OrdersPage() {
         <ErrorRetry onRetry={load} />
       ) : (
       <div className="flex-1 min-h-0 overflow-y-auto space-y-2.5 pb-2">
-        {sorted.map((o) => {
+        {visibleOrders.map((o) => {
           const isNew = o.status === "pending";
           const itemsCount = o.items.reduce((s, it) => s + it.quantity, 0);
           return (
@@ -408,6 +411,7 @@ export default function OrdersPage() {
         {orders.length === 0 && (
           <div className="card p-10 text-center text-slate-400">Buyurtmalar yo'q</div>
         )}
+        {hasMoreOrders && <div ref={ordersEndRef} className="h-1" />}
       </div>
       )}
     </div>

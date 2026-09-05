@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { get, getAll, withStore } from "../api";
 import { ErrorRetry, TableSkeleton } from "../components/Skeleton";
+import { useInfiniteList } from "../hooks/useInfiniteList";
 import { useStore } from "../store";
 import type { Customer } from "../types";
 
@@ -26,6 +27,9 @@ export default function CustomersPage() {
   };
 
   useEffect(() => { load(); }, [selectedStoreId, stores.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const { visible: visibleItems, sentinelRef: itemsEndRef, hasMore: hasMoreItems } =
+    useInfiniteList(items, selectedStoreId);
 
   if (selectedStoreId == null) {
     return (
@@ -55,7 +59,7 @@ export default function CustomersPage() {
             </tr>
           </thead>
           <tbody>
-            {items.map((u) => (
+            {visibleItems.map((u) => (
               <tr
                 key={u.id}
                 className={u.is_blocked ? "bg-red-50/60 hover:bg-red-50" : "hover:bg-slate-50/60"}
@@ -81,6 +85,7 @@ export default function CustomersPage() {
             )}
           </tbody>
         </table>
+        {hasMoreItems && <div ref={itemsEndRef} className="h-1" />}
       </div>
       )}
     </div>

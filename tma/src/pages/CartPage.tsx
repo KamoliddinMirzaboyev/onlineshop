@@ -88,7 +88,7 @@ export default function CartPage() {
         ))}
       </div>
 
-      <div className="fixed bottom-16 inset-x-0 bg-white border-t border-black/5 flex flex-col z-20">
+      <div className="fixed bottom-[calc(4rem+env(safe-area-inset-bottom))] inset-x-0 bg-white border-t border-black/5 flex flex-col z-20">
         <div className="flex justify-end px-4 py-2">
           <button
             onClick={() => {
