@@ -92,7 +92,10 @@ export default function SuppliesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, day]);
 
-  const { visible, sentinelRef, hasMore } = useInfiniteList(orders, `${status}_${day}`);
+  // Faqat admin qo'shgan (source=manual) buyurtmalar — server filtrига
+  // qo'shimcha client kafolati (backend eski bo'lsa ham app buyurtmalar chiqmaydi).
+  const manualOnly = useMemo(() => orders.filter((o) => o.source === "manual"), [orders]);
+  const { visible, sentinelRef, hasMore } = useInfiniteList(manualOnly, `${status}_${day}`);
 
   return (
     <div className="flex flex-col h-[calc(100dvh-3.5rem-2rem)] md:h-[calc(100dvh-3.5rem-4rem)]">
@@ -176,8 +179,8 @@ export default function SuppliesPage() {
               </div>
             );
           })}
-          {orders.length === 0 && (
-            <div className="card p-10 text-center text-slate-400">Buyurtma yo'q</div>
+          {manualOnly.length === 0 && (
+            <div className="card p-10 text-center text-slate-400">Qo'lda buyurtma yo'q</div>
           )}
           {hasMore && <div ref={sentinelRef} className="py-4 text-center text-xs text-slate-400">Yuklanmoqda...</div>}
         </div>
