@@ -1,4 +1,4 @@
-import { ChevronRight } from "lucide-react";
+import { Bell, ChevronRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import type { Category } from "../api/types";
 import CartPill from "../components/CartPill";
@@ -81,7 +81,19 @@ export default function HomePage() {
 
   return (
     <div className="min-h-full bg-tg-bg pb-16">
-      <PageHeader title="Barakali Bozor" />
+      <PageHeader
+        title="Barakali Bozor"
+        right={
+          <button
+            type="button"
+            onClick={() => nav("/notifications")}
+            className="h-9 w-9 shrink-0 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center active:scale-90 transition"
+            aria-label={lang === "uz" ? "Bildirishnomalar" : "Уведомления"}
+          >
+            <Bell size={18} />
+          </button>
+        }
+      />
 
       <div className="px-3 pb-4 pt-4">
         {needsLocation ? (

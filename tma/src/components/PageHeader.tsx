@@ -1,4 +1,5 @@
 import { ChevronLeft } from "lucide-react";
+import type { ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { goBack } from "../lib/navBack";
 
@@ -6,10 +7,13 @@ interface Props {
   title: string;
   subtitle?: string;
   back?: boolean;
+  /** O'ng tomonda ko'rsatiladigan vidjet (masalan bildirishnoma qo'ng'irog'i) —
+   * berilmasa va `back` bo'lsa, chap tugma bilan simmetriya uchun bo'sh joy qoladi. */
+  right?: ReactNode;
 }
 
 /** Barcha asosiy sahifalar uchun brand yashil banner. */
-export default function PageHeader({ title, subtitle, back }: Props) {
+export default function PageHeader({ title, subtitle, back, right }: Props) {
   const nav = useNavigate();
   const { pathname } = useLocation();
 
@@ -29,7 +33,7 @@ export default function PageHeader({ title, subtitle, back }: Props) {
         {title}
         {subtitle && <span className="ml-2 text-sm font-normal opacity-85">{subtitle}</span>}
       </h1>
-      {back && <span className="w-9 shrink-0" />}
+      {right ?? (back && <span className="w-9 shrink-0" />)}
     </div>
   );
 }

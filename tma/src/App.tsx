@@ -95,6 +95,14 @@ function AppRoutes() {
           }
         />
         <Route path="/contact" element={<ContactPage />} />
+        <Route
+          path="/notifications"
+          element={
+            <AuthGate>
+              <NotificationsPage />
+            </AuthGate>
+          }
+        />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       </Suspense>
