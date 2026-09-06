@@ -138,8 +138,11 @@ async def courier_stream(
         loop = asyncio.get_event_loop()
         try:
             while True:
-                # Redis PubSub — blocking, thread pool'da o'qiymiz
-                msg = await loop.run_in_executor(None, ps.get_message, timeout=30.0)
+                # Redis PubSub — blocking, thread pool'da o'qiymiz.
+                # run_in_executor kwarg qabul qilmaydi — lambda bilan o'raymiz.
+                msg = await loop.run_in_executor(
+                    None, lambda: ps.get_message(timeout=30.0)
+                )
                 if msg and msg["type"] == "message":
                     data = json.loads(msg["data"])
                     # Faqat o'z restorani eventlarini filtrlaymiz
