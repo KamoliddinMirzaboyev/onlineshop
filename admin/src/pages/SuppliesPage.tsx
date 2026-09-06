@@ -317,6 +317,7 @@ function PhoneOrderModal({
   const [fee, setFee] = useState(0);
   const [comment, setComment] = useState("");
   const [busy, setBusy] = useState(false);
+  const [zoom, setZoom] = useState<string | null>(null);
 
   const list = useMemo(() => {
     const s = q.trim().toLowerCase();
@@ -383,7 +384,19 @@ function PhoneOrderModal({
               {list.map((p) => {
                 const qty = sel[p.id] ?? 0;
                 return (
-                  <div key={p.id} className="flex items-center gap-2 px-3 py-2">
+                  <div key={p.id} className="flex items-center gap-2.5 px-3 py-2">
+                    {p.image_url ? (
+                      <img
+                        src={p.image_url}
+                        alt={p.name_uz}
+                        onClick={() => setZoom(p.image_url!)}
+                        className="h-11 w-11 shrink-0 rounded-lg object-cover border border-slate-200 cursor-zoom-in"
+                      />
+                    ) : (
+                      <div className="h-11 w-11 shrink-0 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center text-lg">
+                        🍽
+                      </div>
+                    )}
                     <div className="min-w-0 flex-1">
                       <div className="text-sm font-medium text-slate-800 truncate">{p.name_uz}</div>
                       <div className="text-xs text-slate-500">
@@ -424,11 +437,19 @@ function PhoneOrderModal({
           {lines.length > 0 && (
             <div className="rounded-xl bg-slate-50 px-3 py-2 text-sm space-y-1">
               {lines.map((l) => (
-                <div key={l.p.id} className="flex justify-between">
-                  <span className="text-slate-600 truncate pr-2">
-                    {l.p.name_uz} × {l.qty}
+                <div key={l.p.id} className="flex items-center justify-between gap-2">
+                  <span className="flex items-center gap-2 min-w-0 text-slate-600">
+                    {l.p.image_url && (
+                      <img
+                        src={l.p.image_url}
+                        alt=""
+                        onClick={() => setZoom(l.p.image_url!)}
+                        className="h-7 w-7 shrink-0 rounded object-cover border border-slate-200 cursor-zoom-in"
+                      />
+                    )}
+                    <span className="truncate">{l.p.name_uz} × {l.qty}</span>
                   </span>
-                  <span className="font-medium">{money(l.p.price * l.qty)}</span>
+                  <span className="font-medium shrink-0">{money(l.p.price * l.qty)}</span>
                 </div>
               ))}
               <div className="flex justify-between border-t border-slate-200 pt-1 font-bold">
@@ -497,6 +518,15 @@ function PhoneOrderModal({
           </button>
         </div>
       </div>
+
+      {zoom && (
+        <div
+          className="fixed inset-0 z-[60] bg-black/80 flex items-center justify-center p-6 cursor-zoom-out"
+          onClick={() => setZoom(null)}
+        >
+          <img src={zoom} alt="" className="max-h-full max-w-full rounded-lg object-contain" />
+        </div>
+      )}
     </div>
   );
 }
