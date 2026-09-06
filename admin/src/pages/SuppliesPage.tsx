@@ -1,8 +1,9 @@
 import { CircleCheck, CircleX, MapPin, Minus, Phone, Plus, Search } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { get, post } from "../api";
 import { ErrorRetry, OrderListSkeleton } from "../components/Skeleton";
+import { useInfiniteList } from "../hooks/useInfiniteList";
 import type { Order, OrderStatus, Product, Restaurant } from "../types";
 
 const money = (n?: number | null) => (n || 0).toLocaleString("ru-RU").replace(/,/g, " ");
@@ -18,6 +19,28 @@ const PILL: Record<OrderStatus, string> = {
   accepted: "bg-cyan-100 text-cyan-700", delivering: "bg-blue-100 text-blue-700",
   delivered: "bg-emerald-100 text-emerald-700", cancelled: "bg-rose-100 text-rose-700",
 };
+
+const STATUS_TABS: { value: OrderStatus | ""; label: string }[] = [
+  { value: "", label: "Barchasi" },
+  { value: "pending", label: "Yangi" },
+  { value: "accepted", label: "Qabul qilindi" },
+  { value: "delivering", label: "Yetkazilmoqda" },
+  { value: "delivered", label: "Yetkazildi" },
+  { value: "cancelled", label: "Bekor" },
+];
+
+const dayLabel = (back: number) => {
+  const d = new Date();
+  d.setDate(d.getDate() - back);
+  const date = d.toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit" });
+  return `${back === 0 ? "Bugun" : back === 1 ? "Kecha" : "Kechadan oldin"} · ${date}`;
+};
+const DAY_TABS: { value: number | null; label: string }[] = [
+  { value: null, label: "Barcha kunlar" },
+  { value: 0, label: dayLabel(0) },
+  { value: 1, label: dayLabel(1) },
+  { value: 2, label: dayLabel(2) },
+];
 
 // "+998 90 123 45 67" — faqat 9 raqam kiritiladi, boshi doim +998.
 const phoneDigits = (raw: string) => raw.replace(/\D/g, "").replace(/^998/, "").slice(0, 9);
@@ -37,22 +60,28 @@ export default function SuppliesPage() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState(false);
   const [adding, setAdding] = useState(false);
+  const [status, setStatus] = useState<OrderStatus | "">("");
+  const [day, setDay] = useState<number | null>(null);
+  const reqId = useRef(0);
 
   const load = async () => {
-    setErr(false);
+    const my = ++reqId.current;
+    const params = new URLSearchParams({ source: "manual", limit: "200" });
+    if (status) params.set("status_filter", status);
+    if (day !== null) params.set("day", String(day));
     try {
-      const [os, s] = await Promise.all([
-        get<Order[]>("/admin/orders?source=manual"),
-        get<Restaurant>("/admin/store"),
-      ]);
+      const os = await get<Order[]>(`/admin/orders?${params}`);
+      if (my !== reqId.current) return;
       setOrders(os);
+      setErr(false);
       if (!products.length) {
+        const s = await get<Restaurant>("/admin/store");
         setProducts(await get<Product[]>(`/admin/restaurants/${s.id}/products`));
       }
     } catch {
-      setErr(true);
+      if (my === reqId.current) setErr(true);
     } finally {
-      setLoading(false);
+      if (my === reqId.current) setLoading(false);
     }
   };
 
@@ -61,24 +90,58 @@ export default function SuppliesPage() {
     const iv = setInterval(load, 20000);
     return () => clearInterval(iv);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [status, day]);
+
+  const { visible, sentinelRef, hasMore } = useInfiniteList(orders, `${status}_${day}`);
 
   return (
-    <div>
-      <h1 className="text-2xl font-bold tracking-tight mb-1">Qo'lda buyurtmalar</h1>
-      <p className="text-slate-500 mb-5">
-        Telefon orqali kelgan buyurtmalar — bu yerdan qo'shiladi va kuryerga yuboriladi.
-      </p>
+    <div className="flex flex-col h-[calc(100dvh-3.5rem-2rem)] md:h-[calc(100dvh-3.5rem-4rem)]">
+      <div className="shrink-0 pb-3">
+        <h1 className="text-2xl font-bold tracking-tight mb-1">Qo'lda buyurtmalar</h1>
+        <p className="text-slate-500 mb-3">
+          Telefon orqali kelgan buyurtmalar — bu yerdan qo'shiladi va kuryerga yuboriladi.
+        </p>
 
-      <div className="flex justify-end mb-4">
-        <button className="btn" onClick={() => setAdding(true)} disabled={!products.length}>
-          <Plus size={18} /> Buyurtma qo'shish
-        </button>
+        <div className="flex gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {STATUS_TABS.map((t) => (
+            <button
+              key={t.value}
+              onClick={() => setStatus(t.value)}
+              className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-semibold flex-shrink-0 transition ${
+                status === t.value
+                  ? "bg-brand text-white shadow-md shadow-brand/25"
+                  : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex gap-2 overflow-x-auto mt-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {DAY_TABS.map((t) => (
+            <button
+              key={String(t.value)}
+              onClick={() => setDay(t.value)}
+              className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-semibold flex-shrink-0 transition ${
+                day === t.value
+                  ? "bg-slate-900 text-white shadow-md shadow-slate-900/20"
+                  : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {err ? <ErrorRetry onRetry={load} /> : loading ? <OrderListSkeleton /> : (
-        <div className="space-y-2.5">
-          {orders.map((o) => {
+      {err ? (
+        <ErrorRetry onRetry={load} />
+      ) : loading ? (
+        <div className="flex-1 min-h-0 overflow-y-auto"><OrderListSkeleton /></div>
+      ) : (
+        <div className="flex-1 min-h-0 overflow-y-auto space-y-2.5 pb-20">
+          {visible.map((o) => {
             const itemsCount = o.items.reduce((s, it) => s + it.quantity, 0);
             return (
               <div key={o.id} className="card p-3">
@@ -114,10 +177,19 @@ export default function SuppliesPage() {
             );
           })}
           {orders.length === 0 && (
-            <div className="card p-10 text-center text-slate-400">Hali qo'lda buyurtma yo'q</div>
+            <div className="card p-10 text-center text-slate-400">Buyurtma yo'q</div>
           )}
+          {hasMore && <div ref={sentinelRef} className="py-4 text-center text-xs text-slate-400">Yuklanmoqda...</div>}
         </div>
       )}
+
+      <button
+        className="btn fixed bottom-6 right-6 z-40 shadow-lg shadow-brand/30"
+        onClick={() => setAdding(true)}
+        disabled={!products.length}
+      >
+        <Plus size={18} /> Buyurtma qo'shish
+      </button>
 
       {adding && (
         <PhoneOrderModal
