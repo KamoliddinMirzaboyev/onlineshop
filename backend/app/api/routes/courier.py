@@ -950,6 +950,7 @@ def courier_history(
     db: Session = Depends(get_db),
     status_filter: str | None = Query(default=None, alias="status"),
     days: int | None = Query(default=None, ge=1, le=365),
+    day: int | None = Query(default=None, ge=0, le=30),
     limit: int = Query(default=50, ge=1, le=200),
 ):
     """Menga biriktirilgan yakunlangan buyurtmalar, yangidan eskiga."""
@@ -965,6 +966,13 @@ def courier_history(
     if days:
         since = datetime.now(timezone.utc) - timedelta(days=days)
         stmt = stmt.where(Order.updated_at >= since)
+    if day is not None:
+        local_today = datetime.now(TASHKENT).date()
+        d = local_today - timedelta(days=day)
+        start = datetime(d.year, d.month, d.day, tzinfo=TASHKENT).astimezone(timezone.utc)
+        stmt = stmt.where(
+            Order.created_at >= start, Order.created_at < start + timedelta(days=1)
+        )
     stmt = (
         stmt.order_by(Order.updated_at.desc())
         .limit(limit)

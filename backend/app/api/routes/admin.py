@@ -468,6 +468,7 @@ def admin_orders(
     store: Restaurant = Depends(current_restaurant),
     db: Session = Depends(get_db),
     status_filter: OrderStatus | None = None,
+    day: int | None = None,
     limit: int = 100,
     offset: int = 0,
 ):
@@ -480,6 +481,11 @@ def admin_orders(
     )
     if status_filter:
         stmt = stmt.where(Order.status == status_filter)
+    if day is not None and 0 <= day <= 30:
+        start = tashkent_today_start_utc() - timedelta(days=day)
+        stmt = stmt.where(
+            Order.created_at >= start, Order.created_at < start + timedelta(days=1)
+        )
     stmt = stmt.limit(limit).offset(max(0, offset))
     return db.scalars(stmt).all()
 

@@ -24,16 +24,53 @@ class _HistoryPageState extends State<HistoryPage> {
     ('cancelled', 'Bekor'),
   ];
 
+  // null = barcha kunlar, 0 = bugun, 1 = kecha, 2 = kechadan oldingi kun.
+  static const _days = <int?>[null, 0, 1, 2];
+
   String _filter = 'all';
+  int? _day;
   final Map<String, Resource<List<Order>>> _cache = {};
 
-  Resource<List<Order>> _resFor(String filter) {
+  // Toshkent (UTC+5, DST yo'q) sanasidagi tanlangan kun.
+  static DateTime _tashkentDay(int back) {
+    final now = DateTime.now().toUtc().add(const Duration(hours: 5));
+    return DateTime(now.year, now.month, now.day).subtract(Duration(days: back));
+  }
+
+  static bool _isSameDay(String createdAtIso, int back) {
+    final parsed = DateTime.tryParse(createdAtIso);
+    if (parsed == null) return false;
+    final c = parsed.toUtc().add(const Duration(hours: 5));
+    final t = _tashkentDay(back);
+    return c.year == t.year && c.month == t.month && c.day == t.day;
+  }
+
+  static String _dayLabel(int back) {
+    final d = _tashkentDay(back);
+    final dd = d.day.toString().padLeft(2, '0');
+    final mm = d.month.toString().padLeft(2, '0');
+    final name = back == 0
+        ? 'Bugun'
+        : back == 1
+            ? 'Kecha'
+            : 'Kechadan oldin';
+    return '$name · $dd.$mm';
+  }
+
+  Resource<List<Order>> _res() {
+    final key = '${_filter}_$_day';
     return _cache.putIfAbsent(
-      filter,
+      key,
       () => Resource<List<Order>>(
-        cacheKey: 'courier_history_$filter',
-        fetchRaw: () => api.get(
-            '/courier/history${filter == 'all' ? '' : '?status=$filter'}'),
+        cacheKey: 'courier_history_$key',
+        fetchRaw: () {
+          final qs = <String>[
+            if (_filter != 'all') 'status=$_filter',
+            if (_day != null) 'day=$_day',
+          ];
+          return api.get(
+              '/courier/history${qs.isEmpty ? '' : '?${qs.join('&')}'}');
+        },
         parse: Order.listFrom,
         errorText: "Tarixni yuklab bo'lmadi. Internetni tekshiring.",
       ),
@@ -43,7 +80,7 @@ class _HistoryPageState extends State<HistoryPage> {
   @override
   void initState() {
     super.initState();
-    _resFor(_filter);
+    _res();
   }
 
   @override
@@ -59,11 +96,14 @@ class _HistoryPageState extends State<HistoryPage> {
 
   @override
   Widget build(BuildContext context) {
-    final res = _resFor(_filter);
+    final res = _res();
     return AnimatedBuilder(
       animation: res,
       builder: (context, _) {
-        final orders = res.data ?? [];
+        final all = res.data ?? [];
+        final orders = _day == null
+            ? all
+            : all.where((o) => _isSameDay(o.createdAt, _day!)).toList();
         return Column(
           children: [
             PageHeader(
@@ -84,6 +124,24 @@ class _HistoryPageState extends State<HistoryPage> {
                     const SizedBox(width: 8),
                   ],
                 ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    for (final d in _days) ...[
+                      _FilterChip(
+                        label: d == null ? 'Barcha kunlar' : _dayLabel(d),
+                        active: _day == d,
+                        onTap: () => setState(() => _day = d),
+                      ),
+                      const SizedBox(width: 8),
+                    ],
+                  ],
+                ),
               ),
             ),
             Expanded(

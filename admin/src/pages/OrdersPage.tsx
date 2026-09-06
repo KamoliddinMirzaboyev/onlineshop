@@ -34,6 +34,21 @@ const PILL: Record<OrderStatus, string> = {
 
 const money = (n?: number | null) => (n || 0).toLocaleString("ru-RU").replace(/,/g, " ");
 
+// Kun bo'yicha filter — bugun / kecha / kechadan oldingi kun, sanasi bilan.
+const dayLabel = (back: number) => {
+  const d = new Date();
+  d.setDate(d.getDate() - back);
+  const date = d.toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit" });
+  const name = back === 0 ? "Bugun" : back === 1 ? "Kecha" : "Kechadan oldin";
+  return `${name} · ${date}`;
+};
+const DAY_TABS: { value: number | null; label: string }[] = [
+  { value: null, label: "Barcha kunlar" },
+  { value: 0, label: dayLabel(0) },
+  { value: 1, label: dayLabel(1) },
+  { value: 2, label: dayLabel(2) },
+];
+
 // Chek doc.write() bilan yoziladi — mijoz/kuryer kiritgan matnlar (manzil,
 // izoh, ism, telefon) escape qilinmasa, HTML/JS sifatida ijro etiladi (stored
 // XSS: chekni ochgan admin brauzerida, localStorage token'ga kirish bilan).
@@ -152,26 +167,31 @@ export default function OrdersPage() {
   const { admin } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
   const [filter, setFilter] = useState<OrderStatus | "">("");
+  const [day, setDay] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState(false);
   const [busy, setBusy] = useState<number | null>(null);
-  // Guard so a poll tick and a manual refresh never run concurrently and
-  // clobber each other's (potentially newer) state.
-  const inFlight = useRef(false);
+  // "Oxirgi so'rov yutadi" — filter almashganda eski so'rovni skip qilmaymiz,
+  // faqat javobini e'tiborsiz qoldiramiz (avvalgi inFlight guard yangi
+  // filterni butunlay yutib yuborardi).
+  const reqId = useRef(0);
 
   const load = async () => {
-    if (inFlight.current) return;
-    inFlight.current = true;
-    const q = filter ? `?status_filter=${filter}` : "";
+    const my = ++reqId.current;
+    const params = new URLSearchParams();
+    if (filter) params.set("status_filter", filter);
+    if (day !== null) params.set("day", String(day));
+    const q = params.toString() ? `?${params}` : "";
     try {
       const d = await get<Order[]>(`/admin/orders${q}`);
+      if (my !== reqId.current) return;
       setOrders(d);
       setErr(false);
     } catch {
+      if (my !== reqId.current) return;
       setErr(true);
     } finally {
-      setLoading(false);
-      inFlight.current = false;
+      if (my === reqId.current) setLoading(false);
     }
   };
 
@@ -180,7 +200,7 @@ export default function OrdersPage() {
     const iv = setInterval(load, 15000);
     return () => clearInterval(iv);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filter]);
+  }, [filter, day]);
 
   const cancel = async (o: Order) => {
     const ok = await confirm({
@@ -230,13 +250,25 @@ export default function OrdersPage() {
     }
   };
 
-  const sorted = [...orders].sort(
+  // Kun filtri client tarafda ham qo'llanadi — backend `day` paramni hali
+  // qo'llab-quvvatlamasa (deploy qilinmagan) ham ishlaydi. Toshkent (UTC+5,
+  // DST yo'q) sanasi bo'yicha solishtiramiz.
+  const tzDate = (iso: string | number) =>
+    new Date(iso).toLocaleDateString("en-CA", { timeZone: "Asia/Tashkent" });
+  const byDay =
+    day === null
+      ? orders
+      : orders.filter(
+          (o) => tzDate(o.created_at) === tzDate(Date.now() - day * 86400000)
+        );
+
+  const sorted = [...byDay].sort(
     (a, b) =>
       RANK[a.status] - RANK[b.status] ||
       +new Date(b.created_at) - +new Date(a.created_at)
   );
   const { visible: visibleOrders, sentinelRef: ordersEndRef, hasMore: hasMoreOrders } =
-    useInfiniteList(sorted, filter);
+    useInfiniteList(sorted, `${filter}_${day}`);
 
   return (
     <div className="flex flex-col h-[calc(100dvh-3.5rem-2rem)] md:h-[calc(100dvh-3.5rem-4rem)]">
@@ -255,6 +287,22 @@ export default function OrdersPage() {
                 : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900 hover:border-slate-300"
             }`}
             onClick={() => setFilter(tab.value as OrderStatus | "")}
+          >
+            {tab.label}
+          </button>
+          ))}
+        </div>
+
+        <div className="flex gap-2.5 overflow-x-auto mt-2.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {DAY_TABS.map((tab) => (
+          <button
+            key={String(tab.value)}
+            className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-semibold transition-all duration-200 flex-shrink-0 ${
+              day === tab.value
+                ? "bg-slate-900 text-white shadow-md shadow-slate-900/20"
+                : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900 hover:border-slate-300"
+            }`}
+            onClick={() => setDay(tab.value)}
           >
             {tab.label}
           </button>
@@ -408,7 +456,7 @@ export default function OrdersPage() {
           </div>
           );
         })}
-        {orders.length === 0 && (
+        {sorted.length === 0 && (
           <div className="card p-10 text-center text-slate-400">Buyurtmalar yo'q</div>
         )}
         {hasMoreOrders && <div ref={ordersEndRef} className="py-4 text-center text-xs text-slate-400">Yuklanmoqda...</div>}
