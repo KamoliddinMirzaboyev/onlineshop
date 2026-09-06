@@ -93,6 +93,9 @@ class Order(Base):
     # Oldingi nuqtadan (depot yoki oldingi stop) shu stopgacha leg km.
     route_leg_km: Mapped[float | None] = mapped_column(Float)
 
+    # "app" = mijoz ilovasidan, "manual" = admin panel orqali (telefon buyurtma).
+    source: Mapped[str] = mapped_column(String(16), default="app", server_default="app")
+
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

@@ -34,10 +34,10 @@ from app.schemas.catalog import (
 from app.schemas.admin import DeliveryZoneIn, DeliveryZoneOut
 from app.models import DeliveryZone
 from app.models.enums import AdminRole
-from app.schemas.order import OrderOut, OrderStatusUpdate
+from app.schemas.order import ManualOrderIn, OrderOut, OrderStatusUpdate
 from app.services import analytics, webpush
-from app.services.notify import broadcast_post, notify_status_change
-from app.services.orders import cancel_order
+from app.services.notify import broadcast_post, notify_new_order, notify_status_change
+from app.services.orders import cancel_order, create_manual_order
 
 # Autentifikatsiya poli: hech bir endpoint tokensiz ochilib qolmasligi uchun.
 # Har bir endpoint ustiga o'z scoping/ruxsat dependency'sini qo'shadi.
@@ -488,6 +488,31 @@ def admin_orders(
         )
     stmt = stmt.limit(limit).offset(max(0, offset))
     return db.scalars(stmt).all()
+
+
+@router.post("/orders", response_model=OrderOut, status_code=201)
+def create_order_manual(
+    data: ManualOrderIn,
+    background: BackgroundTasks,
+    principal=Depends(get_current_staff_or_business),
+    store: Restaurant = Depends(current_restaurant),
+    db: Session = Depends(get_db),
+):
+    """Telefon orqali kelgan buyurtmani qo'lda qo'shadi. pending holatda —
+    kuryerlar ko'radi va bildirishnoma oladi (web push + FCM). source='manual'."""
+    admin_name = getattr(principal, "name", None) or getattr(principal, "username", None)
+    order = create_manual_order(db, store, data, admin_name=admin_name)
+
+    from app.services.receipt import render_receipt
+
+    try:
+        receipt_png = render_receipt(order)
+    except Exception:  # noqa: BLE001
+        receipt_png = None
+    user_tg = order.user.telegram_id if order.user else None
+    background.add_task(notify_new_order, order, user_tg, receipt_png, False)
+    courier_events.publish({"type": "orders_updated", "restaurant_id": store.id})
+    return order
 
 
 @router.patch("/orders/{order_id}", response_model=OrderOut)

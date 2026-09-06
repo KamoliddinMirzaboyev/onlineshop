@@ -116,10 +116,42 @@ class OrderOut(BaseModel):
     route_group_id: str | None = None
     route_sequence: int | None = None
     route_leg_km: float | None = None
+    source: str = "app"
     created_at: datetime
     items: list[OrderItemOut] = []
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class ManualOrderItemIn(BaseModel):
+    product_id: int
+    quantity: float = Field(gt=0, le=10_000)
+    note: str | None = None
+
+
+class ManualOrderIn(BaseModel):
+    """Admin panel — telefon orqali kelgan buyurtmani qo'lda qo'shish."""
+
+    items: list[ManualOrderItemIn] = Field(min_length=1)
+    phone: str
+    address_line: str = Field(max_length=512)
+    comment: str | None = Field(default=None, max_length=1000)
+    delivery_fee: int = Field(default=0, ge=0, le=10_000_000)
+
+    @field_validator("phone")
+    @classmethod
+    def _phone(cls, v: str) -> str:
+        from app.core.phone import require_phone
+
+        return require_phone(v)
+
+    @field_validator("address_line")
+    @classmethod
+    def _addr(cls, v: str) -> str:
+        s = (v or "").strip()
+        if len(s) < 4:
+            raise ValueError("Manzil juda qisqa")
+        return s
 
 
 class OrderStatusUpdate(BaseModel):

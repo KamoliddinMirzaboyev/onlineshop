@@ -93,6 +93,7 @@ export interface Order {
   route_group_id?: string | null;
   route_sequence?: number | null;
   route_leg_km?: number | null;
+  source?: string;
   created_at: string;
   items: OrderItem[];
 }

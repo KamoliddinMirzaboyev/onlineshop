@@ -305,6 +305,143 @@ def create_order(db: Session, user: User, data: OrderCreateIn) -> Order:
         raise
 
 
+def _get_or_create_phone_user(db: Session, phone: str) -> User:
+    """Telefon buyurtma uchun mijoz: shu raqamli user bo'lsa — o'sha (mavjud
+    ilova mijozi ham bo'lishi mumkin), aks holda telegram_id'siz yangi qator.
+    Alohida commit — buyurtma raqami to'qnashuvida rollback bo'lsa ham yo'qolmaydi."""
+    user = db.scalar(select(User).where(User.phone == phone))
+    if user:
+        return user
+    user = User(phone=phone, first_name="Telefon mijoz", language="uz")
+    db.add(user)
+    try:
+        db.commit()
+    except IntegrityError:  # parallel so'rov shu raqamni yaratib ulgurdi
+        db.rollback()
+        user = db.scalar(select(User).where(User.phone == phone))
+        if not user:
+            raise
+    db.refresh(user)
+    return user
+
+
+def create_manual_order(
+    db: Session, restaurant: Restaurant, data, admin_name: str | None = None
+) -> Order:
+    """Admin panel orqali qo'lda (telefon) buyurtma — pending, source='manual'.
+    Zona/koordinata tekshiruvi yo'q (admin ishonchli), yetkazish narxi admin
+    kiritgan qiymat. Kuryerlar odatdagidek ko'radi/bildirishnoma oladi."""
+    if not data.items:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Cart is empty")
+
+    phone = normalize_phone(data.phone)
+    if not phone:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Telefon raqami noto'g'ri")
+    user = _get_or_create_phone_user(db, phone)
+
+    qty_by_product: dict[int, float] = defaultdict(float)
+    notes_by_product: dict[int, str | None] = {}
+    for ci in data.items:
+        qty_by_product[ci.product_id] += ci.quantity
+        if ci.note:
+            notes_by_product[ci.product_id] = ci.note
+
+    items_total = 0
+    order_items: list[OrderItem] = []
+    reserved: list[tuple[int, float]] = []
+    try:
+        for product_id, qty in qty_by_product.items():
+            product = db.get(Product, product_id)
+            if (
+                not product
+                or product.restaurant_id != restaurant.id
+                or not product.is_available
+            ):
+                raise HTTPException(
+                    status.HTTP_400_BAD_REQUEST, f"Product {product_id} unavailable"
+                )
+            reserve_stock_atomic(db, product_id, qty, product_name=product.name_uz)
+            reserved.append((product_id, qty))
+            items_total += int(round(product.price * qty))
+            order_items.append(
+                OrderItem(
+                    product_id=product.id,
+                    name_uz=product.name_uz,
+                    name_ru=product.name_ru,
+                    image_url=product.image_url,
+                    price=product.price,
+                    cost=product.cost,
+                    quantity=qty,
+                    unit=product.unit,
+                    note=notes_by_product.get(product_id),
+                )
+            )
+
+        delivery_fee = max(0, int(data.delivery_fee or 0))
+        comment = (data.comment or "").strip() or None
+        tag = f"☎️ Admin qo'shdi ({admin_name})" if admin_name else "☎️ Admin qo'shdi"
+        comment = f"{tag}\n{comment}" if comment else tag
+
+        for _attempt in range(5):
+            order = Order(
+                number=_generate_number(),
+                user_id=user.id,
+                restaurant_id=restaurant.id,
+                status=OrderStatus.pending,
+                payment_method=PaymentMethod.cash,
+                payment_status=PaymentStatus.unpaid,
+                items_total=items_total,
+                delivery_fee=delivery_fee,
+                total=items_total + delivery_fee,
+                address_line=data.address_line.strip(),
+                phone=phone,
+                comment=comment,
+                source="manual",
+                items=[
+                    OrderItem(
+                        product_id=oi.product_id,
+                        name_uz=oi.name_uz,
+                        name_ru=oi.name_ru,
+                        image_url=oi.image_url,
+                        price=oi.price,
+                        cost=oi.cost,
+                        quantity=oi.quantity,
+                        unit=oi.unit,
+                        note=oi.note,
+                    )
+                    for oi in order_items
+                ],
+            )
+            db.add(order)
+            try:
+                db.commit()
+            except IntegrityError:
+                db.rollback()
+                reserved.clear()
+                for product_id, qty in qty_by_product.items():
+                    p = db.get(Product, product_id)
+                    reserve_stock_atomic(
+                        db, product_id, qty,
+                        product_name=p.name_uz if p else str(product_id),
+                    )
+                    reserved.append((product_id, qty))
+                continue
+            db.refresh(order)
+            return order
+
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE, "Could not generate order number"
+        )
+    except HTTPException:
+        for product_id, qty in reserved:
+            restore_stock_atomic(db, product_id, qty)
+        try:
+            db.commit()
+        except Exception:  # noqa: BLE001
+            db.rollback()
+        raise
+
+
 def cancel_order(db: Session, order: Order) -> Order:
     """Buyurtmani bekor qiladi, zaxirani qaytaradi (atomik — double-cancel stock shishmaydi)."""
     if order.status == OrderStatus.cancelled:

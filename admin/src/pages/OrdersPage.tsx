@@ -336,6 +336,9 @@ export default function OrdersPage() {
                   )}
                   <span className="text-base md:text-lg font-extrabold text-slate-900 tracking-tight">№ {o.number}</span>
                   <span className={`px-2.5 py-0.5 rounded-lg text-xs font-bold tracking-wide ${PILL[o.status]}`}>{LABEL[o.status]}</span>
+                  {o.source === "manual" && (
+                    <span className="px-2 py-0.5 rounded-lg text-xs font-bold bg-slate-800 text-white">☎️ Qo'lda</span>
+                  )}
                 </div>
 
                 <div className="space-y-1.5 mt-2.5">
