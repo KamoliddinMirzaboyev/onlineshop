@@ -67,6 +67,13 @@ def test_manual_order_creates_pending_courier_visible(client, db_session, tenant
     seen = client.get("/api/courier/orders", headers=auth(ctok)).json()
     assert body["id"] in [o["id"] for o in seen]
 
+    # /admin/orders?source=manual — faqat qo'lda qo'shilganlar
+    manual = client.get(
+        "/api/admin/orders?source=manual", headers=auth(tenant_a.staff_token)
+    ).json()
+    assert [o["id"] for o in manual] == [body["id"]]
+    assert all(o["source"] == "manual" for o in manual)
+
 
 def test_manual_order_rejects_bad_phone(client, db_session, tenant_a):
     p = _product(db_session, tenant_a)

@@ -15,7 +15,7 @@ const links = [
   { to: "/orders", label: "Buyurtmalar", icon: ReceiptText },
   { to: "/products", label: "Mahsulotlar", icon: ShoppingBasket },
   { to: "/warehouse", label: "Ombor", icon: Warehouse },
-  { to: "/supplies", label: "Yetkazib berish", icon: Truck },
+  { to: "/supplies", label: "Qo'lda buyurtma", icon: Truck },
   { to: "/delivery-zone", label: "Yetkazish hududi", icon: MapPinned },
   { to: "/post", label: "Post", icon: Megaphone, roles: ["superadmin"] },
   { to: "/reports", label: "Hisobot", icon: BarChart3, roles: ["superadmin"] },

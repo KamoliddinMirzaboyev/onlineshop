@@ -469,6 +469,7 @@ def admin_orders(
     db: Session = Depends(get_db),
     status_filter: OrderStatus | None = None,
     day: int | None = None,
+    source: str | None = None,
     limit: int = 100,
     offset: int = 0,
 ):
@@ -481,6 +482,8 @@ def admin_orders(
     )
     if status_filter:
         stmt = stmt.where(Order.status == status_filter)
+    if source in ("app", "manual"):
+        stmt = stmt.where(Order.source == source)
     if day is not None and 0 <= day <= 30:
         start = tashkent_today_start_utc() - timedelta(days=day)
         stmt = stmt.where(
