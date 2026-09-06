@@ -2,14 +2,20 @@
 
 Used by API to ping the user and the orders channel on order events.
 Failures are swallowed — a notification problem must never break an order.
-"""
+
+Har bir mijozga qaratilgan xabar ikki mustaqil yo'l bilan yetadi: Telegram
+(agar `telegram_id` bo'lsa — bot orqali kirgan) va FCM push + ilova ichidagi
+"Bildirishnomalar" yozuvi (har doim, `user_id` orqali — OTP/telefon bilan
+kirgan, Telegramga ulanmagan mijozlarda ham ishlaydi)."""
 
 import html
+import re
 
 import httpx
 
 from app.core.config import settings
-from app.models import Order
+from app.core.db import SessionLocal
+from app.models import Notification, Order
 from app.services import webpush
 
 
@@ -18,6 +24,45 @@ def _e(s: str | None) -> str:
     (address_line/phone/comment/courier nomi — mijoz/xodim kiritadi, tag
     tashlab yuborilsa Telegram API 400 qaytaradi yoki matn soxtalashtiriladi)."""
     return html.escape(s or "", quote=False)
+
+
+_TAG_RE = re.compile(r"<[^>]+>")
+
+
+def _plain(s: str) -> str:
+    """HTML teglarsiz — ilova bildirishnomalar sahifasida/FCM push'da ko'rsatish uchun."""
+    return _TAG_RE.sub("", s).strip()
+
+
+def _record_and_push(
+    user_id: int | None, kind: str, title: str, body_html: str,
+    order_id: int | None = None, image_url: str | None = None,
+) -> None:
+    """Ilova ichidagi Bildirishnomalar yozuvi + FCM push — Telegram bilan
+    bog'liq emas, shuning uchun OTP/telefon orqali kirgan (telegram_id yo'q)
+    mijozlarda ham ishlaydi. Xato asosiy oqimni to'xtatmaydi."""
+    if not user_id:
+        return
+    body = _plain(body_html)
+    try:
+        with SessionLocal() as db:
+            db.add(Notification(
+                user_id=user_id, kind=kind, title=title, body=body,
+                order_id=order_id, image_url=image_url,
+            ))
+            db.commit()
+    except Exception:
+        pass
+    try:
+        from app.services import fcm
+        fcm.notify_user(
+            user_id, title, body,
+            url=f"/orders/{order_id}" if order_id else "/",
+            tag=f"order-{order_id}" if order_id else None,
+        )
+    except Exception:
+        pass
+
 
 _API = f"https://api.telegram.org/bot{settings.bot_token}/sendMessage"
 _PHOTO_API = f"https://api.telegram.org/bot{settings.bot_token}/sendPhoto"
@@ -107,16 +152,29 @@ def _send_photo_url(chat_id: int, photo_url: str, caption: str = "") -> None:
 _CAPTION_LIMIT = 1024
 
 
-def broadcast_post(telegram_ids: list[int], text: str, photo_url: str | None) -> None:
-    """Admin/tadbirkor panelidan mijozlarga bot orqali post yuborish (rasm/matn/ikkalasi)."""
-    for tid in telegram_ids:
-        if photo_url and len(text) <= _CAPTION_LIMIT:
-            _send_photo_url(tid, photo_url, caption=text)
-        elif photo_url:
-            _send_photo_url(tid, photo_url)
-            _send(tid, text)
-        else:
-            _send(tid, text)
+def _broadcast_title(text: str) -> str:
+    """Xabar matnining birinchi qatori — bildirishnomalar ro'yxatida sarlavha."""
+    first = next((l for l in _plain(text).splitlines() if l.strip()), "")
+    first = first.strip()
+    return (first[:77] + "…") if len(first) > 80 else (first or "📣 Yangilik")
+
+
+def broadcast_post(recipients: list[tuple[int, int | None]], text: str, photo_url: str | None) -> None:
+    """Admin/tadbirkor panelidan mijozlarga bot orqali post yuborish (rasm/matn/ikkalasi).
+
+    `recipients` — (user_id, telegram_id) juftliklari; telegram_id yo'q
+    (OTP bilan kirgan) mijozlar ham FCM push + ilova bildirishnomasini oladi."""
+    title = _broadcast_title(text)
+    for user_id, tid in recipients:
+        if tid:
+            if photo_url and len(text) <= _CAPTION_LIMIT:
+                _send_photo_url(tid, photo_url, caption=text)
+            elif photo_url:
+                _send_photo_url(tid, photo_url)
+                _send(tid, text)
+            else:
+                _send(tid, text)
+        _record_and_push(user_id, "broadcast", title, text, image_url=photo_url)
 
 
 def _ask_location(chat_id: int) -> None:
@@ -135,8 +193,8 @@ def _ask_location(chat_id: int) -> None:
 
 
 def notify_new_order(
-    order: Order, user_telegram_id: int | None, receipt_png: bytes | None = None,
-    needs_location: bool = True,
+    order: Order, user_id: int | None, user_telegram_id: int | None,
+    receipt_png: bytes | None = None, needs_location: bool = True,
 ) -> None:
     lines = [
         f"🆕 <b>Yangi buyurtma {order.number}</b>",
@@ -151,7 +209,9 @@ def notify_new_order(
     if settings.orders_chat_id:
         _send(settings.orders_chat_id, text)
 
-    # Foydalanuvchiga chek (rasm) + status.
+    # Foydalanuvchiga chek (rasm) + status — bot orqali (telegram_id bo'lsa).
+    pending_title = _STATUS_TEXT["uz"]["pending"]
+    pending_text = pending_title + f"\n№ {order.number}"
     if user_telegram_id:
         if receipt_png:
             _send_photo(
@@ -159,11 +219,14 @@ def notify_new_order(
                 caption=f"🧾 Buyurtmangiz qabul qilindi · № {order.number}",
             )
         else:
-            _send(user_telegram_id, _STATUS_TEXT["uz"]["pending"] + f"\n№ {order.number}")
+            _send(user_telegram_id, pending_text)
 
         # Joylashuv hali yo'q bo'lsa — so'raymiz (TMA xaritadan yuborgan bo'lsa, kerak emas).
         if needs_location:
             _ask_location(user_telegram_id)
+
+    # Ilova bildirishnomasi + FCM push — telegram_id bor-yo'qligidan qat'i nazar.
+    _record_and_push(user_id, "order_status", pending_title, pending_text, order_id=order.id)
 
     # admin PWA push — faqat shu buyurtmaning do'koniga
     webpush.notify_admins(
@@ -245,7 +308,8 @@ def build_status_message(
 
 def notify_status_change(
     order: Order,
-    user_telegram_id: int,
+    user_id: int | None,
+    user_telegram_id: int | None,
     lang: str | None = "uz",
     courier_name: str | None = None,
     courier_phone: str | None = None,
@@ -257,13 +321,19 @@ def notify_status_change(
         courier_name=courier_name,
         courier_phone=courier_phone,
     )
-    if msg:
+    if not msg:
+        return
+    if user_telegram_id:
         _send(user_telegram_id, msg)
+    _record_and_push(
+        user_id, "order_status", _status_line(order.status.value, lang), msg, order_id=order.id,
+    )
 
 
 def notify_delivering_eta(
     order: Order,
-    user_telegram_id: int,
+    user_id: int | None,
+    user_telegram_id: int | None,
     eta_minutes: int | None,
     distance_km: float | None,
     courier_name: str | None = None,
@@ -294,16 +364,19 @@ def notify_delivering_eta(
     text = "\n".join(lines)
 
     # Avval yangilangan chek (miqdor/summa o'zgargan bo'lishi mumkin), keyin ETA matni.
-    if receipt_png:
-        _send_photo(user_telegram_id, receipt_png, caption=receipt_caption[:1024])
+    if user_telegram_id:
+        if receipt_png:
+            _send_photo(user_telegram_id, receipt_png, caption=receipt_caption[:1024])
         _send(user_telegram_id, text)
-    else:
-        _send(user_telegram_id, text)
+
+    eta_title = "🛵 Buyurtmangiz yo'lda" if l != "ru" else "🛵 Ваш заказ в пути"
+    _record_and_push(user_id, "order_status", eta_title, text, order_id=order.id)
 
 
 def notify_eta_update(
     order: Order,
-    user_telegram_id: int,
+    user_id: int | None,
+    user_telegram_id: int | None,
     eta_minutes: int,
     lang: str | None = "uz",
 ) -> None:
@@ -319,12 +392,16 @@ def notify_eta_update(
             f"⏱ <b>ETA yangilandi · № {order.number}</b>\n"
             f"Kuryer marshrutni yangiladi — taxminan <b>{eta_minutes} daqiqa</b>"
         )
-    _send(user_telegram_id, text)
+    if user_telegram_id:
+        _send(user_telegram_id, text)
+    title = "⏱ Обновление ETA" if l == "ru" else "⏱ ETA yangilandi"
+    _record_and_push(user_id, "order_status", title, text, order_id=order.id)
 
 
 def notify_order_adjusted(
     order: Order,
-    user_telegram_id: int,
+    user_id: int | None,
+    user_telegram_id: int | None,
     lang: str | None = "uz",
     receipt_png: bytes | None = None,
 ) -> None:
@@ -346,8 +423,10 @@ def notify_order_adjusted(
         )
         caption = f"🧾 Yangilangan chek · № {order.number} · {total:,} so'm".replace(",", " ")
 
-    if receipt_png:
-        _send_photo(user_telegram_id, receipt_png, caption=caption[:1024])
+    if user_telegram_id:
+        if receipt_png:
+            _send_photo(user_telegram_id, receipt_png, caption=caption[:1024])
         _send(user_telegram_id, text)
-    else:
-        _send(user_telegram_id, text)
+
+    title = "✏️ Заказ обновлён" if l == "ru" else "✏️ Buyurtma yangilandi"
+    _record_and_push(user_id, "order_status", title, text, order_id=order.id)

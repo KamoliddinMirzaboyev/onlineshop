@@ -132,3 +132,14 @@ export interface User {
   language: string;
   created_at: string;
 }
+
+export interface AppNotification {
+  id: number;
+  kind: "order_status" | "broadcast";
+  title: string;
+  body: string;
+  image_url?: string | null;
+  order_id?: number | null;
+  is_read: boolean;
+  created_at: string;
+}

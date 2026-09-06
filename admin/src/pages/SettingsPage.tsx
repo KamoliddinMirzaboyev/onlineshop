@@ -1,4 +1,4 @@
-import { KeyRound, Save, Truck } from "lucide-react";
+import { KeyRound, Phone, Save, Send, Truck } from "lucide-react";
 import PasswordInput from "../components/PasswordInput";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -24,6 +24,11 @@ export default function SettingsPage() {
   const [name, setName] = useState("");
   const [minOrder, setMinOrder] = useState(50_000);
   const [deliveryPerKm, setDeliveryPerKm] = useState(2_000);
+  const [phone1, setPhone1] = useState("");
+  const [phone2, setPhone2] = useState("");
+  const [telegram, setTelegram] = useState("");
+  const [socials, setSocials] = useState<Record<string, string>>({});
+  const [contactSaving, setContactSaving] = useState(false);
 
   const load = () => {
     setErr(false);
@@ -33,6 +38,10 @@ export default function SettingsPage() {
         setName(s.name ?? "");
         setMinOrder(s.min_order > 0 ? s.min_order : 50_000);
         setDeliveryPerKm(s.delivery_fee > 0 ? s.delivery_fee : 2_000);
+        setPhone1(s.phones?.[0] ?? "");
+        setPhone2(s.phones?.[1] ?? "");
+        setSocials(s.socials ?? {});
+        setTelegram((s.socials?.telegram ?? "").replace(/^@/, ""));
         setLoading(false);
       })
       .catch(() => { setErr(true); setLoading(false); });
@@ -62,6 +71,24 @@ export default function SettingsPage() {
       toast.error("Saqlab bo'lmadi");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const saveContact = async () => {
+    setContactSaving(true);
+    try {
+      const phones = [phone1, phone2].map((p) => p.trim()).filter(Boolean);
+      const nextSocials = { ...socials };
+      const tgClean = telegram.trim().replace(/^@/, "");
+      if (tgClean) nextSocials.telegram = tgClean;
+      else delete nextSocials.telegram;
+      await put<Restaurant>("/admin/store", { name: name || "Do'kon", phones, socials: nextSocials });
+      setSocials(nextSocials);
+      toast.success("Bog'lanish ma'lumotlari saqlandi");
+    } catch {
+      toast.error("Saqlab bo'lmadi");
+    } finally {
+      setContactSaving(false);
     }
   };
 
@@ -165,6 +192,57 @@ export default function SettingsPage() {
             <button onClick={save} disabled={saving} className="btn">
               <Save size={16} /> {saving ? "Saqlanmoqda…" : "Saqlash"}
             </button>
+          </div>
+
+          {/* Bog'lanish — mijozlarga TMA va botda ko'rsatiladi */}
+          <div className="card p-5 space-y-4">
+            <h2 className="font-semibold text-slate-800 flex items-center gap-2">
+              <Phone size={18} className="text-brand" /> Bog'lanish
+            </h2>
+            <p className="text-sm text-slate-500">
+              Mijozlar TMA profil sahifasi va botda buyurtma bo'yicha shu orqali bog'lanadi.
+            </p>
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Telefon 1</label>
+                <input
+                  className="input"
+                  type="tel"
+                  placeholder="+998901234567"
+                  value={phone1}
+                  onChange={(e) => setPhone1(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Telefon 2 (ixtiyoriy)</label>
+                <input
+                  className="input"
+                  type="tel"
+                  placeholder="+998901234567"
+                  value={phone2}
+                  onChange={(e) => setPhone2(e.target.value)}
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="block text-sm font-medium text-slate-700 mb-1 flex items-center gap-1.5">
+                  <Send size={14} /> Telegram username
+                </label>
+                <div className="flex items-center">
+                  <span className="px-3 py-2 rounded-l-xl bg-slate-100 text-slate-500 border border-r-0 border-slate-200 text-sm">@</span>
+                  <input
+                    className="input rounded-l-none"
+                    placeholder="username"
+                    value={telegram}
+                    onChange={(e) => setTelegram(e.target.value.replace(/^@/, ""))}
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-end">
+              <button onClick={saveContact} disabled={contactSaving} className="btn">
+                <Save size={16} /> {contactSaving ? "Saqlanmoqda…" : "Saqlash"}
+              </button>
+            </div>
           </div>
 
           {/* Parol */}

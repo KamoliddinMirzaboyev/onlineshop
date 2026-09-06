@@ -301,6 +301,7 @@ def courier_adjust_order(
         order.items_adjusted_at = datetime.now(timezone.utc)
 
     customer = db.get(User, order.user_id)
+    user_id = customer.id if customer else None
     user_tg = customer.telegram_id if customer else None
     user_lang = (customer.language if customer else None) or "uz"
 
@@ -314,7 +315,7 @@ def courier_adjust_order(
     ) or order
 
     # Haqiqiy o'zgarish bo'lsa — mijozga yangi chek (3 kg → 3.5 kg va h.k.)
-    if changed and user_tg:
+    if changed and user_id:
         receipt_png = None
         try:
             receipt_png = render_receipt(order)
@@ -323,6 +324,7 @@ def courier_adjust_order(
         background.add_task(
             notify_order_adjusted,
             order,
+            user_id,
             user_tg,
             user_lang,
             receipt_png,
@@ -489,9 +491,10 @@ def _notify_delivering(
 ) -> None:
     for full in orders:
         customer = db.get(User, full.user_id)
+        user_id = customer.id if customer else None
         user_tg = customer.telegram_id if customer else None
         user_lang = (customer.language if customer else None) or "uz"
-        if not user_tg:
+        if not user_id:
             continue
         receipt_png = None
         try:
@@ -501,6 +504,7 @@ def _notify_delivering(
         background.add_task(
             notify_delivering_eta,
             full,
+            user_id,
             user_tg,
             full.eta_minutes,
             full.distance_km,
@@ -530,13 +534,15 @@ def _notify_eta_changes(
         if abs(new - old) < _ETA_UPDATE_MIN_DELTA:
             continue
         customer = db.get(User, full.user_id)
+        user_id = customer.id if customer else None
         user_tg = customer.telegram_id if customer else None
-        if not user_tg:
+        if not user_id:
             continue
         user_lang = (customer.language if customer else None) or "uz"
         background.add_task(
             notify_eta_update,
             full,
+            user_id,
             user_tg,
             new,
             user_lang,
@@ -751,6 +757,7 @@ def courier_update_order(
 
     # User ma'lumotini commitdan oldin o'qiymiz (lazy-load/detached xavfisiz).
     customer = db.get(User, order.user_id)
+    user_id = customer.id if customer else None
     user_tg = customer.telegram_id if customer else None
     user_lang = (customer.language if customer else None) or "uz"
 
@@ -830,10 +837,11 @@ def courier_update_order(
     db.refresh(order)
 
     # "Qabul qilindi" — mijoz tilida + kuryer ismi/telefon + admin push.
-    if notify_accept and user_tg:
+    if notify_accept and user_id:
         background.add_task(
             notify_status_change,
             order,
+            user_id,
             user_tg,
             user_lang,
             courier.name,
@@ -871,6 +879,7 @@ def courier_mark_delivered(
             "Faqat 'yetkazilmoqda' holatidagi buyurtmani yakunlash mumkin",
         )
     customer = db.get(User, order.user_id)
+    user_id = customer.id if customer else None
     user_tg = customer.telegram_id if customer else None
     user_lang = (customer.language if customer else None) or "uz"
     ensure_transition(order.status, OrderStatus.delivered)
@@ -924,10 +933,11 @@ def courier_mark_delivered(
         pass  # qolgan yo'q yoki limit — asosiy deliver muvaffaqiyatli
 
     courier_events.publish({"type": "orders_updated", "restaurant_id": order.restaurant_id})
-    if user_tg:
+    if user_id:
         background.add_task(
             notify_status_change,
             order,
+            user_id,
             user_tg,
             user_lang,
             courier.name,

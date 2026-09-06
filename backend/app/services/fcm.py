@@ -12,7 +12,7 @@ from sqlalchemy import select, update
 
 from app.core.config import settings
 from app.core.db import SessionLocal
-from app.models import AdminUser
+from app.models import AdminUser, User
 from app.models.enums import AdminRole
 
 log = logging.getLogger(__name__)
@@ -123,6 +123,14 @@ def _clear_tokens(tokens: list[str]) -> None:
         db.commit()
 
 
+def _clear_user_tokens(tokens: list[str]) -> None:
+    if not tokens:
+        return
+    with SessionLocal() as db:
+        db.execute(update(User).where(User.fcm_token.in_(tokens)).values(fcm_token=None))
+        db.commit()
+
+
 def _payload_data(url: str = "/", tag: str | None = None) -> dict[str, str]:
     data: dict[str, str] = {"url": url or "/"}
     if tag:
@@ -180,6 +188,21 @@ def notify_all_couriers(
             dead.append(token)
     if dead:
         _clear_tokens(dead)
+
+
+def notify_user(user_id: int, title: str, body: str, url: str = "/", tag: str | None = None) -> None:
+    """Mijoz ilovasiga (mijoz_app) FCM push — buyurtma holati/e'lonlar.
+    Telegram bot bilan mustaqil: telegram_id yo'q (OTP orqali kirgan) mijozlarda
+    ham ishlaydi, faqat User.fcm_token borligiga bog'liq."""
+    if not _ensure_app():
+        return
+    with SessionLocal() as db:
+        token = db.scalar(select(User.fcm_token).where(User.id == user_id))
+    if not token:
+        return
+    ok = _send_token(token, title, body, _payload_data(url, tag))
+    if not ok:
+        _clear_user_tokens([token])
 
 
 def configured() -> bool:

@@ -9,10 +9,19 @@ class TelegramAuthIn(BaseModel):
     init_data: str
 
 
-class AppRegisterIn(BaseModel):
+class OtpRequestIn(BaseModel):
     phone: str
-    password: str = Field(min_length=6, max_length=128)
-    first_name: str = Field(min_length=1, max_length=128)
+
+    @field_validator("phone")
+    @classmethod
+    def _phone(cls, v: str) -> str:
+        return require_phone(v)
+
+
+class OtpVerifyIn(BaseModel):
+    phone: str
+    code: str = Field(min_length=4, max_length=8)
+    first_name: str | None = Field(default=None, max_length=128)
 
     @field_validator("phone")
     @classmethod
@@ -21,25 +30,11 @@ class AppRegisterIn(BaseModel):
 
     @field_validator("first_name")
     @classmethod
-    def _name(cls, v: str) -> str:
-        s = (v or "").strip()
-        if not s:
-            raise ValueError("Ism majburiy")
-        return s[:128]
-
-
-class SetPasswordIn(BaseModel):
-    password: str = Field(min_length=6, max_length=128)
-
-
-class AppLoginIn(BaseModel):
-    phone: str
-    password: str = Field(min_length=1, max_length=128)
-
-    @field_validator("phone")
-    @classmethod
-    def _phone(cls, v: str) -> str:
-        return require_phone(v)
+    def _name(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        s = v.strip()
+        return s[:128] if s else None
 
 
 class FCMTokenIn(BaseModel):
@@ -76,6 +71,7 @@ class AuthResult(BaseModel):
 
 class UserUpdateIn(BaseModel):
     first_name: str | None = Field(default=None, max_length=128)
+    last_name: str | None = Field(default=None, max_length=128)
     phone: str | None = None
 
     @field_validator("phone")

@@ -34,7 +34,7 @@ def place_order(
         receipt_png = None
     needs_location = order.lat is None or order.lng is None
     background.add_task(
-        notify_new_order, order, user.telegram_id, receipt_png, needs_location
+        notify_new_order, order, user.id, user.telegram_id, receipt_png, needs_location
     )
     courier_events.publish({"type": "orders_updated", "restaurant_id": order.restaurant_id})
     return order

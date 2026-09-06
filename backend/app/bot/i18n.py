@@ -60,6 +60,9 @@ TEXTS = {
         "no_pending_order": "Faol buyurtma topilmadi.",
         "blocked": f"⛔️ Akkauntingiz bloklangan.\nQo'llab-quvvatlash: {SUPPORT_HANDLE}",
         "offer_chunk": "📄 Ommaviy oferta ({n}/{total})",
+        "contact_order": "☎️ Bog'lanish",
+        "contact_none_set": "Do'kon bog'lanish ma'lumotini kiritmagan. Umumiy yordam uchun \"Yordam\" tugmasini bosing.",
+        "contact_header": "☎️ Bog'lanish:",
     },
     "ru": {
         "start": (
@@ -116,6 +119,9 @@ TEXTS = {
         "no_pending_order": "Активный заказ не найден.",
         "blocked": f"⛔️ Ваш аккаунт заблокирован.\nПоддержка: {SUPPORT_HANDLE}",
         "offer_chunk": "📄 Публичная оферта ({n}/{total})",
+        "contact_order": "☎️ Связаться",
+        "contact_none_set": "Магазин не указал контакты. Для общей поддержки нажмите «Помощь».",
+        "contact_header": "☎️ Связаться:",
     },
 }
 

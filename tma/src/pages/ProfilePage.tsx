@@ -1,10 +1,11 @@
 import { Check, ChevronRight, FileText, Headphones, Trash2, X } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { api } from "../api/client";
 import type { Address } from "../api/types";
 import PageHeader from "../components/PageHeader";
 import { formatUzPhone } from "../lib/format";
-import { offerText, SUPPORT_HANDLE, SUPPORT_URL } from "../lib/offer";
+import { offerText } from "../lib/offer";
 import { useI18n, type Lang } from "../i18n";
 import { useAuth } from "../store/auth";
 
@@ -40,22 +41,19 @@ type EditField = "name" | "phone" | null;
 
 export default function ProfilePage() {
   const { t, lang, setLang } = useI18n();
+  const nav = useNavigate();
   const user = useAuth((s) => s.user);
   const setUser = useAuth((s) => s.setUser);
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [newAddr, setNewAddr] = useState("");
   const [showAddrForm, setShowAddrForm] = useState(false);
-  const [supportPhone, setSupportPhone] = useState<string | null>(null);
   const [showOffer, setShowOffer] = useState(false);
   const [editField, setEditField] = useState<EditField>(null);
   const [editValue, setEditValue] = useState("");
   const [saving, setSaving] = useState(false);
 
   const load = () => api.addresses().then(setAddresses).catch(() => setAddresses([]));
-  useEffect(() => {
-    load();
-    api.store().then((s) => setSupportPhone(s?.phones?.[0] ?? null)).catch(() => {});
-  }, []);
+  useEffect(() => { load(); }, []);
 
   const addAddress = async () => {
     if (!newAddr.trim()) return;
@@ -171,23 +169,14 @@ export default function ProfilePage() {
       )}
 
       <div className="mx-4 mt-4 card divide-y divide-black/5">
-        <a
-          href={SUPPORT_URL}
-          target="_blank"
-          rel="noreferrer"
+        <button
+          onClick={() => nav("/contact")}
           className="w-full flex items-center gap-3 px-4 py-3.5 text-left"
         >
           <Headphones size={17} className="text-tg-hint" />
-          {lang === "uz" ? "Qo'llab-quvvatlash" : "Поддержка"}
-          <span className="ml-auto text-brand text-sm font-medium">{SUPPORT_HANDLE}</span>
-        </a>
-        {supportPhone && (
-          <a href={`tel:${supportPhone}`} className="w-full flex items-center gap-3 px-4 py-3.5 text-left">
-            <Headphones size={17} className="text-tg-hint" />
-            {lang === "uz" ? "Qo'ng'iroq" : "Звонок"}
-            <span className="ml-auto text-tg-hint text-sm">{supportPhone}</span>
-          </a>
-        )}
+          {lang === "uz" ? "Texnik qo'llab-quvvatlash" : "Техническая поддержка"}
+          <ChevronRight size={16} className="ml-auto text-tg-hint" />
+        </button>
         <button onClick={() => setShowOffer(true)} className="w-full flex items-center gap-3 px-4 py-3.5 text-left">
           <FileText size={17} className="text-tg-hint" />
           {lang === "uz" ? "Ommaviy oferta" : "Публичная оферта"}

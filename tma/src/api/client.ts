@@ -3,7 +3,7 @@ import {
   isTelegramLocationGranted,
   requestTelegramLocation,
 } from "../telegram";
-import type { Address, Order, Restaurant, RestaurantDetail, User } from "./types";
+import type { Address, AppNotification, Order, Restaurant, RestaurantDetail, User } from "./types";
 
 const BASE = import.meta.env.VITE_API_URL ?? "https://api.barakali-bozor.uz/api";
 
@@ -644,4 +644,8 @@ export const api = {
     req<Order>("/orders", { method: "POST", body: JSON.stringify(data) }),
   myOrders: () => req<Order[]>("/orders"),
   order: (id: number) => req<Order>(`/orders/${id}`),
+
+  // notifications
+  notifications: () => req<AppNotification[]>("/notifications"),
+  markNotificationsRead: () => req<void>("/notifications/read-all", { method: "POST" }),
 };

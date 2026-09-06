@@ -512,8 +512,9 @@ def create_order_manual(
         receipt_png = render_receipt(order)
     except Exception:  # noqa: BLE001
         receipt_png = None
+    user_id = order.user.id if order.user else None
     user_tg = order.user.telegram_id if order.user else None
-    background.add_task(notify_new_order, order, user_tg, receipt_png, False)
+    background.add_task(notify_new_order, order, user_id, user_tg, receipt_png, False)
     courier_events.publish({"type": "orders_updated", "restaurant_id": store.id})
     return order
 
@@ -541,12 +542,13 @@ def update_order_status(
             "Admin faqat buyurtmani bekor qila oladi",
         )
 
+    user_id = order.user.id if order.user else None
     user_tg = order.user.telegram_id if order.user else None
     user_lang = (order.user.language if order.user else None) or "uz"
     order = cancel_order(db, order)
     courier_events.publish({"type": "orders_updated", "restaurant_id": store.id})
-    if user_tg:
-        background.add_task(notify_status_change, order, user_tg, user_lang)
+    if user_id:
+        background.add_task(notify_status_change, order, user_id, user_tg, user_lang)
     return order
 
 
@@ -687,14 +689,16 @@ def broadcast(
     if not text and not data.image_url:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Matn yoki rasm kerak")
 
-    telegram_ids = db.scalars(
-        select(User.telegram_id)
+    recipients = db.execute(
+        select(User.id, User.telegram_id)
         .where(User.id.in_(select(Order.user_id).where(Order.restaurant_id == store.id)))
         .where(~User.is_blocked)
     ).all()
 
-    background.add_task(broadcast_post, [t for t in telegram_ids if t is not None], text, data.image_url)
-    return {"sent_to": len(telegram_ids)}
+    # telegram_id yo'q (OTP/telefon bilan kirgan) mijozlar ham FCM push + ilova
+    # bildirishnomasini oladi — faqat bot orqali xabar yubormaydi.
+    background.add_task(broadcast_post, [(r.id, r.telegram_id) for r in recipients], text, data.image_url)
+    return {"sent_to": len(recipients)}
 
 
 # ── Supply records (yetkazib beruvchilar) ────────────────────────

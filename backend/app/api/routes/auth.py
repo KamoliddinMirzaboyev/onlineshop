@@ -7,29 +7,25 @@ from app.api.deps import get_current_user
 from app.core.db import get_db
 from app.core.phone import normalize_phone
 from app.core.ratelimit import rate_limiter
-from app.core.security import (
-    create_access_token,
-    hash_password,
-    verify_password_safe,
-    verify_telegram_init_data,
-)
+from app.core.security import create_access_token, verify_telegram_init_data
 from app.models import User
 from app.schemas.auth import (
-    AppLoginIn,
-    AppRegisterIn,
     AuthResult,
     FCMTokenIn,
-    SetPasswordIn,
+    OtpRequestIn,
+    OtpVerifyIn,
     TelegramAuthIn,
     TokenOut,
     UserOut,
     UserUpdateIn,
 )
+from app.services.otp import send_otp, verify_otp
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 _tg_auth_limit = rate_limiter("tg_auth", limit=30, window_seconds=60)
-_app_auth_limit = rate_limiter("app_auth", limit=15, window_seconds=60)
+_otp_request_limit = rate_limiter("otp_request", limit=5, window_seconds=60)
+_otp_verify_limit = rate_limiter("otp_verify", limit=15, window_seconds=60)
 
 _ALLOWED_LANGS = frozenset({"uz", "ru"})
 
@@ -90,78 +86,40 @@ def telegram_auth(data: TelegramAuthIn, db: Session = Depends(get_db)):
     return AuthResult(token=TokenOut(access_token=token), user=UserOut.model_validate(user))
 
 
-@router.post("/register", response_model=AuthResult, dependencies=[Depends(_app_auth_limit)])
-def app_register(data: AppRegisterIn, db: Session = Depends(get_db)):
-    phone = data.phone  # allaqachon normalize
-    existing = db.scalar(select(User).where(User.phone == phone))
+@router.post("/otp/request", dependencies=[Depends(_otp_request_limit)])
+def otp_request(data: OtpRequestIn):
+    send_otp(data.phone)
+    return {"status": "ok"}
 
-    # Bot orqali telefon saqlangan, parol yo'q.
-    if existing is not None:
-        if existing.password_hash:
-            raise HTTPException(status.HTTP_400_BAD_REQUEST, "Phone number already registered")
-        if existing.is_blocked:
-            raise HTTPException(status.HTTP_403_FORBIDDEN, "Akkauntingiz bloklangan")
-        if existing.telegram_id is not None:
-            # Bu raqam Telegram orqali (bot contact-share, HMAC-tasdiqlangan)
-            # ushbu akkauntga bog'langan — telefon+parol bilan kim bo'lsa ham
-            # "da'vo qilib" akkauntni egallab olmasin (OTP yo'q sharoitda
-            # eng arzon himoya: claim faqat Telegram identifikatsiyasi orqali).
-            raise HTTPException(
-                status.HTTP_400_BAD_REQUEST,
-                "Bu raqam Telegram bilan bog'langan — botdan (Telegram) kiring, "
-                "so'ng profilda parol o'rnating",
-            )
-        existing.password_hash = hash_password(data.password)
-        if data.first_name:
-            existing.first_name = data.first_name
+
+@router.post("/otp/verify", response_model=AuthResult, dependencies=[Depends(_otp_verify_limit)])
+def otp_verify(data: OtpVerifyIn, db: Session = Depends(get_db)):
+    if not verify_otp(data.phone, data.code):
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Kod noto'g'ri")
+
+    # phone bo'yicha user — botdan (Telegram) allaqachon shu raqam bilan
+    # ro'yxatdan o'tgan bo'lsa xuddi shu akkauntga kiradi (bitta profil).
+    user = db.scalar(select(User).where(User.phone == data.phone))
+    if user is None:
+        user = User(phone=data.phone, first_name=data.first_name)
+        db.add(user)
+        try:
+            db.commit()
+        except IntegrityError:
+            db.rollback()
+            user = db.scalar(select(User).where(User.phone == data.phone))
+            if not user:
+                raise
+    elif data.first_name and not user.first_name:
+        user.first_name = data.first_name
         db.commit()
-        db.refresh(existing)
-        token = create_access_token(subject=str(existing.id), role="user")
-        return AuthResult(
-            token=TokenOut(access_token=token), user=UserOut.model_validate(existing)
-        )
 
-    user = User(
-        phone=phone,
-        password_hash=hash_password(data.password),
-        first_name=data.first_name,
-    )
-    db.add(user)
-    try:
-        db.commit()
-    except IntegrityError:
-        db.rollback()
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Phone number already registered")
-    db.refresh(user)
-
-    token = create_access_token(subject=str(user.id), role="user")
-    return AuthResult(token=TokenOut(access_token=token), user=UserOut.model_validate(user))
-
-
-@router.post("/login", response_model=AuthResult, dependencies=[Depends(_app_auth_limit)])
-def app_login(data: AppLoginIn, db: Session = Depends(get_db)):
-    phone = data.phone
-    user = db.scalar(select(User).where(User.phone == phone))
-    if not verify_password_safe(data.password, user.password_hash if user else None) or not user:
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid phone or password")
     if user.is_blocked:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Akkauntingiz bloklangan")
 
+    db.refresh(user)
     token = create_access_token(subject=str(user.id), role="user")
     return AuthResult(token=TokenOut(access_token=token), user=UserOut.model_validate(user))
-
-
-@router.post("/set-password", response_model=UserOut)
-def set_password(
-    data: SetPasswordIn, user: User = Depends(get_current_user), db: Session = Depends(get_db)
-):
-    """Telegram orqali kirgan foydalanuvchi telefon+parol bilan ham kira olishi
-    uchun parol o'rnatadi/almashtiradi — faqat allaqachon Telegram (HMAC
-    tasdiqlangan) token bilan autentifikatsiya qilingan holatda."""
-    user.password_hash = hash_password(data.password)
-    db.commit()
-    db.refresh(user)
-    return user
 
 
 @router.post("/fcm-token")
@@ -184,6 +142,8 @@ def update_me(
 ):
     if data.first_name is not None:
         user.first_name = data.first_name
+    if data.last_name is not None:
+        user.last_name = data.last_name
     if data.phone is not None:
         phone = normalize_phone(data.phone)
         if not phone:

@@ -22,6 +22,7 @@ def main_menu(lang: str) -> ReplyKeyboardMarkup:
                 KeyboardButton(text=t(lang, "lang")),
                 KeyboardButton(text=t(lang, "help")),
             ],
+            [KeyboardButton(text=t(lang, "contact_order"))],
             [KeyboardButton(text=t(lang, "offer"))],
         ],
         resize_keyboard=True,
@@ -95,6 +96,26 @@ async def on_help_btn(message: Message) -> None:
     if not message.from_user: return
     user = repo.get_or_create_user(message.from_user.id, message.from_user.first_name, message.from_user.username)
     await message.answer(t(user.language, "help_text"), parse_mode="HTML")
+
+
+@router.message(F.text.in_(_btn_texts("contact_order")))
+async def on_contact_order_btn(message: Message) -> None:
+    if not message.from_user: return
+    user = repo.get_or_create_user(message.from_user.id, message.from_user.first_name, message.from_user.username)
+    restaurant = repo.get_contact_restaurant()
+    if not restaurant:
+        await message.answer(t(user.language, "contact_none_set"))
+        return
+    phones = (restaurant.phones or [])[:2]
+    telegram = (restaurant.socials or {}).get("telegram", "").lstrip("@")
+    if not phones and not telegram:
+        await message.answer(t(user.language, "contact_none_set"))
+        return
+    lines = [t(user.language, "contact_header")]
+    lines.extend(f"📞 {p}" for p in phones)
+    if telegram:
+        lines.append(f"✈️ @{telegram}")
+    await message.answer("\n".join(lines))
 
 
 @router.message(F.text.in_(_btn_texts("offer")))

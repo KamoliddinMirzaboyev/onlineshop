@@ -5,7 +5,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.api.routes import (
     addresses, admin, admin_auth, auth, business, business_auth, catalog, courier,
-    geo_route, orders, platform, platform_auth, uploads,
+    geo_route, notifications, orders, platform, platform_auth, uploads,
 )
 from app.api.routes.uploads import UPLOAD_DIR
 from app.core.config import settings
@@ -87,6 +87,7 @@ api.include_router(auth.router)
 api.include_router(catalog.router)
 api.include_router(geo_route.router)
 api.include_router(addresses.router)
+api.include_router(notifications.router)
 api.include_router(orders.router)
 api.include_router(admin_auth.router)
 api.include_router(admin.router)

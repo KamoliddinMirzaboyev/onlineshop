@@ -104,6 +104,19 @@ def get_latest_pending_order(tg_id: int) -> Order | None:
         )
 
 
+def get_contact_restaurant() -> Restaurant | None:
+    """"Bog'lanish" tugmasi uchun do'kon (phones/socials).
+
+    # ponytail: bitta do'kon rejimi — TMA'dagi /catalog/default bilan bir xil
+    # (is_active, eng kichik id). Ko'p do'konlik kerak bo'lsa — order.restaurant_id
+    # orqali buyurtmaga tegishli do'konni qaytarish shu yerga qo'shiladi.
+    """
+    with SessionLocal() as db:
+        return db.scalar(
+            select(Restaurant).where(Restaurant.is_active.is_(True)).order_by(Restaurant.id).limit(1)
+        )
+
+
 def set_order_location(order_id: int, lat: float, lng: float) -> tuple[bool, str | None]:
     """lat/lng + reverse-geocode manzil + masofa/fee qayta hisob.
 
