@@ -5,7 +5,9 @@ import '../services/cart.dart';
 import '../services/api.dart';
 import '../services/store.dart';
 import '../core/theme.dart';
-import 'home_page.dart';
+import '../widgets/common.dart';
+import 'app_shell.dart';
+import 'order_detail_page.dart';
 
 class CheckoutPage extends StatefulWidget {
   const CheckoutPage({super.key});
@@ -129,21 +131,22 @@ class _CheckoutPageState extends State<CheckoutPage> {
       if (phone.isNotEmpty) {
         payload['phone'] = phone;
       }
-      await api.post('/orders', payload);
+      final res = await api.post('/orders', payload);
       cart.clear();
       if (mounted) {
+        final orderId = res['id'] as int;
         Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const HomePage()),
+          MaterialPageRoute(builder: (_) => const AppShell()),
           (r) => false,
         );
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Buyurtma qabul qilindi')),
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => OrderDetailPage(orderId: orderId, justPlaced: true)),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Xatolik: $e')),
+          const SnackBar(content: Text('Buyurtma berib bo\'lmadi. Qayta urinib ko\'ring.')),
         );
       }
     } finally {
@@ -155,18 +158,16 @@ class _CheckoutPageState extends State<CheckoutPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.slate50,
-      appBar: AppBar(
-        title: const Text('Rasmiylashtirish',
-            style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        foregroundColor: Colors.black,
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+      body: SafeArea(
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            const PageHeader(title: 'Rasmiylashtirish', back: true),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
             TextField(
               controller: _phoneController,
               keyboardType: TextInputType.phone,
@@ -233,6 +234,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
                   ? const CircularProgressIndicator(color: Colors.white)
                   : const Text('Buyurtma berish',
                       style: TextStyle(fontSize: 18, color: Colors.white)),
+            ),
+                  ],
+                ),
+              ),
             ),
           ],
         ),

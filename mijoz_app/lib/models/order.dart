@@ -41,6 +41,7 @@ class Order {
   Order({
     required this.id,
     required this.number,
+    required this.restaurantId,
     required this.status,
     this.paymentMethod,
     this.paymentStatus,
@@ -55,12 +56,15 @@ class Order {
     this.distanceKm,
     this.etaMinutes,
     this.assignedCourierId,
+    this.assignedCourierName,
+    this.assignedCourierPhone,
     required this.createdAt,
     required this.items,
   });
 
   final int id;
   final String number;
+  final int restaurantId;
   final String status;
   final String? paymentMethod;
   final String? paymentStatus;
@@ -75,12 +79,15 @@ class Order {
   final double? distanceKm;
   final int? etaMinutes;
   final int? assignedCourierId;
+  final String? assignedCourierName;
+  final String? assignedCourierPhone;
   final String createdAt;
   final List<OrderItem> items;
 
   factory Order.fromJson(Map<String, dynamic> j) => Order(
         id: j['id'] as int,
         number: (j['number'] ?? '') as String,
+        restaurantId: (j['restaurant_id'] ?? 0) as int,
         status: (j['status'] ?? 'pending') as String,
         paymentMethod: j['payment_method'] as String?,
         paymentStatus: j['payment_status'] as String?,
@@ -95,6 +102,8 @@ class Order {
         distanceKm: _toDouble(j['distance_km']),
         etaMinutes: _toInt(j['eta_minutes']),
         assignedCourierId: _toInt(j['assigned_courier_id']),
+        assignedCourierName: j['assigned_courier_name'] as String?,
+        assignedCourierPhone: j['assigned_courier_phone'] as String?,
         createdAt: (j['created_at'] ?? '') as String,
         items: ((j['items'] ?? []) as List)
             .map((e) => OrderItem.fromJson(e as Map<String, dynamic>))

@@ -2,6 +2,9 @@
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+    <!-- Android 13+ (API 33) — shusiz FirebaseMessaging.requestPermission() hech qanday
+         tizim oynasi ko'rsatmaydi va push bildirishnomalar chiqmaydi. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <application
         android:label="Barakali Bozor"
         android:name="${applicationName}"

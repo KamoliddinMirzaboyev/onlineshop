@@ -180,12 +180,21 @@ class PageHeader extends StatelessWidget {
     this.subtitle,
     this.loading = false,
     this.onRefresh,
+    this.trailing,
+    this.back = false,
   });
 
   final String title;
   final String? subtitle;
   final bool loading;
   final VoidCallback? onRefresh;
+  /// Refresh tugmasi o'rniga (yoki undan tashqari) ko'rsatiladigan vidjet —
+  /// masalan bildirishnomalar qo'ng'irog'i.
+  final Widget? trailing;
+  /// Push qilingan (tab bo'lmagan) sahifalarda orqaga tugmasi — bo'lmasa
+  /// iOS'da chiqib ketishning UI yo'li qolmaydi (Android tizim tugmasi bor,
+  /// lekin iOS'da yo'q).
+  final bool back;
 
   @override
   Widget build(BuildContext context) {
@@ -197,6 +206,16 @@ class PageHeader extends StatelessWidget {
       ),
       child: Row(
         children: [
+          if (back)
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: IconButton(
+                onPressed: () => Navigator.of(context).pop(),
+                icon: const Icon(Icons.arrow_back_ios_new, size: 18),
+                color: AppColors.slate700,
+                visualDensity: VisualDensity.compact,
+              ),
+            ),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -213,7 +232,9 @@ class PageHeader extends StatelessWidget {
               ],
             ),
           ),
-          if (onRefresh != null)
+          if (trailing != null)
+            trailing!
+          else if (onRefresh != null)
             IconButton(
               onPressed: onRefresh,
               tooltip: 'Yangilash',

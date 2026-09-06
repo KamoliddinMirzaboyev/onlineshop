@@ -1,21 +1,27 @@
 class User {
   final int id;
   final String? firstName;
+  final String? lastName;
   final String? phone;
   final String language;
+  final String? createdAt;
 
   User({
     required this.id,
     this.firstName,
+    this.lastName,
     this.phone,
     required this.language,
+    this.createdAt,
   });
 
   factory User.fromJson(Map<String, dynamic> json) => User(
         id: json['id'] as int,
         firstName: json['first_name'] as String?,
+        lastName: json['last_name'] as String?,
         phone: json['phone'] as String?,
         language: (json['language'] ?? 'uz') as String,
+        createdAt: json['created_at'] as String?,
       );
 }
 

@@ -83,6 +83,9 @@ class CategoryGroup {
 class RestaurantDetail {
   final int id;
   final String name;
+  final String? address;
+  final List<String> phones;
+  final Map<String, String> socials;
   final List<Category> categories;
   final List<CategoryGroup> categoryGroups;
   final int deliveryFee;
@@ -90,13 +93,16 @@ class RestaurantDetail {
   final int avgDeliveryMinutes;
 
   RestaurantDetail({
-    required this.id, required this.name, required this.categories,
+    required this.id, required this.name, this.address,
+    required this.phones, required this.socials, required this.categories,
     required this.categoryGroups, required this.deliveryFee,
     required this.minOrder, required this.avgDeliveryMinutes,
   });
 
   factory RestaurantDetail.fromJson(Map<String, dynamic> json) => RestaurantDetail(
-    id: json['id'], name: json['name'],
+    id: json['id'], name: json['name'], address: json['address'],
+    phones: (json['phones'] as List?)?.map((e) => e.toString()).toList() ?? [],
+    socials: (json['socials'] as Map?)?.map((k, v) => MapEntry(k.toString(), v.toString())) ?? {},
     categories: (json['categories'] as List?)?.map((e) => Category.fromJson(e)).toList() ?? [],
     categoryGroups: (json['category_groups'] as List?)?.map((e) => CategoryGroup.fromJson(e)).toList() ?? [],
     deliveryFee: json['delivery_fee'] ?? 0,
