@@ -21,7 +21,7 @@ class ApiService {
   ApiService._();
   static final ApiService instance = ApiService._();
 
-  static const _base = 'https://allfoodapi.webportfolio.uz/api';
+  static const _base = 'https://api.barakali-bozor.uz/api';
   static const _tokenKey = 'af_courier_token';
 
   String? _token;

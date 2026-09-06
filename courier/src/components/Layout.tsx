@@ -60,7 +60,7 @@ function useNewOrderAlerts() {
   }, [data, setAvailableCount, toast]);
 
   useEffect(() => {
-    const baseURL = import.meta.env.VITE_API_URL ?? "https://allfoodapi.webportfolio.uz/api";
+    const baseURL = import.meta.env.VITE_API_URL ?? "https://api.barakali-bozor.uz/api";
     let es: EventSource | null = null;
     let closed = false;
     let retryTimer: ReturnType<typeof setTimeout> | null = null;

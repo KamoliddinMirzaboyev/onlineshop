@@ -53,5 +53,5 @@ Aloqa / Support email (Play Console)
 ═══════════════════════════════════════
 Maxfiylik siyosati URL
 ═══════════════════════════════════════
-https://allfoodapi.webportfolio.uz/privacy  (yoki o‘zingiz joylashtirgan sahifa)
+https://api.barakali-bozor.uz/privacy  (yoki o‘zingiz joylashtirgan sahifa)
 store/play/privacy-policy.html ni hostingga yuklang.
