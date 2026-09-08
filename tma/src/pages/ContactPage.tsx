@@ -20,7 +20,7 @@ export default function ContactPage() {
 
   return (
     <div className="min-h-full bg-tg-bg pb-8">
-      <PageHeader title={lang === "uz" ? "Texnik qo'llab-quvvatlash" : "Техническая поддержка"} back />
+      <PageHeader title={lang === "uz" ? "Adminga bog'lanish" : "Связаться с админом"} back />
 
       <div className="mx-4 mt-6 card divide-y divide-black/5">
         {phones.map((p) => (

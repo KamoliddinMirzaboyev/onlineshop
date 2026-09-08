@@ -95,6 +95,17 @@ export default function ProfilePage() {
         </div>
       </div>
 
+      <button
+        onClick={() => nav("/contact")}
+        className="mx-4 mb-4 w-[calc(100%-2rem)] flex items-center gap-3 rounded-2xl bg-brand px-4 py-3.5 text-left text-white shadow-sm"
+      >
+        <Headphones size={19} />
+        <span className="font-medium">
+          {lang === "uz" ? "Buyurtma bo'yicha adminga bog'lanish" : "Связаться с админом по заказу"}
+        </span>
+        <ChevronRight size={18} className="ml-auto" />
+      </button>
+
       <div className="mx-4 card divide-y divide-black/5">
         <Row
           label={lang === "uz" ? "Ism" : "Имя"}
@@ -169,14 +180,6 @@ export default function ProfilePage() {
       )}
 
       <div className="mx-4 mt-4 card divide-y divide-black/5">
-        <button
-          onClick={() => nav("/contact")}
-          className="w-full flex items-center gap-3 px-4 py-3.5 text-left"
-        >
-          <Headphones size={17} className="text-tg-hint" />
-          {lang === "uz" ? "Texnik qo'llab-quvvatlash" : "Техническая поддержка"}
-          <ChevronRight size={16} className="ml-auto text-tg-hint" />
-        </button>
         <button onClick={() => setShowOffer(true)} className="w-full flex items-center gap-3 px-4 py-3.5 text-left">
           <FileText size={17} className="text-tg-hint" />
           {lang === "uz" ? "Ommaviy oferta" : "Публичная оферта"}
