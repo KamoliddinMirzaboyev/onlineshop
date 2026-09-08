@@ -373,7 +373,7 @@ export default function OrdersPage() {
                 Mahsulotlar
                 <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded-md text-xs">{itemsCount} dona</span>
               </div>
-              <div className="flex gap-2.5 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <div className="flex flex-wrap gap-2.5 pb-2">
                 {o.items.map((it) => (
                   <div key={it.id} className="shrink-0 w-14 md:w-16 flex flex-col group">
                     <div className="relative rounded-lg overflow-hidden bg-slate-100 border border-slate-200/60 aspect-square shadow-sm group-hover:shadow-md transition">
