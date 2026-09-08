@@ -439,9 +439,12 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
                 ),
               ),
               const SizedBox(height: 14),
+              // pubspec.yaml `version:` bilan qo'lda sinxronlanadi — bu yerda
+              // build vaqtida o'qish uchun alohida paket (package_info_plus)
+              // kerak bo'lardi, hozircha shart emas.
               const Center(
                 child: Text(
-                  'BB Kuryer · v1.2.0',
+                  'BB Kuryer · v1.2.3',
                   style: TextStyle(fontSize: 12, color: AppColors.slate300),
                 ),
               ),

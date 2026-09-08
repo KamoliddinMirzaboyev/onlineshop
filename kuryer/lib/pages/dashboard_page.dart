@@ -20,9 +20,6 @@ import '../widgets/skeleton.dart';
 import '../widgets/toast.dart';
 import 'order_detail_page.dart';
 
-const _acceptable = {'pending', 'confirmed', 'preparing', 'ready'};
-bool _isAcceptable(String s) => _acceptable.contains(s);
-
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key, required this.onGoTab});
 
@@ -71,7 +68,7 @@ class _DashboardPageState extends State<DashboardPage> {
 
   List<Order> get _available {
     final list = (_orders.data ?? [])
-        .where((o) => o.assignedCourierId == null && _isAcceptable(o.status))
+        .where((o) => o.assignedCourierId == null && isAcceptableStatus(o.status))
         .toList()
       ..sort((a, b) =>
           (DateTime.tryParse(a.createdAt) ?? DateTime(0))
@@ -96,27 +93,21 @@ class _DashboardPageState extends State<DashboardPage> {
       toast.success('№ ${o.number} qabul qilindi ✅');
       _orders.refresh();
       _stats.refresh();
-    } catch (_) {
-      toast.error("Qabul qilib bo'lmadi");
+    } catch (e) {
+      toast.error(apiErrorMessage(e, "Qabul qilib bo'lmadi"));
     } finally {
       if (mounted) setState(() => _updatingId = null);
     }
   }
 
-  Future<Map<String, dynamic>> _gpsBody([Map<String, dynamic>? extra]) async {
-    final body = <String, dynamic>{...?extra};
-    final pos = await locationService.getOnce();
-    if (pos != null) {
-      body['lat'] = pos.lat;
-      body['lng'] = pos.lng;
-    }
-    return body;
-  }
-
   Future<void> _deliver(Order o) async {
     setState(() => _updatingId = o.id);
     try {
-      final body = await _gpsBody({'order_ids': null});
+      // Faqat shu buyurtma — order_ids: null bo'lsa backend courierning
+      // BARCHA accepted buyurtmalarini reysga qo'shib yuboradi.
+      final body = await locationService.gpsBody({
+        'order_ids': [o.id],
+      });
       final res =
           await api.post('/courier/route/start', body) as Map<String, dynamic>;
       final n = (res['orders'] as List?)?.length ?? 1;
@@ -126,8 +117,8 @@ class _DashboardPageState extends State<DashboardPage> {
             : 'Yetkazish boshlandi 🛵',
       );
       _orders.refresh();
-    } catch (_) {
-      toast.error("Holatni o'zgartirib bo'lmadi");
+    } catch (e) {
+      toast.error(apiErrorMessage(e, "Holatni o'zgartirib bo'lmadi"));
     } finally {
       if (mounted) setState(() => _updatingId = null);
     }
@@ -142,7 +133,7 @@ class _DashboardPageState extends State<DashboardPage> {
         pool.where((x) => x.status == 'delivering' && x.id != o.id).length;
     setState(() => _updatingId = o.id);
     try {
-      final body = await _gpsBody();
+      final body = await locationService.gpsBody();
       await api.post('/courier/orders/${o.id}/delivered', body);
       toast.success(
         remainingBefore > 0
@@ -155,8 +146,8 @@ class _DashboardPageState extends State<DashboardPage> {
         await RouteFlow.offerNextStop(context);
       }
       if (mounted) unawaited(ratePrompt.maybeShowAfterDelivery(context));
-    } catch (_) {
-      toast.error("Yakunlab bo'lmadi");
+    } catch (e) {
+      toast.error(apiErrorMessage(e, "Yakunlab bo'lmadi"));
     } finally {
       if (mounted) setState(() => _updatingId = null);
     }

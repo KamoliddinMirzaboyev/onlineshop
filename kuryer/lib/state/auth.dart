@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import '../services/api.dart';
@@ -16,6 +18,10 @@ class AuthState extends ChangeNotifier {
       role = null;
       clearCache();
       notifyListeners();
+      // Session was invalidated remotely (not a user-initiated logout) —
+      // stop GPS streaming too, or it keeps running (silently, since every
+      // post no-ops without a token) until the app is reopened.
+      unawaited(locationService.stop());
     };
   }
 

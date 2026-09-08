@@ -73,7 +73,9 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
 
     final qtyStr = _qtyController.text.replaceAll(',', '.');
     final qty = double.tryParse(qtyStr);
-    if (qty == null || qty < 0) {
+    // > 0, not >= 0 — this edits a delivered item's quantity, not a way to
+    // zero/remove it (backend semantics for a 0-qty line item are undefined).
+    if (qty == null || qty <= 0) {
       toast.error("Noto'g'ri miqdor");
       return;
     }
@@ -88,21 +90,11 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
       toast.success("Miqdor yangilandi ✅ — mijozga yangi chek yuborildi");
       _res.refresh();
       if (mounted) setState(() => _editingItem = null);
-    } catch (_) {
-      toast.error("Miqdorni o'zgartirib bo'lmadi");
+    } catch (e) {
+      toast.error(apiErrorMessage(e, "Miqdorni o'zgartirib bo'lmadi"));
     } finally {
       if (mounted) setState(() => _updating = false);
     }
-  }
-
-  Future<Map<String, dynamic>> _gpsBody([Map<String, dynamic>? extra]) async {
-    final body = <String, dynamic>{...?extra};
-    final pos = await locationService.getOnce();
-    if (pos != null) {
-      body['lat'] = pos.lat;
-      body['lng'] = pos.lng;
-    }
-    return body;
   }
 
   Future<void> _setStatus(String status) async {
@@ -111,8 +103,11 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
     setState(() => _updating = true);
     try {
       if (status == 'delivering') {
-        // Barcha accepted lar bir reysda optimal tartibda (joriy GPS depot).
-        final body = await _gpsBody({'order_ids': null});
+        // Faqat shu buyurtma — order_ids: null bo'lsa backend courierning
+        // BARCHA accepted buyurtmalarini reysga qo'shib yuboradi.
+        final body = await locationService.gpsBody({
+          'order_ids': [order.id],
+        });
         final res = await api.post('/courier/route/start', body)
             as Map<String, dynamic>;
         final n = (res['orders'] as List?)?.length ?? 1;
@@ -128,8 +123,9 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
         toast.success('Buyurtma qabul qilindi ✅');
       }
       _res.refresh();
-    } catch (_) {
-      toast.error("Holatni o'zgartirib bo'lmadi. Qayta urinib ko'ring.");
+    } catch (e) {
+      toast.error(
+          apiErrorMessage(e, "Holatni o'zgartirib bo'lmadi. Qayta urinib ko'ring."));
     } finally {
       if (mounted) setState(() => _updating = false);
     }
@@ -141,7 +137,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
     if (!await RouteFlow.confirmOutOfOrder(context, order)) return;
     setState(() => _updating = true);
     try {
-      final body = await _gpsBody();
+      final body = await locationService.gpsBody();
       await api.post('/courier/orders/${order.id}/delivered', body);
       toast.success('Buyurtma yetkazildi ✅ · qolgan marshrut yangilandi');
       if (!mounted) return;
@@ -149,8 +145,8 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
       if (!mounted) return;
       if (hadMore) Navigator.of(context).maybePop();
       unawaited(ratePrompt.maybeShowAfterDelivery(context));
-    } catch (_) {
-      toast.error("Yakunlab bo'lmadi. Qayta urinib ko'ring.");
+    } catch (e) {
+      toast.error(apiErrorMessage(e, "Yakunlab bo'lmadi. Qayta urinib ko'ring."));
     } finally {
       if (mounted) setState(() => _updating = false);
     }
@@ -528,7 +524,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
         const SizedBox(height: 16),
 
         // Action buttons
-        if (_isAcceptable(order.status))
+        if (isAcceptableStatus(order.status))
           _BigButton(
             label: _updating ? '…' : '✅  Qabul qilish',
             color: AppColors.cyan600,
@@ -691,9 +687,6 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
     );
   }
 }
-
-const _acceptable = {'pending', 'confirmed', 'preparing', 'ready'};
-bool _isAcceptable(String s) => _acceptable.contains(s);
 
 // Backend (courier.py): faqat "accepted" da — kuryer buyurtmani olib bo'lgach.
 const _adjustable = {'accepted'};

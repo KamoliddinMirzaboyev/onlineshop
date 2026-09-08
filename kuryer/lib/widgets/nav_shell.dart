@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../core/format.dart';
 import '../core/theme.dart';
 import '../models/order.dart';
 import '../services/api.dart';
@@ -24,9 +25,6 @@ class NavShell extends StatefulWidget {
   @override
   State<NavShell> createState() => _NavShellState();
 }
-
-const _acceptable = {'pending', 'confirmed', 'preparing', 'ready'};
-bool _isAcceptable(String s) => _acceptable.contains(s);
 
 class _NavShellState extends State<NavShell> with WidgetsBindingObserver {
   int _index = 0;
@@ -71,7 +69,7 @@ class _NavShellState extends State<NavShell> with WidgetsBindingObserver {
     final data = _orders.data;
     if (data == null) return;
     final available = data
-        .where((o) => o.assignedCourierId == null && _isAcceptable(o.status))
+        .where((o) => o.assignedCourierId == null && isAcceptableStatus(o.status))
         .toList();
     _alerts.setAvailableCount(available.length);
 
