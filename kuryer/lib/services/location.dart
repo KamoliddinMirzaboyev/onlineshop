@@ -96,6 +96,9 @@ class LocationService {
   Future<void> stop() async {
     await _sub?.cancel();
     _sub = null;
+    // Reset the banner so the next courier's session doesn't briefly show a
+    // stale "blocked/denied" state left over from before logout.
+    locState.value = LocState.ok;
   }
 
   /// Settings'dan qaytgach holatni yangilash — tizim dialogini ko'rsatmaydi.
@@ -204,6 +207,18 @@ class LocationService {
       _warnedNoGps = true;
       toast.info("GPS aniqlanmadi — taxminiy masofa ishlatildi");
     }
+  }
+
+  /// Shared by every "change order status" call site: best-effort current fix
+  /// merged into the request body. Was copy-pasted per-page before.
+  Future<Map<String, dynamic>> gpsBody([Map<String, dynamic>? extra]) async {
+    final body = <String, dynamic>{...?extra};
+    final pos = await getOnce();
+    if (pos != null) {
+      body['lat'] = pos.lat;
+      body['lng'] = pos.lng;
+    }
+    return body;
   }
 
   Future<void> _post(Position pos) async {

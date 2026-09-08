@@ -16,9 +16,6 @@ import '../widgets/skeleton.dart';
 import '../widgets/toast.dart';
 import 'order_detail_page.dart';
 
-const _acceptable = {'pending', 'confirmed', 'preparing', 'ready'};
-bool _isAcceptable(String s) => _acceptable.contains(s);
-
 class OrdersPage extends StatefulWidget {
   const OrdersPage({super.key});
 
@@ -54,21 +51,15 @@ class _OrdersPageState extends State<OrdersPage> {
     super.dispose();
   }
 
-  Future<Map<String, dynamic>> _gpsBody([Map<String, dynamic>? extra]) async {
-    final body = <String, dynamic>{...?extra};
-    final pos = await locationService.getOnce();
-    if (pos != null) {
-      body['lat'] = pos.lat;
-      body['lng'] = pos.lng;
-    }
-    return body;
-  }
-
   Future<void> _setStatus(int id, String status) async {
     setState(() => _updating = id);
     try {
       if (status == 'delivering') {
-        final body = await _gpsBody({'order_ids': null});
+        // Faqat shu buyurtma — order_ids: null bo'lsa backend courierning
+        // BARCHA accepted buyurtmalarini reysga qo'shib yuboradi.
+        final body = await locationService.gpsBody({
+          'order_ids': [id],
+        });
         final res = await api.post('/courier/route/start', body)
             as Map<String, dynamic>;
         final n = (res['orders'] as List?)?.length ?? 1;
@@ -84,8 +75,9 @@ class _OrdersPageState extends State<OrdersPage> {
         toast.success('Buyurtma qabul qilindi ✅');
       }
       _res.refresh();
-    } catch (_) {
-      toast.error("Holatni o'zgartirib bo'lmadi. Qayta urinib ko'ring.");
+    } catch (e) {
+      toast.error(apiErrorMessage(
+          e, "Holatni o'zgartirib bo'lmadi. Qayta urinib ko'ring."));
     } finally {
       if (mounted) setState(() => _updating = null);
     }
@@ -100,11 +92,11 @@ class _OrdersPageState extends State<OrdersPage> {
     try {
       final Map<String, dynamic> res;
       if (includeIntoActive) {
-        final body = await _gpsBody({'include_accepted': true});
+        final body = await locationService.gpsBody({'include_accepted': true});
         res = await api.post('/courier/route/reoptimize', body)
             as Map<String, dynamic>;
       } else {
-        final body = await _gpsBody({
+        final body = await locationService.gpsBody({
           'order_ids': accepted.map((o) => o.id).toList(),
         });
         res = await api.post('/courier/route/start', body)
@@ -119,8 +111,9 @@ class _OrdersPageState extends State<OrdersPage> {
             : 'Yetkazish boshlandi 🛵$kmLabel',
       );
       _res.refresh();
-    } catch (_) {
-      toast.error("Marshrutni boshlab bo'lmadi. Qayta urinib ko'ring.");
+    } catch (e) {
+      toast.error(
+          apiErrorMessage(e, "Marshrutni boshlab bo'lmadi. Qayta urinib ko'ring."));
     } finally {
       if (mounted) setState(() => _updating = null);
     }
@@ -129,7 +122,7 @@ class _OrdersPageState extends State<OrdersPage> {
   Future<void> _reoptimizeRoute() async {
     setState(() => _updating = -2);
     try {
-      final body = await _gpsBody();
+      final body = await locationService.gpsBody();
       final res = await api.post('/courier/route/reoptimize', body)
           as Map<String, dynamic>;
       final n = (res['orders'] as List?)?.length ?? 0;
@@ -137,8 +130,8 @@ class _OrdersPageState extends State<OrdersPage> {
       final kmLabel = km is num ? ' · ~${km.toStringAsFixed(1)} km' : '';
       toast.success('Marshrut yangilandi 🔄 — $n ta stop$kmLabel');
       _res.refresh();
-    } catch (_) {
-      toast.error("Marshrutni yangilab bo'lmadi");
+    } catch (e) {
+      toast.error(apiErrorMessage(e, "Marshrutni yangilab bo'lmadi"));
     } finally {
       if (mounted) setState(() => _updating = null);
     }
@@ -163,7 +156,7 @@ class _OrdersPageState extends State<OrdersPage> {
 
     setState(() => _updating = id);
     try {
-      final body = await _gpsBody();
+      final body = await locationService.gpsBody();
       await api.post('/courier/orders/$id/delivered', body);
       final remaining = (_res.data ?? [])
           .where((o) => o.status == 'delivering' && o.id != id)
@@ -180,8 +173,8 @@ class _OrdersPageState extends State<OrdersPage> {
         _res.refresh();
       }
       if (mounted) unawaited(ratePrompt.maybeShowAfterDelivery(context));
-    } catch (_) {
-      toast.error("Yakunlab bo'lmadi. Qayta urinib ko'ring.");
+    } catch (e) {
+      toast.error(apiErrorMessage(e, "Yakunlab bo'lmadi. Qayta urinib ko'ring."));
     } finally {
       if (mounted) setState(() => _updating = null);
     }
@@ -703,7 +696,7 @@ class _OrderCard extends StatelessWidget {
                   onPressed: onDetail,
                 ),
               ),
-              if (_isAcceptable(order.status)) ...[
+              if (isAcceptableStatus(order.status)) ...[
                 const SizedBox(width: 8),
                 Expanded(
                   child: AppButton(

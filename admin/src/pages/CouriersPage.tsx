@@ -1,5 +1,5 @@
-import { 
-  KeyRound, Plus, Lock, Unlock, Search, Trash2, X, Ban
+import {
+  KeyRound, Plus, Lock, Unlock, Search, Trash2, X, Ban, Pencil
 } from "lucide-react";
 import PasswordInput from "../components/PasswordInput";
 import { useEffect, useState, useMemo } from "react";
@@ -32,6 +32,10 @@ export default function CouriersPage() {
   const [pwModal, setPwModal] = useState<CourierAccount | null>(null);
   const [newPassword, setNewPassword] = useState("");
   const [togglingId, setTogglingId] = useState<number | null>(null);
+
+  const [editModal, setEditModal] = useState<{ id: number; name: string; phone: string } | null>(null);
+  const [editErr, setEditErr] = useState("");
+  const [editSaving, setEditSaving] = useState(false);
 
   const [err, setErr] = useState("");
 
@@ -71,6 +75,28 @@ export default function CouriersPage() {
       toast.success("Parol muvaffaqiyatli o'zgartirildi");
     } catch {
       toast.error("Parolni o'zgartirib bo'lmadi");
+    }
+  };
+
+  const saveEdit = async () => {
+    if (!editModal) return;
+    const name = editModal.name.trim();
+    const phone = editModal.phone.trim();
+    if (!name) {
+      setEditErr("Ism kiritilishi shart");
+      return;
+    }
+    setEditErr("");
+    setEditSaving(true);
+    try {
+      await patch(`/admin/admin-users/${editModal.id}`, { name, phone: phone || null });
+      setEditModal(null);
+      toast.success("Ma'lumotlar yangilandi");
+      load();
+    } catch (e) {
+      setEditErr(String(e).includes("band") ? "Bu telefon raqam allaqachon band" : String(e));
+    } finally {
+      setEditSaving(false);
     }
   };
 
@@ -333,6 +359,15 @@ export default function CouriersPage() {
                             )}
                           </button>
 
+                          {/* Ism / telefon tahrirlash */}
+                          <button
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-brand hover:bg-emerald-50 transition border border-transparent hover:border-emerald-100"
+                            title="Ism / telefonni tahrirlash"
+                            onClick={() => { setEditErr(""); setEditModal({ id: u.id, name: u.name ?? "", phone: u.phone ?? "" }); }}
+                          >
+                            <Pencil size={16} />
+                          </button>
+
                           {/* Parol o'zgartirish */}
                           <button
                             className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition border border-transparent hover:border-blue-100"
@@ -444,6 +479,51 @@ export default function CouriersPage() {
                 onClick={save}
               >
                 Yaratish
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── EDIT (ISM / TELEFON) MODAL ──────────────────────────────── */}
+      {editModal && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-[60]">
+          <div className="card p-6 w-96 max-w-full space-y-4 shadow-xl">
+            <div className="flex items-center justify-between">
+              <h2 className="font-bold text-lg text-slate-800">Ma'lumotlarni tahrirlash</h2>
+              <button onClick={() => setEditModal(null)} className="p-1 hover:bg-slate-100 rounded-lg text-slate-400"><X size={20} /></button>
+            </div>
+
+            <label className="block">
+              <span className="text-xs font-semibold text-slate-600">Ism</span>
+              <input
+                className="input mt-1.5"
+                placeholder="Aziz Karimov"
+                value={editModal.name}
+                onChange={(e) => setEditModal({ ...editModal, name: e.target.value })}
+              />
+            </label>
+
+            <label className="block">
+              <span className="text-xs font-semibold text-slate-600">Telefon</span>
+              <input
+                className="input mt-1.5"
+                placeholder="+998901234567"
+                value={editModal.phone}
+                onChange={(e) => setEditModal({ ...editModal, phone: e.target.value })}
+              />
+            </label>
+
+            {editErr && <div className="p-2.5 rounded-lg bg-rose-50 text-rose-600 text-sm font-medium">{editErr}</div>}
+
+            <div className="flex gap-3 pt-2">
+              <button className="flex-1 btn-secondary" onClick={() => setEditModal(null)}>Bekor qilish</button>
+              <button
+                className="flex-1 btn"
+                disabled={editSaving || !editModal.name.trim()}
+                onClick={saveEdit}
+              >
+                {editSaving ? "Saqlanmoqda…" : "Saqlash"}
               </button>
             </div>
           </div>
