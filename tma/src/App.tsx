@@ -19,7 +19,6 @@ const CheckoutPage = lazy(() => import("./pages/CheckoutPage"));
 const OrdersPage = lazy(() => import("./pages/OrdersPage"));
 const OrderDetailPage = lazy(() => import("./pages/OrderDetailPage"));
 const ProfilePage = lazy(() => import("./pages/ProfilePage"));
-const ContactPage = lazy(() => import("./pages/ContactPage"));
 const NotificationsPage = lazy(() => import("./pages/NotificationsPage"));
 
 function AuthGate({ children }: { children: ReactNode }) {
@@ -94,7 +93,6 @@ function AppRoutes() {
             </AuthGate>
           }
         />
-        <Route path="/contact" element={<ContactPage />} />
         <Route
           path="/notifications"
           element={

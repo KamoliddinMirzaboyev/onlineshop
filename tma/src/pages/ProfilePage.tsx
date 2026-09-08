@@ -1,6 +1,5 @@
-import { Check, ChevronRight, FileText, Headphones, Trash2, X } from "lucide-react";
+import { Check, ChevronRight, FileText, Headphones, Phone, Send, Trash2, X } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { api } from "../api/client";
 import type { Address } from "../api/types";
 import PageHeader from "../components/PageHeader";
@@ -41,10 +40,11 @@ type EditField = "name" | "phone" | null;
 
 export default function ProfilePage() {
   const { t, lang, setLang } = useI18n();
-  const nav = useNavigate();
   const user = useAuth((s) => s.user);
   const setUser = useAuth((s) => s.setUser);
   const [addresses, setAddresses] = useState<Address[]>([]);
+  const [phones, setPhones] = useState<string[]>([]);
+  const [telegram, setTelegram] = useState<string | null>(null);
   const [newAddr, setNewAddr] = useState("");
   const [showAddrForm, setShowAddrForm] = useState(false);
   const [showOffer, setShowOffer] = useState(false);
@@ -54,6 +54,12 @@ export default function ProfilePage() {
 
   const load = () => api.addresses().then(setAddresses).catch(() => setAddresses([]));
   useEffect(() => { load(); }, []);
+  useEffect(() => {
+    api.store().then((s) => {
+      setPhones((s?.phones ?? []).slice(0, 2));
+      setTelegram(s?.socials?.telegram?.replace(/^@/, "") || null);
+    }).catch(() => {});
+  }, []);
 
   const addAddress = async () => {
     if (!newAddr.trim()) return;
@@ -95,16 +101,40 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      <button
-        onClick={() => nav("/contact")}
-        className="mx-4 mb-4 w-[calc(100%-2rem)] flex items-center gap-3 rounded-2xl bg-brand px-4 py-3.5 text-left text-white shadow-sm"
-      >
-        <Headphones size={19} />
-        <span className="font-medium">
-          {lang === "uz" ? "Buyurtma bo'yicha adminga bog'lanish" : "Связаться с админом по заказу"}
-        </span>
-        <ChevronRight size={18} className="ml-auto" />
-      </button>
+      <div className="mx-4 mb-4 rounded-2xl overflow-hidden shadow-sm">
+        <div className="flex items-center gap-3 bg-brand px-4 py-3 text-white">
+          <Headphones size={19} />
+          <span className="font-medium">
+            {lang === "uz" ? "Buyurtma bo'yicha adminga bog'lanish" : "Связаться с админом по заказу"}
+          </span>
+        </div>
+        <div className="bg-tg-card divide-y divide-black/5">
+          {phones.map((p) => (
+            <a key={p} href={`tel:${p}`} className="w-full flex items-center gap-3 px-4 py-3 text-left">
+              <Phone size={17} className="text-tg-hint" />
+              {lang === "uz" ? "Qo'ng'iroq" : "Звонок"}
+              <span className="ml-auto text-tg-hint text-sm">{p}</span>
+            </a>
+          ))}
+          {telegram && (
+            <a
+              href={`https://t.me/${telegram}`}
+              target="_blank"
+              rel="noreferrer"
+              className="w-full flex items-center gap-3 px-4 py-3 text-left"
+            >
+              <Send size={17} className="text-tg-hint" />
+              Telegram
+              <span className="ml-auto text-brand text-sm font-medium">@{telegram}</span>
+            </a>
+          )}
+          {phones.length === 0 && !telegram && (
+            <p className="px-4 py-4 text-center text-sm text-tg-hint">
+              {lang === "uz" ? "Bog'lanish ma'lumoti kiritilmagan" : "Контакты не указаны"}
+            </p>
+          )}
+        </div>
+      </div>
 
       <div className="mx-4 card divide-y divide-black/5">
         <Row
