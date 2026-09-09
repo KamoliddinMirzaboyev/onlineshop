@@ -644,6 +644,11 @@ export const api = {
     req<Order>("/orders", { method: "POST", body: JSON.stringify(data) }),
   myOrders: () => req<Order[]>("/orders"),
   order: (id: number) => req<Order>(`/orders/${id}`),
+  /** Pending buyurtmani tahrirlash — yakuniy savat (qo'shish/o'chirish/miqdor). */
+  editOrder: (
+    id: number,
+    items: { product_id: number; quantity: number; note?: string | null }[],
+  ) => req<Order>(`/orders/${id}/items`, { method: "PATCH", body: JSON.stringify({ items }) }),
 
   // notifications
   notifications: () => req<AppNotification[]>("/notifications"),

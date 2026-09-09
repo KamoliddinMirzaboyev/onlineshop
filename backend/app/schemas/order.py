@@ -37,6 +37,13 @@ class CartItemIn(BaseModel):
     note: str | None = None         # mahsulotga mijoz izohi (masalan "yetilgan bo'lsin")
 
 
+class OrderEditIn(BaseModel):
+    """Mijoz pending buyurtmani tahrirlaydi — yakuniy savat (qo'shish/o'chirish
+    /miqdor). Manzil/telefon o'zgarmaydi."""
+
+    items: list[CartItemIn] = Field(min_length=1)
+
+
 class OrderCreateIn(BaseModel):
     restaurant_id: int
     items: list[CartItemIn] = Field(min_length=1)

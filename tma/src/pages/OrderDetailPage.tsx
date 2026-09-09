@@ -1,4 +1,4 @@
-import { Check, CheckCircle2, Clock, CreditCard, MapPin, MessageCircle, Phone, Printer, ShoppingBag, User, XCircle } from "lucide-react";
+import { Check, CheckCircle2, Clock, CreditCard, MapPin, MessageCircle, Pencil, Phone, Printer, ShoppingBag, User, XCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
@@ -6,6 +6,7 @@ import type { Order, RestaurantDetail } from "../api/types";
 import ErrorState from "../components/ErrorState";
 import OptimizedImage from "../components/OptimizedImage";
 import { OrderDetailSkeleton } from "../components/Skeleton";
+import OrderEditor from "../components/OrderEditor";
 import StatusBadge from "../components/StatusBadge";
 import { loc, useI18n } from "../i18n";
 import { money, qtyUnit } from "../lib/format";
@@ -29,6 +30,7 @@ export default function OrderDetailPage() {
   const [store, setStore] = useState<RestaurantDetail | null>(null);
   const [error, setError] = useState(false);
   const [showReceipt, setShowReceipt] = useState(false);
+  const [editing, setEditing] = useState(false);
 
   useEffect(() => {
     if (!order) return;
@@ -158,8 +160,19 @@ export default function OrderDetailPage() {
         </div>
       )}
 
+      {/* Pending — mijoz buyurtmani hali o'zi tahrirlashi mumkin */}
+      {order.status === "pending" && (
+        <button
+          onClick={() => setEditing(true)}
+          className="mt-4 w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-brand/40 text-brand font-semibold active:scale-[0.98] transition"
+        >
+          <Pencil size={16} />
+          {lang === "uz" ? "Buyurtmani tahrirlash" : "Редактировать заказ"}
+        </button>
+      )}
+
       {/* Mahsulotlar */}
-      <div className="card p-4 space-y-3">
+      <div className="card p-4 space-y-3 mt-4">
         {order.items.map((it) => (
           <div key={it.id} className="flex items-start gap-3 text-sm">
             {it.image_url ? (
@@ -405,6 +418,19 @@ export default function OrderDetailPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {editing && (
+        <OrderEditor
+          order={order}
+          store={store}
+          lang={lang}
+          onClose={() => setEditing(false)}
+          onSaved={(o) => {
+            setOrder(o);
+            setEditing(false);
+          }}
+        />
       )}
     </div>
   );

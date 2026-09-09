@@ -442,6 +442,103 @@ def create_manual_order(
         raise
 
 
+def edit_pending_order(db: Session, order: Order, new_items: list) -> Order:
+    """Mijoz o'z buyurtmasini do'kon tasdiqlagunча tahrirlaydi: mahsulot
+    qo'shish/o'chirish, miqdorni o'zgartirish. Ombor zaxirasi delta bo'yicha
+    to'g'rilanadi, yetkazish haqi va total qayta hisoblanadi. Butun ish bitta
+    tranzaksiyada — xato bo'lsa rollback hammasini (zaxira ham) qaytaradi."""
+    if order.status != OrderStatus.pending:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "Buyurtma allaqachon tasdiqlangan — endi tahrirlab bo'lmaydi",
+        )
+    restaurant = db.get(Restaurant, order.restaurant_id)
+    if not restaurant or not restaurant.is_active:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Do'kon topilmadi")
+
+    want: dict[int, float] = defaultdict(float)
+    note_by: dict[int, str | None] = {}
+    for ci in new_items:
+        want[ci.product_id] += ci.quantity
+        if ci.note:
+            note_by[ci.product_id] = ci.note
+
+    current = {it.product_id: it for it in order.items}
+    products: dict[int, Product] = {}
+    for pid in want:
+        p = db.get(Product, pid)
+        if not p or p.restaurant_id != restaurant.id or not p.is_available:
+            name = current[pid].name_uz if pid in current else str(pid)
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, f"'{name}' hozir mavjud emas")
+        products[pid] = p
+
+    # Atomik guard: shu paytгacha boshqa tranzaksiya confirmed qilgan bo'lsa —
+    # 0 qator (va qator qulfi olinadi, parallel confirm biz commit qilgунча kutadi).
+    if db.execute(
+        update(Order)
+        .where(Order.id == order.id, Order.status == OrderStatus.pending)
+        .values(status=OrderStatus.pending)
+    ).rowcount == 0:
+        db.rollback()
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "Buyurtma allaqachon tasdiqlangan — endi tahrirlab bo'lmaydi",
+        )
+
+    try:
+        for pid, new_qty in want.items():
+            old_qty = current[pid].quantity if pid in current else 0.0
+            delta = new_qty - old_qty
+            if delta > 1e-9:
+                reserve_stock_atomic(db, pid, delta, product_name=products[pid].name_uz)
+            elif delta < -1e-9:
+                restore_stock_atomic(db, pid, -delta)
+        for pid, it in current.items():
+            if pid not in want:
+                restore_stock_atomic(db, pid, it.quantity)
+
+        keep: list[OrderItem] = []
+        for pid, new_qty in want.items():
+            if pid in current:
+                it = current[pid]
+                it.quantity = new_qty
+                if pid in note_by:
+                    it.note = note_by[pid]
+                keep.append(it)
+            else:
+                p = products[pid]
+                keep.append(
+                    OrderItem(
+                        product_id=p.id,
+                        name_uz=p.name_uz,
+                        name_ru=p.name_ru,
+                        image_url=p.image_url,
+                        price=p.price,
+                        cost=p.cost,
+                        quantity=new_qty,
+                        unit=p.unit,
+                        note=note_by.get(pid),
+                    )
+                )
+        order.items = keep  # orphan (o'chirilgan) item'lar cascade bilan o'chadi
+
+        items_total = int(round(sum(it.price * it.quantity for it in order.items)))
+        order.items_total = items_total
+        order.delivery_fee = calc_delivery_fee(
+            items_total,
+            order.distance_km,
+            free_from=restaurant.min_order,
+            per_km=restaurant.delivery_fee,
+        )
+        order.total = items_total + order.delivery_fee
+        db.commit()
+        db.refresh(order)
+        return order
+    except HTTPException:
+        db.rollback()  # zaxira UPDATE'lari ham shu tranzaksiyada — bekor bo'ladi
+        raise
+
+
 def cancel_order(db: Session, order: Order) -> Order:
     """Buyurtmani bekor qiladi, zaxirani qaytaradi (atomik — double-cancel stock shishmaydi)."""
     if order.status == OrderStatus.cancelled:
