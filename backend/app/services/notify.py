@@ -228,35 +228,15 @@ def notify_new_order(
     # Ilova bildirishnomasi + FCM push — telegram_id bor-yo'qligidan qat'i nazar.
     _record_and_push(user_id, "order_status", pending_title, pending_text, order_id=order.id)
 
-    # admin PWA push — faqat shu buyurtmaning do'koniga
+    # admin PWA push — faqat shu buyurtmaning do'koniga. Kuryerlarga bu yerda
+    # push yuborilmaydi: buyurtmani admin qabul qilib, kuryer biriktiradi —
+    # o'sha payt notify_courier_assigned ishlaydi.
     webpush.notify_admins(
         f"🆕 Yangi buyurtma {order.number}",
         f"{order.total:,} so'm · {order.address_line}",
         order.restaurant_id,
         url="/orders",
         tag=f"order-{order.id}",
-    )
-
-    # Shu do'kon kuryerlariga — yangi buyurtma mavjud (birinchi qabul qilgan oladi).
-    # Courier PWA serverda /courier/ ostida joylashgan.
-    title = f"🆕 Yangi buyurtma № {order.number}"
-    body = f"{order.total:,} so'm · {order.address_line}"
-    webpush.notify_all_couriers(
-        title,
-        body,
-        order.restaurant_id,
-        url="/courier/orders",
-        tag=f"neworder-{order.id}",
-    )
-    # Native kuryer APK (FCM) — app yopiq / ekran o'chiq bo'lsa ham.
-    from app.services import fcm
-
-    fcm.notify_all_couriers(
-        title,
-        body,
-        order.restaurant_id,
-        url="/orders",
-        tag=f"neworder-{order.id}",
     )
 
 

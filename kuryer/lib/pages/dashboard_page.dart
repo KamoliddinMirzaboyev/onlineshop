@@ -66,16 +66,6 @@ class _DashboardPageState extends State<DashboardPage> {
     super.dispose();
   }
 
-  List<Order> get _available {
-    final list = (_orders.data ?? [])
-        .where((o) => o.assignedCourierId == null && isAcceptableStatus(o.status))
-        .toList()
-      ..sort((a, b) =>
-          (DateTime.tryParse(a.createdAt) ?? DateTime(0))
-              .compareTo(DateTime.tryParse(b.createdAt) ?? DateTime(0)));
-    return list;
-  }
-
   List<Order> get _myActive {
     final list = (_orders.data ?? [])
         .where((o) => o.status == 'accepted' || o.status == 'delivering')
@@ -84,20 +74,6 @@ class _DashboardPageState extends State<DashboardPage> {
           (DateTime.tryParse(a.createdAt) ?? DateTime(0))
               .compareTo(DateTime.tryParse(b.createdAt) ?? DateTime(0)));
     return list;
-  }
-
-  Future<void> _accept(Order o) async {
-    setState(() => _updatingId = o.id);
-    try {
-      await api.patch('/courier/orders/${o.id}', {'status': 'accepted'});
-      toast.success('№ ${o.number} qabul qilindi ✅');
-      _orders.refresh();
-      _stats.refresh();
-    } catch (e) {
-      toast.error(apiErrorMessage(e, "Qabul qilib bo'lmadi"));
-    } finally {
-      if (mounted) setState(() => _updatingId = null);
-    }
   }
 
   Future<void> _deliver(Order o) async {
@@ -231,26 +207,6 @@ class _DashboardPageState extends State<DashboardPage> {
                           ),
                           const SizedBox(height: 14),
 
-                          // Yangi buyurtmalar
-                          if (alerts.availableCount > 0) ...[
-                            _AvailableBanner(
-                              count: alerts.availableCount,
-                              onTap: () => widget.onGoTab(1),
-                            ),
-                            const SizedBox(height: 10),
-                            ..._available.take(2).map(
-                                  (o) => Padding(
-                                    padding: const EdgeInsets.only(bottom: 10),
-                                    child: _AvailableCard(
-                                      order: o,
-                                      accepting: _updatingId == o.id,
-                                      onAccept: () => _accept(o),
-                                      onView: () => _openOrder(o.id),
-                                    ),
-                                  ),
-                                ),
-                          ],
-
                           // Joriy ish
                           if (_myActive.isNotEmpty) ...[
                             const SizedBox(height: 4),
@@ -353,120 +309,6 @@ class _Kpi extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(label, style: const TextStyle(fontSize: 12, color: AppColors.slate400)),
-        ],
-      ),
-    );
-  }
-}
-
-class _AvailableBanner extends StatelessWidget {
-  const _AvailableBanner({required this.count, required this.onTap});
-  final int count;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return AppCard(
-      onTap: onTap,
-      color: AppColors.brand,
-      border: Border.all(color: Colors.transparent),
-      child: Row(
-        children: [
-          Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(Icons.notifications_active_outlined, color: Colors.white, size: 22),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Yangi buyurtma',
-                    style: TextStyle(fontSize: 13, color: Colors.white.withValues(alpha: 0.85))),
-                Text('$count ta',
-                    style: const TextStyle(
-                        fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white)),
-              ],
-            ),
-          ),
-          const Text('Barchasi →',
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13)),
-        ],
-      ),
-    );
-  }
-}
-
-class _AvailableCard extends StatelessWidget {
-  const _AvailableCard({
-    required this.order,
-    required this.accepting,
-    required this.onAccept,
-    required this.onView,
-  });
-
-  final Order order;
-  final bool accepting;
-  final VoidCallback onAccept;
-  final VoidCallback onView;
-
-  @override
-  Widget build(BuildContext context) {
-    return AppCard(
-      border: Border.all(color: AppColors.brand.withValues(alpha: 0.22), width: 1.5),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Text('№ ${order.number}', style: const TextStyle(fontWeight: FontWeight.bold)),
-              const Spacer(),
-              Text("${money(order.total)} so'm",
-                  style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.brand)),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Row(
-            children: [
-              const Icon(Icons.location_on_outlined, size: 14, color: AppColors.slate400),
-              const SizedBox(width: 4),
-              Expanded(
-                child: Text(
-                  order.addressLine,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 13, color: AppColors.slate500),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: AppButton(
-                  label: accepting ? '…' : 'Qabul qilish',
-                  color: AppColors.cyan600,
-                  expand: true,
-                  loading: accepting,
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                  onPressed: accepting ? null : onAccept,
-                ),
-              ),
-              const SizedBox(width: 8),
-              GhostButton(
-                label: "Ko'rish",
-                textColor: AppColors.slate600,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                onPressed: onView,
-              ),
-            ],
-          ),
         ],
       ),
     );

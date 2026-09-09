@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Literal
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
@@ -34,10 +34,14 @@ from app.schemas.catalog import (
 from app.schemas.admin import DeliveryZoneIn, DeliveryZoneOut
 from app.models import DeliveryZone
 from app.models.enums import AdminRole
-from app.schemas.order import ManualOrderIn, OrderOut, OrderStatusUpdate
+from app.schemas.order import ManualOrderIn, OrderAssignIn, OrderOut, OrderStatusUpdate
 from app.services import analytics, webpush
-from app.services.notify import broadcast_post, notify_new_order, notify_status_change
-from app.services.orders import cancel_order, create_manual_order
+from app.services.notify import (
+    broadcast_post, notify_courier_assigned, notify_new_order, notify_status_change,
+)
+from app.services.orders import (
+    cancel_order, create_manual_order, ensure_transition, mark_order_paid_if_cash,
+)
 
 # Autentifikatsiya poli: hech bir endpoint tokensiz ochilib qolmasligi uchun.
 # Har bir endpoint ustiga o'z scoping/ruxsat dependency'sini qo'shadi.
@@ -185,9 +189,12 @@ def stats(store: Restaurant = Depends(current_restaurant), db: Session = Depends
     o_month, r_month, p_month = _agg(db, [rid], month)
     o_total, r_total, p_total = _agg(db, [rid], None)
 
+    # Admin e'tiborini talab qiladigan buyurtmalar: qabul kutayotgan (pending)
+    # + kuryer kutayotgan (confirmed).
     pending_orders = db.scalar(
         select(func.count(Order.id)).where(
-            Order.status == OrderStatus.pending, Order.restaurant_id == rid
+            Order.status.in_((OrderStatus.pending, OrderStatus.confirmed)),
+            Order.restaurant_id == rid,
         )
     ) or 0
     users_total = db.scalar(
@@ -519,6 +526,30 @@ def create_order_manual(
     return order
 
 
+def _order_or_404(db: Session, order_id: int, store: Restaurant) -> Order:
+    order = db.scalar(
+        select(Order)
+        .where(Order.id == order_id)
+        .options(
+            selectinload(Order.items),
+            selectinload(Order.user),
+            selectinload(Order.assigned_courier),
+        )
+    )
+    if not order or order.restaurant_id != store.id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Order not found")
+    return order
+
+
+def _customer_ctx(order: Order) -> tuple[int | None, int | None, str]:
+    u = order.user
+    return (
+        u.id if u else None,
+        u.telegram_id if u else None,
+        (u.language if u else None) or "uz",
+    )
+
+
 @router.patch("/orders/{order_id}", response_model=OrderOut)
 def update_order_status(
     order_id: int,
@@ -527,28 +558,135 @@ def update_order_status(
     store: Restaurant = Depends(current_restaurant),
     db: Session = Depends(get_db),
 ):
-    """Admin faqat kuzatib boradi va buyurtmani bekor qila oladi — qabul qilish
-    va kuryer biriktirish kuryerning o'zi tomonidan amalga oshiriladi."""
-    order = db.scalar(
-        select(Order)
-        .where(Order.id == order_id)
-        .options(selectinload(Order.items), selectinload(Order.user))
+    """Admin buyurtmani boshqaradi:
+      • confirmed — buyurtmani qabul qilish (pending → confirmed)
+      • cancelled — bekor qilish
+      • delivered — qo'lda yakunlash (accepted/delivering → delivered)
+    Kuryer biriktirish alohida: POST /orders/{id}/assign
+    """
+    order = _order_or_404(db, order_id, store)
+    user_id, user_tg, user_lang = _customer_ctx(order)
+
+    if data.status == OrderStatus.cancelled:
+        order = cancel_order(db, order)
+        courier_events.publish({"type": "orders_updated", "restaurant_id": store.id})
+        if user_id:
+            background.add_task(notify_status_change, order, user_id, user_tg, user_lang)
+        return order
+
+    if data.status == OrderStatus.confirmed:
+        ensure_transition(order.status, OrderStatus.confirmed)
+        done = db.execute(
+            update(Order)
+            .where(Order.id == order.id, Order.status == OrderStatus.pending)
+            .values(status=OrderStatus.confirmed)
+        )
+        if done.rowcount == 0:
+            db.rollback()
+            raise HTTPException(status.HTTP_409_CONFLICT, "Buyurtma holati o'zgargan")
+        order.status = OrderStatus.confirmed
+        db.commit()
+        db.refresh(order)
+        courier_events.publish({"type": "orders_updated", "restaurant_id": store.id})
+        if user_id:
+            background.add_task(notify_status_change, order, user_id, user_tg, user_lang)
+        return order
+
+    if data.status == OrderStatus.delivered:
+        if order.status not in (OrderStatus.accepted, OrderStatus.delivering):
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                "Faqat kuryer biriktirilgan buyurtmani yakunlash mumkin",
+            )
+        ensure_transition(order.status, OrderStatus.delivered)
+        now = datetime.now(timezone.utc)
+        mark_order_paid_if_cash(order)
+        done = db.execute(
+            update(Order)
+            .where(
+                Order.id == order.id,
+                Order.status.in_((OrderStatus.accepted, OrderStatus.delivering)),
+            )
+            .values(
+                status=OrderStatus.delivered,
+                courier_delivered_at=now,
+                payment_status=order.payment_status,
+            )
+        )
+        if done.rowcount == 0:
+            db.rollback()
+            raise HTTPException(status.HTTP_409_CONFLICT, "Buyurtma holati o'zgargan")
+        order.status = OrderStatus.delivered
+        db.commit()
+        db.refresh(order)
+        courier_events.publish({"type": "orders_updated", "restaurant_id": store.id})
+        if user_id:
+            c = order.assigned_courier
+            background.add_task(
+                notify_status_change, order, user_id, user_tg, user_lang,
+                c.name if c else None, c.phone if c else None,
+            )
+        return order
+
+    raise HTTPException(
+        status.HTTP_400_BAD_REQUEST,
+        "Admin bu holatni o'rnata olmaydi",
     )
-    if not order or order.restaurant_id != store.id:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Order not found")
-    if data.status != OrderStatus.cancelled:
+
+
+@router.post("/orders/{order_id}/assign", response_model=OrderOut)
+def assign_courier(
+    order_id: int,
+    data: OrderAssignIn,
+    background: BackgroundTasks,
+    store: Restaurant = Depends(current_restaurant),
+    db: Session = Depends(get_db),
+):
+    """Qabul qilingan buyurtmaga kuryer biriktiradi (confirmed → accepted).
+    Biriktirilgan kuryerga bildirishnoma (web push + FCM) yuboriladi.
+    accepted holatida ham chaqirilishi mumkin — kuryerni almashtirish."""
+    order = _order_or_404(db, order_id, store)
+    if order.status not in (OrderStatus.confirmed, OrderStatus.accepted):
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST,
-            "Admin faqat buyurtmani bekor qila oladi",
+            "Avval buyurtmani qabul qiling",
         )
+    courier = db.get(AdminUser, data.assigned_courier_id)
+    if (
+        not courier
+        or courier.role != AdminRole.courier
+        or not courier.is_active
+        or courier.restaurant_id != store.id
+    ):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Kuryer topilmadi")
 
-    user_id = order.user.id if order.user else None
-    user_tg = order.user.telegram_id if order.user else None
-    user_lang = (order.user.language if order.user else None) or "uz"
-    order = cancel_order(db, order)
+    now = datetime.now(timezone.utc)
+    done = db.execute(
+        update(Order)
+        .where(
+            Order.id == order.id,
+            Order.status.in_((OrderStatus.confirmed, OrderStatus.accepted)),
+        )
+        .values(
+            status=OrderStatus.accepted,
+            assigned_courier_id=courier.id,
+            courier_accepted_at=order.courier_accepted_at or now,
+        )
+    )
+    if done.rowcount == 0:
+        db.rollback()
+        raise HTTPException(status.HTTP_409_CONFLICT, "Buyurtma holati o'zgargan")
+    db.commit()
+    db.refresh(order)
+
     courier_events.publish({"type": "orders_updated", "restaurant_id": store.id})
+    background.add_task(notify_courier_assigned, order, courier.id)
+    user_id, user_tg, user_lang = _customer_ctx(order)
     if user_id:
-        background.add_task(notify_status_change, order, user_id, user_tg, user_lang)
+        background.add_task(
+            notify_status_change, order, user_id, user_tg, user_lang,
+            courier.name, courier.phone,
+        )
     return order
 
 
@@ -921,10 +1059,8 @@ def delete_admin_user(
     if isinstance(principal, AdminUser) and u.id == principal.id:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "O'zingizni o'chira olmaysiz")
     if u.role == AdminRole.courier:
-        # Faqat assigned_courier_id'ni bo'shatish yetarli emas: status
-        # accepted/delivering'da qolib ketsa, boshqa kuryer uni qayta ololmas
-        # edi (claim faqat pending'dan) — buyurtma "osilib" qolardi. Hali
-        # yakunlanmagan buyurtmalar pending'ga qaytariladi, qayta taqsimlansin.
+        # Hali yakunlanmagan buyurtmalar confirmed'ga qaytariladi (admin allaqachon
+        # qabul qilgan) — admin boshqa kuryer biriktirsin.
         db.execute(
             update(Order)
             .where(
@@ -933,7 +1069,7 @@ def delete_admin_user(
             )
             .values(
                 assigned_courier_id=None,
-                status=OrderStatus.pending,
+                status=OrderStatus.confirmed,
                 courier_accepted_at=None,
                 delivering_started_at=None,
             )

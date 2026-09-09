@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../core/format.dart';
 import '../core/theme.dart';
 import '../models/order.dart';
 import '../services/api.dart';
@@ -68,9 +67,8 @@ class _NavShellState extends State<NavShell> with WidgetsBindingObserver {
   void _onOrders() {
     final data = _orders.data;
     if (data == null) return;
-    final available = data
-        .where((o) => o.assignedCourierId == null && isAcceptableStatus(o.status))
-        .toList();
+    // Admin menga biriktirgan, hali yo'lga chiqmagan buyurtmalar.
+    final available = data.where((o) => o.status == 'accepted').toList();
     _alerts.setAvailableCount(available.length);
 
     final ids = available.map((o) => o.id).toSet();

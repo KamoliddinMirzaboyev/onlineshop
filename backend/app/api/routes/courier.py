@@ -4,7 +4,7 @@ from zoneinfo import ZoneInfo
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
-from sqlalchemy import or_, select, update
+from sqlalchemy import select, update
 from sqlalchemy.orm import Session, selectinload
 import asyncio
 import json
@@ -59,11 +59,10 @@ from app.services.events import courier_events
 
 router = APIRouter(prefix="/courier", tags=["courier"])
 
-# Kuryer oqimi: "qabul qilish" (accepted) → "yetkazilmoqda" (delivering) →
-# "yetkazdim" (/delivered) — kuryer bosishi bilanoq darhol 'delivered'.
-# Ilgari mijoz tasdig'ini kutar edi, lekin mijozlar tugmani bosmasdan
-# buyurtma abadiy "kutilmoqda"da qolib ketardi — shu sabab olib tashlandi.
-COURIER_ALLOWED_STATUSES = {OrderStatus.accepted, OrderStatus.delivering}
+# Kuryer oqimi: admin buyurtmani kuryerga biriktiradi (accepted) →
+# kuryer "yo'lga chiqadi" (delivering) → "yetkazdim" (/delivered).
+# Kuryer endi buyurtmani o'zi qabul qilolmaydi — faqat admin biriktiradi.
+COURIER_ALLOWED_STATUSES = {OrderStatus.delivering}
 COMPLETED_STATUSES = (OrderStatus.delivered, OrderStatus.cancelled)
 # Kuryerga biriktirilgan, hali yakunlanmagan har qanday buyurtma "faol" sanaladi —
 # admin kuryerni 'ready'dan oldin (confirmed/preparing) biriktirsa ham kuryer ko'radi.
@@ -187,17 +186,13 @@ def courier_orders(
     courier: AdminUser = Depends(get_current_courier),
     db: Session = Depends(get_db),
 ):
-    """Faol buyurtmalar: menga biriktirilgan YOKI hali hech kimga biriktirilmagan
-    (yangi) buyurtmalar. Kuryer "qabul qilish" bosib o'ziga oladi (admin tasdig'isiz)."""
+    """Faol buyurtmalar: faqat admin menga biriktirgan buyurtmalar."""
     stmt = (
         select(Order)
         .where(
             Order.status.in_(ACTIVE_STATUSES),
             Order.restaurant_id == courier.restaurant_id,
-            or_(
-                Order.assigned_courier_id == courier.id,
-                Order.assigned_courier_id.is_(None),
-            ),
+            Order.assigned_courier_id == courier.id,
         )
         # Marshrut tartibi (delivering) birinchi, keyin qabul/yangi.
         .order_by(
@@ -220,11 +215,11 @@ def courier_order(
         .where(Order.id == order_id)
         .options(selectinload(Order.items), selectinload(Order.assigned_courier))
     )
-    # O'z do'konidan, o'ziniki yoki hali biriktirilmagan buyurtmani ko'rishi mumkin.
+    # Faqat o'ziga biriktirilgan buyurtmani ko'rishi mumkin.
     if (
         not order
         or order.restaurant_id != courier.restaurant_id
-        or order.assigned_courier_id not in (None, courier.id)
+        or order.assigned_courier_id != courier.id
     ):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Order not found")
     return order
@@ -755,111 +750,32 @@ def courier_update_order(
             f"Courier can only set: {[s.value for s in COURIER_ALLOWED_STATUSES]}",
         )
     order = db.get(Order, order_id)
-    if not order or order.restaurant_id != courier.restaurant_id:
+    if (
+        not order
+        or order.restaurant_id != courier.restaurant_id
+        or order.assigned_courier_id != courier.id
+    ):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Order not found")
 
-    # User ma'lumotini commitdan oldin o'qiymiz (lazy-load/detached xavfisiz).
-    customer = db.get(User, order.user_id)
-    user_id = customer.id if customer else None
-    user_tg = customer.telegram_id if customer else None
-    user_lang = (customer.language if customer else None) or "uz"
-
-    now = datetime.now(timezone.utc)
-    is_accept = data.status == OrderStatus.accepted
-
-    # Egalik: "qabul qilish"da biriktirilmagan buyurtmani o'ziga oladi (claim).
-    # Boshqa amallar (delivering) faqat o'z buyurtmasida.
-    if order.assigned_courier_id is None:
-        if not is_accept:
-            raise HTTPException(status.HTTP_404_NOT_FOUND, "Order not found")
-        # Atomik claim — ikki kuryer bir vaqtda bossa, faqat biri oladi.
-        claimed = db.execute(
-            update(Order)
-            .where(
-                Order.id == order.id,
-                Order.restaurant_id == courier.restaurant_id,
-                Order.assigned_courier_id.is_(None),
-            )
-            .values(assigned_courier_id=courier.id)
+    # Yo'lga chiqish: shu kuryerning BARCHA accepted buyurtmalarini optimal
+    # marshrut bilan birga yo'lga chiqaradi (bitta-bitta emas — yoqilg'i tejam).
+    ensure_transition(order.status, OrderStatus.delivering)
+    if order.status != OrderStatus.accepted:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "Faqat 'qabul qilingan' buyurtmani yo'lga chiqarish mumkin",
         )
-        if claimed.rowcount == 0:
-            db.rollback()
-            raise HTTPException(
-                status.HTTP_409_CONFLICT, "Buyurtmani boshqa kuryer qabul qildi"
-            )
-        order.assigned_courier_id = courier.id
-    elif order.assigned_courier_id != courier.id:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Order not found")
-
-    # Yetkazish: shu kuryerning BARCHA accepted buyurtmalarini optimal marshrut bilan
-    # birga yo'lga chiqaradi (bitta-bitta emas — yoqilg'i tejam).
-    if data.status == OrderStatus.delivering:
-        if order.assigned_courier_id != courier.id:
-            raise HTTPException(status.HTTP_404_NOT_FOUND, "Order not found")
-        ensure_transition(order.status, OrderStatus.delivering)
-        if order.status != OrderStatus.accepted:
-            raise HTTPException(
-                status.HTTP_400_BAD_REQUEST,
-                "Faqat 'qabul qilingan' buyurtmani yo'lga chiqarish mumkin",
-            )
-        accepted = _load_accepted_orders(db, courier, None)
-        if order.id not in {o.id for o in accepted}:
-            raise HTTPException(status.HTTP_409_CONFLICT, "Buyurtma holati o'zgargan")
-        depot = _resolve_depot(db, courier)
-        _group, _km, started = _start_route_for_orders(
-            db, courier, accepted, background, depot=depot
-        )
-        for o in started:
-            if o.id == order_id:
-                return o
-        return started[0]
-
-    ensure_transition(order.status, data.status)
-    prev_status = order.status
-
-    notify_accept = False
-    if is_accept and order.courier_accepted_at is None:
-        order.courier_accepted_at = now
-        notify_accept = True
-
-    # Atomik holat o'tishi — concurrent update yo'qotilmasin.
-    transitioned = db.execute(
-        update(Order)
-        .where(Order.id == order.id, Order.status == prev_status)
-        .values(
-            status=data.status,
-            assigned_courier_id=order.assigned_courier_id,
-            courier_accepted_at=order.courier_accepted_at,
-        )
-    )
-    if transitioned.rowcount == 0 and prev_status != data.status:
-        db.rollback()
+    accepted = _load_accepted_orders(db, courier, None)
+    if order.id not in {o.id for o in accepted}:
         raise HTTPException(status.HTTP_409_CONFLICT, "Buyurtma holati o'zgargan")
-    order.status = data.status
-    db.commit()
-    db.refresh(order)
-
-    # "Qabul qilindi" — mijoz tilida + kuryer ismi/telefon + admin push.
-    if notify_accept and user_id:
-        background.add_task(
-            notify_status_change,
-            order,
-            user_id,
-            user_tg,
-            user_lang,
-            courier.name,
-            courier.phone,
-        )
-        background.add_task(
-            webpush.notify_admins,
-            f"✅ Buyurtma qabul qilindi № {order.number}",
-            f"{order.total:,} so'm · {order.address_line}",
-            order.restaurant_id,
-            url="/orders",
-            tag=f"accepted-{order.id}",
-        )
-    courier_events.publish({"type": "orders_updated", "restaurant_id": order.restaurant_id})
-    return order
+    depot = _resolve_depot(db, courier)
+    _group, _km, started = _start_route_for_orders(
+        db, courier, accepted, background, depot=depot
+    )
+    for o in started:
+        if o.id == order_id:
+            return o
+    return started[0]
 
 
 @router.post("/orders/{order_id}/delivered", response_model=OrderOut)

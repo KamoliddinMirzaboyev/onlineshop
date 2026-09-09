@@ -58,14 +58,15 @@ def test_courier_cannot_fetch_other_store_order(client, db_session, tenant_a, te
     assert resp.status_code == 404
 
 
-def test_courier_cannot_claim_other_store_order(client, db_session, tenant_a, tenant_b):
+def test_courier_cannot_claim_order(client, db_session, tenant_a):
+    """Kuryer buyurtmani o'zi qabul qilolmaydi — faqat admin biriktiradi."""
     _, token_a = _make_courier(db_session, tenant_a, "a3")
-    order_b = _make_active_order(db_session, tenant_b, "ORD-B-3")
+    order_a = _make_active_order(db_session, tenant_a, "ORD-A-3")
 
     resp = client.patch(
-        f"/api/courier/orders/{order_b.id}", json={"status": "accepted"}, headers=auth(token_a)
+        f"/api/courier/orders/{order_a.id}", json={"status": "accepted"}, headers=auth(token_a)
     )
-    assert resp.status_code == 404
+    assert resp.status_code == 400
 
-    db_session.refresh(order_b)
-    assert order_b.assigned_courier_id is None
+    db_session.refresh(order_a)
+    assert order_a.assigned_courier_id is None

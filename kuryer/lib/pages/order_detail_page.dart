@@ -97,31 +97,26 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
     }
   }
 
+  /// Yo'lga chiqish — backend kuryerning BARCHA accepted buyurtmalarini
+  /// optimal reysga qo'shib yuboradi.
   Future<void> _setStatus(String status) async {
     final order = _res.data;
     if (order == null) return;
     setState(() => _updating = true);
     try {
-      if (status == 'delivering') {
-        // Faqat shu buyurtma — order_ids: null bo'lsa backend courierning
-        // BARCHA accepted buyurtmalarini reysga qo'shib yuboradi.
-        final body = await locationService.gpsBody({
-          'order_ids': [order.id],
-        });
-        final res = await api.post('/courier/route/start', body)
-            as Map<String, dynamic>;
-        final n = (res['orders'] as List?)?.length ?? 1;
-        final km = res['total_distance_km'];
-        final kmLabel = km is num ? ' · ~${km.toStringAsFixed(1)} km' : '';
-        toast.success(
-          n > 1
-              ? 'Marshrut tuzildi 🛵 — $n ta stop$kmLabel'
-              : 'Yetkazish boshlandi 🛵 — mijozga chek + ETA$kmLabel',
-        );
-      } else {
-        await api.patch('/courier/orders/${order.id}', {'status': status});
-        toast.success('Buyurtma qabul qilindi ✅');
-      }
+      final body = await locationService.gpsBody({
+        'order_ids': [order.id],
+      });
+      final res = await api.post('/courier/route/start', body)
+          as Map<String, dynamic>;
+      final n = (res['orders'] as List?)?.length ?? 1;
+      final km = res['total_distance_km'];
+      final kmLabel = km is num ? ' · ~${km.toStringAsFixed(1)} km' : '';
+      toast.success(
+        n > 1
+            ? 'Marshrut tuzildi 🛵 — $n ta stop$kmLabel'
+            : 'Yetkazish boshlandi 🛵 — mijozga chek + ETA$kmLabel',
+      );
       _res.refresh();
     } catch (e) {
       toast.error(
@@ -524,12 +519,6 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
         const SizedBox(height: 16),
 
         // Action buttons
-        if (isAcceptableStatus(order.status))
-          _BigButton(
-            label: _updating ? '…' : '✅  Qabul qilish',
-            color: AppColors.cyan600,
-            onPressed: _updating ? null : () => _setStatus('accepted'),
-          ),
         if (order.status == 'accepted')
           _BigButton(
             label: _updating

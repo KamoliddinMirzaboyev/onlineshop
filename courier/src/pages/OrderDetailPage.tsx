@@ -17,7 +17,6 @@ import {
   statusLabel,
   statusPill,
 } from "../lib/format";
-import { isAcceptableOrderStatus } from "../lib/orderActions";
 import { confirmOutOfOrder, offerNextStop } from "../lib/routeFlow";
 import { getCurrentCoords } from "../location";
 import type { Order, OrderStatus } from "../types";
@@ -299,16 +298,6 @@ export default function OrderDetailPage() {
       </motion.div>
 
       <div className="space-y-2">
-        {isAcceptableOrderStatus(order.status) && (
-          <motion.button
-            whileTap={tap}
-            className="w-full py-3.5 rounded-2xl bg-cyan-600 text-white font-bold text-base shadow-lg shadow-cyan-200 transition disabled:opacity-50"
-            disabled={updating}
-            onClick={() => setStatus("accepted")}
-          >
-            {updating ? "…" : "✅  Qabul qilish"}
-          </motion.button>
-        )}
         {order.status === "accepted" && (
           <motion.button
             whileTap={tap}

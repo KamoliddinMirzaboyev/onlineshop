@@ -1,24 +1,25 @@
-import { Bike, MapPin, Navigation, Phone, Printer, Trash2, User, X } from "lucide-react";
+import { Bike, Check, MapPin, Navigation, Phone, Printer, Trash2, User, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { del, get, patch } from "../api";
+import { del, get, patch, post } from "../api";
 import { confirm } from "../components/Confirm";
 import { ErrorRetry, OrderListSkeleton } from "../components/Skeleton";
 import { useInfiniteList } from "../hooks/useInfiniteList";
 import { useAuth } from "../store";
-import type { Order, OrderStatus } from "../types";
+import type { AdminUser, Order, OrderStatus } from "../types";
 
 const FILTER_TABS = [
   { value: "pending", label: "Yangi" },
   { value: "", label: "Barchasi" },
-  { value: "accepted", label: "Kuryer qabul qildi" },
+  { value: "confirmed", label: "Kuryer kutilmoqda" },
+  { value: "accepted", label: "Kuryerda" },
   { value: "delivering", label: "Yetkazilmoqda" },
   { value: "delivered", label: "Yetkazildi" },
   { value: "cancelled", label: "Bekor" },
 ];
 const LABEL: Record<OrderStatus, string> = {
-  pending: "Yangi", confirmed: "Tasdiqlandi", preparing: "Tayyorlanmoqda",
-  ready: "Tayyor", accepted: "Kuryer qabul qildi", delivering: "Yetkazilmoqda",
+  pending: "Yangi", confirmed: "Kuryer kutilmoqda", preparing: "Tayyorlanmoqda",
+  ready: "Tayyor", accepted: "Kuryerda", delivering: "Yetkazilmoqda",
   delivered: "Yetkazildi", cancelled: "Bekor",
 };
 const PILL: Record<OrderStatus, string> = {
@@ -171,6 +172,7 @@ export default function OrdersPage() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState(false);
   const [busy, setBusy] = useState<number | null>(null);
+  const [couriers, setCouriers] = useState<AdminUser[]>([]);
   // "Oxirgi so'rov yutadi" — filter almashganda eski so'rovni skip qilmaymiz,
   // faqat javobini e'tiborsiz qoldiramiz (avvalgi inFlight guard yangi
   // filterni butunlay yutib yuborardi).
@@ -201,6 +203,55 @@ export default function OrdersPage() {
     return () => clearInterval(iv);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filter, day]);
+
+  useEffect(() => {
+    get<AdminUser[]>("/admin/courier-accounts").then(setCouriers).catch(() => {});
+  }, []);
+
+  const accept = async (o: Order) => {
+    setBusy(o.id);
+    try {
+      await patch(`/admin/orders/${o.id}`, { status: "confirmed" });
+      toast.success(`№ ${o.number}: qabul qilindi`);
+      load();
+    } catch {
+      toast.error("Qabul qilib bo'lmadi");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const assign = async (o: Order, courierId: number) => {
+    setBusy(o.id);
+    try {
+      await post(`/admin/orders/${o.id}/assign`, { assigned_courier_id: courierId });
+      toast.success(`№ ${o.number}: kuryerga biriktirildi`);
+      load();
+    } catch {
+      toast.error("Biriktirib bo'lmadi");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const markDelivered = async (o: Order) => {
+    const ok = await confirm({
+      title: `№ ${o.number}: yetkazildi deb belgilansinmi?`,
+      confirmText: "Ha, yetkazildi",
+      cancelText: "Yo'q",
+    });
+    if (!ok) return;
+    setBusy(o.id);
+    try {
+      await patch(`/admin/orders/${o.id}`, { status: "delivered" });
+      toast.success(`№ ${o.number}: yetkazildi`);
+      load();
+    } catch {
+      toast.error("Belgilab bo'lmadi");
+    } finally {
+      setBusy(null);
+    }
+  };
 
   const cancel = async (o: Order) => {
     const ok = await confirm({
@@ -275,7 +326,7 @@ export default function OrdersPage() {
       {/* Title + filterlar fixed — ro'yxat alohida scroll, yopilmaydi */}
       <div className="shrink-0 pb-4">
         <h1 className="text-2xl font-bold tracking-tight mb-1">Buyurtmalar</h1>
-        <p className="text-slate-500 mb-4">Kuzatuv rejimi — kuryer buyurtmani o'zi qabul qiladi</p>
+        <p className="text-slate-500 mb-4">Qabul qiling → kuryer biriktiring → yetkazilishini kuzating</p>
 
         <div className="flex gap-2.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {FILTER_TABS.map((tab) => (
@@ -393,7 +444,6 @@ export default function OrdersPage() {
             </div>
 
             <div className="mt-2 pt-2 border-t border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-2.5">
-              {/* Kuryer holati — faqat kuzatish, kuryer o'zi qabul qiladi */}
               <div className="flex flex-wrap items-center gap-3">
                 {o.assigned_courier_id ? (
                   <span className="px-3 py-2 rounded-xl bg-slate-100 text-slate-700 text-sm font-semibold inline-flex items-center gap-2">
@@ -408,12 +458,27 @@ export default function OrdersPage() {
                     <Phone size={18} className="text-slate-500" /> {o.assigned_courier_phone}
                   </a>
                 )}
-                {!o.assigned_courier_id && (
-                  o.status !== "delivered" && o.status !== "cancelled" && (
-                    <span className="px-3 py-2 rounded-xl bg-amber-100 text-amber-700 text-sm font-bold flex items-center gap-2">
-                      <Bike size={18} /> Kuryer kutilmoqda
-                    </span>
-                  )
+                {(o.status === "confirmed" || o.status === "accepted") && (
+                  <select
+                    disabled={busy === o.id}
+                    value={o.assigned_courier_id ?? ""}
+                    onChange={(e) => e.target.value && assign(o, Number(e.target.value))}
+                    className="px-3 py-2 rounded-xl bg-white border border-amber-300 text-slate-700 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-brand/30 disabled:opacity-50"
+                  >
+                    <option value="">
+                      {o.assigned_courier_id ? "Kuryerni almashtirish…" : "🚴 Kuryer biriktirish…"}
+                    </option>
+                    {couriers.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name || c.username}{c.phone ? ` · ${c.phone}` : ""}
+                      </option>
+                    ))}
+                  </select>
+                )}
+                {o.status === "pending" && (
+                  <span className="px-3 py-2 rounded-xl bg-amber-100 text-amber-700 text-sm font-bold flex items-center gap-2">
+                    <Bike size={18} /> Qabul kutilmoqda
+                  </span>
                 )}
                 {o.lat != null && o.lng != null && (
                   <a
@@ -428,6 +493,24 @@ export default function OrdersPage() {
               </div>
 
               <div className="flex flex-col sm:flex-row shrink-0 gap-3 w-full md:w-auto">
+                {o.status === "pending" && (
+                  <button
+                    disabled={busy === o.id}
+                    onClick={() => accept(o)}
+                    className="w-full md:w-auto px-3.5 py-1.5 rounded-lg bg-emerald-600 border border-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 transition inline-flex items-center justify-center gap-1.5 disabled:opacity-50 shadow-sm"
+                  >
+                    <Check size={18} strokeWidth={2.5} /> Qabul qilish
+                  </button>
+                )}
+                {(o.status === "accepted" || o.status === "delivering") && (
+                  <button
+                    disabled={busy === o.id}
+                    onClick={() => markDelivered(o)}
+                    className="w-full md:w-auto px-3.5 py-1.5 rounded-lg bg-emerald-50 border border-emerald-300 text-emerald-700 text-xs font-bold hover:bg-emerald-600 hover:text-white hover:border-emerald-600 transition inline-flex items-center justify-center gap-1.5 disabled:opacity-50 shadow-sm"
+                  >
+                    <Check size={18} strokeWidth={2.5} /> Yetkazildi
+                  </button>
+                )}
                 {(o.status === "delivering" || o.status === "delivered") && (
                   <button
                     onClick={() => printReceipt(o)}

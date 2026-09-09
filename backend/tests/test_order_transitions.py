@@ -16,8 +16,20 @@ def test_allowed_payments_only_cash():
     assert ALLOWED_PAYMENT_METHODS == {PaymentMethod.cash}
 
 
-def test_transition_allows_pending_to_accepted():
-    ensure_transition(OrderStatus.pending, OrderStatus.accepted)
+def test_transition_flow_pending_confirmed_accepted():
+    ensure_transition(OrderStatus.pending, OrderStatus.confirmed)
+    ensure_transition(OrderStatus.confirmed, OrderStatus.accepted)
+    ensure_transition(OrderStatus.accepted, OrderStatus.delivering)
+
+
+def test_transition_blocks_pending_straight_to_accepted():
+    with pytest.raises(HTTPException) as ei:
+        ensure_transition(OrderStatus.pending, OrderStatus.accepted)
+    assert ei.value.status_code == 400
+
+
+def test_transition_admin_shortcut_accepted_to_delivered():
+    ensure_transition(OrderStatus.accepted, OrderStatus.delivered)
 
 
 def test_transition_blocks_delivered_to_pending():

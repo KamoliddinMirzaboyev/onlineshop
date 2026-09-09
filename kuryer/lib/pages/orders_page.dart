@@ -51,29 +51,24 @@ class _OrdersPageState extends State<OrdersPage> {
     super.dispose();
   }
 
+  /// Yo'lga chiqish. order_ids bitta bo'lsa ham backend kuryerning BARCHA
+  /// accepted buyurtmalarini optimal reysga qo'shib yuboradi.
   Future<void> _setStatus(int id, String status) async {
     setState(() => _updating = id);
     try {
-      if (status == 'delivering') {
-        // Faqat shu buyurtma — order_ids: null bo'lsa backend courierning
-        // BARCHA accepted buyurtmalarini reysga qo'shib yuboradi.
-        final body = await locationService.gpsBody({
-          'order_ids': [id],
-        });
-        final res = await api.post('/courier/route/start', body)
-            as Map<String, dynamic>;
-        final n = (res['orders'] as List?)?.length ?? 1;
-        final km = res['total_distance_km'];
-        final kmLabel = km is num ? ' · ~${km.toStringAsFixed(1)} km' : '';
-        toast.success(
-          n > 1
-              ? 'Marshrut tuzildi 🛵 — $n ta stop$kmLabel'
-              : 'Yetkazish boshlandi 🛵$kmLabel',
-        );
-      } else {
-        await api.patch('/courier/orders/$id', {'status': status});
-        toast.success('Buyurtma qabul qilindi ✅');
-      }
+      final body = await locationService.gpsBody({
+        'order_ids': [id],
+      });
+      final res = await api.post('/courier/route/start', body)
+          as Map<String, dynamic>;
+      final n = (res['orders'] as List?)?.length ?? 1;
+      final km = res['total_distance_km'];
+      final kmLabel = km is num ? ' · ~${km.toStringAsFixed(1)} km' : '';
+      toast.success(
+        n > 1
+            ? 'Marshrut tuzildi 🛵 — $n ta stop$kmLabel'
+            : 'Yetkazish boshlandi 🛵$kmLabel',
+      );
       _res.refresh();
     } catch (e) {
       toast.error(apiErrorMessage(
@@ -312,7 +307,6 @@ class _OrdersPageState extends State<OrdersPage> {
                                   order: o,
                                   updating: _updating == o.id,
                                   onDetail: () => _open(o.id),
-                                  onAccept: () => _setStatus(o.id, 'accepted'),
                                   onDeliver: () => _setStatus(o.id, 'delivering'),
                                   onDelivered: () => _markDelivered(o.id),
                                 ),
@@ -546,7 +540,6 @@ class _OrderCard extends StatelessWidget {
     required this.order,
     required this.updating,
     required this.onDetail,
-    required this.onAccept,
     required this.onDeliver,
     required this.onDelivered,
   });
@@ -554,7 +547,6 @@ class _OrderCard extends StatelessWidget {
   final Order order;
   final bool updating;
   final VoidCallback onDetail;
-  final VoidCallback onAccept;
   final VoidCallback onDeliver;
   final VoidCallback onDelivered;
 
@@ -696,19 +688,6 @@ class _OrderCard extends StatelessWidget {
                   onPressed: onDetail,
                 ),
               ),
-              if (isAcceptableStatus(order.status)) ...[
-                const SizedBox(width: 8),
-                Expanded(
-                  child: AppButton(
-                    label: updating ? '…' : 'Qabul qilish ✅',
-                    color: AppColors.cyan600,
-                    expand: true,
-                    loading: updating,
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    onPressed: updating ? null : onAccept,
-                  ),
-                ),
-              ],
               if (order.status == 'accepted') ...[
                 const SizedBox(width: 8),
                 Expanded(

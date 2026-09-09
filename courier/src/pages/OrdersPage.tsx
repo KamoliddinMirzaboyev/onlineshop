@@ -8,7 +8,6 @@ import { ListSkeleton } from "../components/Skeleton";
 import { useToast } from "../components/Toast";
 import { useResource } from "../lib/cache";
 import { listContainer, listItem, tap } from "../lib/motion";
-import { isAcceptableOrderStatus } from "../lib/orderActions";
 import {
   etaLabel,
   money,
@@ -404,16 +403,6 @@ export default function OrdersPage() {
                     >
                       Batafsil
                     </motion.button>
-                    {isAcceptableOrderStatus(o.status) && (
-                      <motion.button
-                        whileTap={tap}
-                        className="btn flex-1 justify-center text-sm py-2 !bg-cyan-600"
-                        disabled={updating === o.id}
-                        onClick={() => setStatus(o.id, "accepted")}
-                      >
-                        {updating === o.id ? "…" : "Qabul qilish ✅"}
-                      </motion.button>
-                    )}
                     {o.status === "accepted" && (
                       <motion.button
                         whileTap={tap}

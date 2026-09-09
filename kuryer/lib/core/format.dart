@@ -49,18 +49,13 @@ const statusLabelMap = {
   'confirmed': 'Tasdiqlangan',
   'preparing': 'Tayyorlanmoqda',
   'ready': 'Tayyor',
-  'accepted': 'Qabul qilindi',
+  'accepted': 'Sizga biriktirildi',
   'delivering': 'Yetkazilmoqda',
   'delivered': 'Yetkazildi',
   'cancelled': 'Bekor qilindi',
 };
 
 String statusLabel(String s) => statusLabelMap[s] ?? s;
-
-/// Statuses a courier can still tap "Qabul qilish" on. Was copy-pasted as a
-/// private `_acceptable` set per-page before — one place now.
-const acceptableStatuses = {'pending', 'confirmed', 'preparing', 'ready'};
-bool isAcceptableStatus(String s) => acceptableStatuses.contains(s);
 
 /// (background, foreground) colours for a status pill.
 (Color, Color) statusPillColors(String s) {

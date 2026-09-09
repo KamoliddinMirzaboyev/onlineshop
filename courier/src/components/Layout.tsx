@@ -4,15 +4,14 @@ import { Outlet, useLocation } from "react-router-dom";
 import { get } from "../api";
 import { useResource } from "../lib/cache";
 import { pageVariants } from "../lib/motion";
-import { isAcceptableOrderStatus } from "../lib/orderActions";
 import { playOrderAlertSound, showOrderNotification } from "../push";
 import { useOrderAlerts } from "../store";
 import type { Order } from "../types";
 import BottomNav from "./BottomNav";
 import { useToast } from "./Toast";
 
-/** Butun ilova bo'yicha bitta joyda buyurtmalarni pollab, yangi (hali hech
-    kimga biriktirilmagan) buyurtma chiqqanda ovoz + OS bildirishnoma + toast. */
+/** Butun ilova bo'yicha bitta joyda buyurtmalarni pollab, admin menga yangi
+    buyurtma biriktirganda (status=accepted) ovoz + OS bildirishnoma + toast. */
 function useNewOrderAlerts() {
   const setAvailableCount = useOrderAlerts((s) => s.setAvailableCount);
   const toast = useToast();
@@ -25,9 +24,7 @@ function useNewOrderAlerts() {
 
   useEffect(() => {
     if (!data) return;
-    const available = data.filter(
-      (o) => o.assigned_courier_id == null && isAcceptableOrderStatus(o.status),
-    );
+    const available = data.filter((o) => o.status === "accepted");
     setAvailableCount(available.length);
 
     const ids = new Set(available.map((o) => o.id));
