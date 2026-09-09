@@ -1,3 +1,4 @@
+import { sumFull, sumShort } from "../lib/money";
 import type { PeriodPoint } from "../types";
 
 const money = (n: number) => n.toLocaleString("ru-RU").replace(/,/g, " ");
@@ -28,17 +29,17 @@ export default function TrendChart({ points, compact = false }: { points: Period
   return (
     <div>
       <div className={`grid grid-cols-3 gap-3 ${compact ? "mb-3" : "mb-5"}`}>
-        <div>
+        <div title={sumFull(total)}>
           <div className="text-xs text-slate-500">Jami tushum</div>
-          <div className={`${compact ? "text-sm" : "text-base sm:text-lg"} font-bold mt-0.5`}>{money(total)} so'm</div>
+          <div className={`${compact ? "text-sm" : "text-base sm:text-lg"} font-bold tabular-nums mt-0.5`}>{sumShort(total)} <span className="text-xs font-medium text-slate-400">so'm</span></div>
         </div>
-        <div>
+        <div title={sumFull(avg)}>
           <div className="text-xs text-slate-500">O'rtacha kunlik</div>
-          <div className={`${compact ? "text-sm" : "text-base sm:text-lg"} font-bold mt-0.5`}>{money(avg)} so'm</div>
+          <div className={`${compact ? "text-sm" : "text-base sm:text-lg"} font-bold tabular-nums mt-0.5`}>{sumShort(avg)} <span className="text-xs font-medium text-slate-400">so'm</span></div>
         </div>
-        <div>
+        <div title={sumFull(peak.revenue)}>
           <div className="text-xs text-slate-500">Eng yuqori kun</div>
-          <div className={`${compact ? "text-sm" : "text-base sm:text-lg"} font-bold mt-0.5`}>{money(peak.revenue)} so'm</div>
+          <div className={`${compact ? "text-sm" : "text-base sm:text-lg"} font-bold tabular-nums mt-0.5`}>{sumShort(peak.revenue)} <span className="text-xs font-medium text-slate-400">so'm</span></div>
           <div className="text-[11px] text-slate-400">{fmtDate(peak.period)}</div>
         </div>
       </div>

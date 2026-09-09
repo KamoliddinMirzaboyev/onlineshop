@@ -4,62 +4,70 @@ import { useEffect, useState } from "react";
 import { get } from "../api";
 import { ErrorRetry, StatCardsSkeleton } from "../components/Skeleton";
 import TrendChart from "../components/TrendChart";
+import { sumFull, sumShort } from "../lib/money";
 import type { BusinessReports, StoreBreakdown } from "../types";
 
-const money = (n?: number | null) => (n || 0).toLocaleString("ru-RU").replace(/,/g, " ");
-
+/** Stat karta — telefonda 2×2, katta ekranda 4 ustun.
+ *  Qiymat ixcham ("12,5 mln"), to'liq son bosib turilganda title'da. */
 function Stat({
-  label, value, icon: Icon, tint,
-}: { label: string; value: string; icon: LucideIcon; tint: string }) {
+  label, value, unit, icon: Icon, tint, valueClass = "", title,
+}: {
+  label: string; value: string; unit?: string; icon: LucideIcon; tint: string; valueClass?: string; title?: string;
+}) {
   return (
-    <div className="card p-4 sm:p-5">
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-sm text-slate-500">{label}</span>
-        <span className={`grid place-items-center h-9 w-9 rounded-lg shrink-0 ${tint}`}>
-          <Icon size={18} />
+    <div className="card p-4 sm:p-5" title={title}>
+      <div className="flex items-center justify-between gap-2 mb-2.5">
+        <span className="text-[13px] text-slate-500 font-medium">{label}</span>
+        <span className={`grid place-items-center h-8 w-8 rounded-lg shrink-0 ${tint}`}>
+          <Icon size={16} />
         </span>
       </div>
-      <div className="text-xl sm:text-2xl font-bold tracking-tight leading-snug">{value}</div>
+      <div className={`text-[22px] sm:text-2xl font-bold tracking-tight tabular-nums leading-none ${valueClass}`}>
+        {value}
+        {unit && <span className="ml-1 text-sm font-semibold text-slate-400">{unit}</span>}
+      </div>
+    </div>
+  );
+}
+
+function Metric({ label, value, unit, valueClass = "" }: { label: string; value: string; unit?: string; valueClass?: string }) {
+  return (
+    <div className="min-w-0">
+      <div className="text-[11px] text-slate-500">{label}</div>
+      <div className={`text-[15px] font-bold tabular-nums mt-0.5 truncate ${valueClass}`}>
+        {value}{unit && <span className="ml-0.5 text-xs font-medium text-slate-400">{unit}</span>}
+      </div>
     </div>
   );
 }
 
 function StoreCard({ s }: { s: StoreBreakdown }) {
   return (
-    <div className="card p-5 flex flex-col lg:flex-row lg:items-center gap-4">
-      <div className="flex items-center gap-3 lg:w-56 shrink-0">
-        <span className="grid place-items-center h-11 w-11 rounded-lg bg-brand/10 text-brand shrink-0">
-          <Store size={19} />
+    <div className="card p-4 sm:p-5">
+      <div className="flex items-center gap-3 mb-3">
+        <span className="grid place-items-center h-10 w-10 rounded-xl bg-brand/10 text-brand shrink-0">
+          <Store size={18} />
         </span>
         <div className="font-semibold text-slate-900 truncate">{s.name}</div>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-3 flex-1 lg:border-l lg:border-slate-100 lg:pl-5">
-        <div>
-          <div className="text-xs text-slate-500">Buyurtmalar</div>
-          <div className="text-lg font-bold mt-0.5">{s.orders}</div>
-        </div>
-        <div>
-          <div className="text-xs text-slate-500">Mahsulot turlari</div>
-          <div className="text-lg font-bold mt-0.5">{s.product_count}</div>
-        </div>
-        <div>
-          <div className="text-xs text-slate-500">Aylanma</div>
-          <div className="text-lg font-bold mt-0.5">{money(s.revenue)} <span className="text-sm font-medium text-slate-400">so'm</span></div>
-        </div>
-        <div>
-          <div className="text-xs text-slate-500">Foyda</div>
-          <div className="text-lg font-bold mt-0.5 text-emerald-600">{money(s.profit)} <span className="text-sm font-medium text-emerald-400">so'm</span></div>
-        </div>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-3">
+        <Metric label="Buyurtmalar" value={String(s.orders)} />
+        <Metric label="Mahsulot turlari" value={String(s.product_count)} />
+        <Metric label="Aylanma" value={sumShort(s.revenue)} unit="so'm" />
+        <Metric
+          label="Foyda"
+          value={sumShort(s.profit)}
+          unit="so'm"
+          valueClass={s.profit < 0 ? "text-red-600" : "text-emerald-600"}
+        />
       </div>
 
       {s.top_product_name && (
-        <div className="flex items-center gap-2 text-sm min-w-0 lg:w-64 shrink-0 lg:border-l lg:border-slate-100 lg:pl-5">
+        <div className="flex items-center gap-2 text-sm mt-3 pt-3 border-t border-slate-100">
           <Star size={14} className="text-amber-500 shrink-0" />
-          <div className="min-w-0">
-            <div className="text-xs text-slate-400">Eng ko'p sotilgan</div>
-            <div className="font-medium truncate">{s.top_product_name}</div>
-          </div>
+          <span className="text-xs text-slate-400 shrink-0">Eng ko'p sotilgan:</span>
+          <span className="font-medium truncate">{s.top_product_name}</span>
         </div>
       )}
     </div>
@@ -94,12 +102,16 @@ export default function DashboardPage() {
       <div className="space-y-6">
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           <Stat label="Buyurtmalar" value={String(totOrders)} icon={ReceiptText} tint="bg-sky-50 text-sky-600" />
-          <Stat label="Aylanma" value={`${money(totRevenue)} so'm`} icon={Wallet} tint="bg-emerald-50 text-emerald-600" />
-          <Stat label="Harajat" value={`${money(totCost)} so'm`} icon={Coins} tint="bg-amber-50 text-amber-600" />
-          <Stat label="Foyda" value={`${money(totProfit)} so'm`} icon={TrendingUp} tint="bg-teal-50 text-teal-600" />
+          <Stat label="Aylanma" value={sumShort(totRevenue)} unit="so'm" title={sumFull(totRevenue)}
+            icon={Wallet} tint="bg-emerald-50 text-emerald-600" />
+          <Stat label="Harajat" value={sumShort(totCost)} unit="so'm" title={sumFull(totCost)}
+            icon={Coins} tint="bg-amber-50 text-amber-600" />
+          <Stat label="Foyda" value={sumShort(totProfit)} unit="so'm" title={sumFull(totProfit)}
+            icon={TrendingUp} tint="bg-teal-50 text-teal-600"
+            valueClass={totProfit < 0 ? "text-red-600" : "text-teal-600"} />
         </div>
 
-        {/* ── Do'konlar bo'yicha — har bir do'kon uchun kengaytirilgan karta ── */}
+        {/* ── Do'konlar bo'yicha ── */}
         <div>
           <div className="flex items-center gap-2 mb-3 font-semibold text-lg">
             <Store size={19} /> Do'konlar bo'yicha
@@ -112,20 +124,20 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* ── Savdo dinamikasi ────────────────────────────── */}
+        {/* ── Savdo dinamikasi ── */}
         <div className="card p-4 sm:p-6">
           <div className="flex items-center gap-2 mb-4 font-semibold"><BarChart3 size={18} /> Savdo dinamikasi (30 kun)</div>
           <TrendChart points={data.series} />
         </div>
 
-        {/* ── Eng ko'p sotilgan mahsulotlar (biznes bo'ylab) ─ */}
+        {/* ── Eng ko'p sotilgan mahsulotlar ── */}
         {topProducts.length > 0 && (
           <div className="card p-4 sm:p-6">
             <div className="flex items-center gap-2 mb-4 font-semibold"><Package size={18} className="text-amber-500" /> Eng ko'p sotilgan mahsulotlar</div>
             <div className="space-y-3">
               {topProducts.map((t, i) => (
                 <div key={t.product_id} className="flex items-center gap-3">
-                  <span className="text-slate-400 font-semibold w-4 shrink-0">{i + 1}</span>
+                  <span className="text-slate-400 font-semibold w-4 shrink-0 tabular-nums">{i + 1}</span>
                   {t.image_url
                     ? <img src={t.image_url} alt="" className="h-9 w-9 rounded-lg object-cover bg-slate-100 shrink-0" />
                     : <span className="h-9 w-9 rounded-lg bg-slate-100 shrink-0" />}
@@ -135,7 +147,7 @@ export default function DashboardPage() {
                       <div className="h-full bg-amber-400 rounded-full" style={{ width: `${(t.quantity / maxQty) * 100}%` }} />
                     </div>
                   </div>
-                  <div className="text-sm font-semibold shrink-0">{t.quantity} ta</div>
+                  <span className="text-xs font-semibold shrink-0 rounded-full bg-slate-100 text-slate-600 px-2 py-0.5 tabular-nums">{t.quantity} ta</span>
                 </div>
               ))}
             </div>
