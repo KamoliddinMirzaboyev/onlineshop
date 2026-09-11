@@ -5,6 +5,7 @@ import '../core/format.dart';
 import '../core/theme.dart';
 import '../models/catalog.dart';
 import '../services/cart.dart';
+import 'product_detail_sheet.dart';
 
 /// Korzinka Go uslubidagi 3 talik grid mahsulot kartasi
 class ProductCard extends StatelessWidget {
@@ -31,59 +32,63 @@ class ProductCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // 1. Rasm bloki (TMA kabi kattaroq, to'liq maydonni egallovchi)
-          ClipRRect(
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
-            child: AspectRatio(
-              aspectRatio: 1.0,
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  Container(
-                    color: const Color(0xFFF3F4F6),
-                    child: product.imageUrl != null && product.imageUrl!.isNotEmpty
-                        ? CachedNetworkImage(
-                            imageUrl: product.imageUrl!,
-                            fit: BoxFit.cover,
-                            alignment: Alignment.center,
-                            memCacheWidth: 240,
-                            placeholder: (context, url) => Container(
-                              color: const Color(0xFFF1F5F9),
+          // 1. Rasm bloki (bosilganda to'liq ma'lumot ochiladi)
+          GestureDetector(
+            onTap: () => showProductDetailSheet(context, product),
+            behavior: HitTestBehavior.opaque,
+            child: ClipRRect(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
+              child: AspectRatio(
+                aspectRatio: 1.0,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Container(
+                      color: const Color(0xFFF3F4F6),
+                      child: product.imageUrl != null && product.imageUrl!.isNotEmpty
+                          ? CachedNetworkImage(
+                              imageUrl: product.imageUrl!,
+                              fit: BoxFit.cover,
                               alignment: Alignment.center,
-                              child: const Icon(Icons.image_outlined, size: 24, color: Color(0xFFCBD5E1)),
-                            ),
-                            errorWidget: (context, url, error) => Container(
+                              memCacheWidth: 240,
+                              placeholder: (context, url) => Container(
+                                color: const Color(0xFFF1F5F9),
+                                alignment: Alignment.center,
+                                child: const Icon(Icons.image_outlined, size: 24, color: Color(0xFFCBD5E1)),
+                              ),
+                              errorWidget: (context, url, error) => Container(
+                                color: const Color(0xFFF1F5F9),
+                                alignment: Alignment.center,
+                                child: const Icon(Icons.shopping_basket_outlined, size: 28, color: AppColors.slate400),
+                              ),
+                            )
+                          : Container(
                               color: const Color(0xFFF1F5F9),
                               alignment: Alignment.center,
                               child: const Icon(Icons.shopping_basket_outlined, size: 28, color: AppColors.slate400),
                             ),
-                          )
-                        : Container(
-                            color: const Color(0xFFF1F5F9),
-                            alignment: Alignment.center,
-                            child: const Icon(Icons.shopping_basket_outlined, size: 28, color: AppColors.slate400),
-                          ),
-                  ),
-                // Sotuvda yo'q / ombor tugagan overlay
-                if (!product.inStock)
-                  Positioned.fill(
-                    child: Container(
-                      color: Colors.black.withValues(alpha: 0.45),
-                      alignment: Alignment.center,
+                    ),
+                  // Sotuvda yo'q / ombor tugagan overlay
+                  if (!product.inStock)
+                    Positioned.fill(
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: AppColors.red600,
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: const Text(
-                          'Tugagan',
-                          style: TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.w700),
+                        color: Colors.black.withValues(alpha: 0.45),
+                        alignment: Alignment.center,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: AppColors.red600,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Text(
+                            'Tugagan',
+                            style: TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.w700),
+                          ),
                         ),
                       ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -95,46 +100,55 @@ class ProductCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Narx (katta va qora)
-                  Text(
-                    '${money(product.price)} so\'m',
-                    style: const TextStyle(
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w800,
-                      color: Color(0xFF0F172A),
-                      letterSpacing: -0.2,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 2),
+                  GestureDetector(
+                    onTap: () => showProductDetailSheet(context, product),
+                    behavior: HitTestBehavior.opaque,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Narx (katta va qora)
+                        Text(
+                          '${money(product.price)} so\'m',
+                          style: const TextStyle(
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF0F172A),
+                            letterSpacing: -0.2,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 2),
 
-                  // Nomi (aniq va kattaroq)
-                  Text(
-                    product.nameUz,
-                    style: const TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF1E293B),
-                      height: 1.2,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 2),
+                        // Nomi (aniq va kattaroq)
+                        Text(
+                          product.nameUz,
+                          style: const TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF1E293B),
+                            height: 1.2,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 2),
 
-                  // Birligi (1 dona / kg — kattaroq va o'qishga qulay)
-                  Text(
-                    product.unit != null && product.unit!.isNotEmpty
-                        ? '1 ${product.unit}'
-                        : '1 dona',
-                    style: const TextStyle(
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w500,
-                      color: Color(0xFF64748B),
+                        // Birligi (1 dona / kg)
+                        Text(
+                          product.unit != null && product.unit!.isNotEmpty
+                              ? '1 ${product.unit}'
+                              : '1 dona',
+                          style: const TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w500,
+                            color: Color(0xFF64748B),
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
                   ),
 
                   const Spacer(),

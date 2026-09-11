@@ -29,8 +29,9 @@ class _SearchPageState extends State<SearchPage> {
   }
 
   void _onChanged(String v) {
+    setState(() {});
     _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 300), () {
+    _debounce = Timer(const Duration(milliseconds: 250), () {
       if (mounted) setState(() => _q = v);
     });
   }
@@ -73,8 +74,18 @@ class _SearchPageState extends State<SearchPage> {
                     autofocus: false,
                     onChanged: _onChanged,
                     decoration: InputDecoration(
-                      hintText: 'Qidirish',
+                      hintText: 'Mahsulotlarni qidirish...',
                       prefixIcon: const Icon(Icons.search, size: 20),
+                      suffixIcon: _controller.text.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.close_rounded, size: 18, color: AppColors.slate500),
+                              onPressed: () {
+                                _debounce?.cancel();
+                                _controller.clear();
+                                setState(() => _q = '');
+                              },
+                            )
+                          : null,
                       filled: true,
                       fillColor: AppColors.slate100,
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),

@@ -366,9 +366,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
                         children: [
                           _buildPaymentTile('cash', 'Naqd pul orqali', 'Yetkazilganda kuryerga', Icons.money_rounded),
                           const Divider(height: 1, color: Color(0xFFF1F5F9)),
-                          _buildPaymentTile('click', 'Click orqali', 'Onlayn to\'lov', Icons.credit_card_rounded),
+                          _buildPaymentTile('click', 'Click orqali', 'Onlayn to\'lov', Icons.credit_card_rounded, enabled: false),
                           const Divider(height: 1, color: Color(0xFFF1F5F9)),
-                          _buildPaymentTile('payme', 'Payme orqali', 'Onlayn to\'lov', Icons.credit_card_rounded),
+                          _buildPaymentTile('payme', 'Payme orqali', 'Onlayn to\'lov', Icons.credit_card_rounded, enabled: false),
                         ],
                       ),
                     ),
@@ -566,23 +566,86 @@ class _CheckoutPageState extends State<CheckoutPage> {
     );
   }
 
-  Widget _buildPaymentTile(String value, String title, String subtitle, IconData icon) {
+  Widget _buildPaymentTile(
+    String value,
+    String title,
+    String subtitle,
+    IconData icon, {
+    bool enabled = true,
+  }) {
     final selected = _paymentMethod == value;
     return InkWell(
-      onTap: () => setState(() => _paymentMethod = value),
+      onTap: () {
+        if (!enabled) {
+          ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('$title tizimi tez orada ishga tushadi. Hozircha naqd to\'lov amal qiladi.'),
+              duration: const Duration(seconds: 2),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+          );
+          return;
+        }
+        setState(() => _paymentMethod = value);
+      },
       borderRadius: BorderRadius.circular(12),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
         child: Row(
           children: [
-            Icon(icon, size: 22, color: selected ? AppColors.brand : AppColors.slate400),
+            Icon(
+              icon,
+              size: 22,
+              color: !enabled
+                  ? AppColors.slate300
+                  : selected
+                      ? AppColors.brand
+                      : AppColors.slate400,
+            ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: TextStyle(fontSize: 14, fontWeight: selected ? FontWeight.w700 : FontWeight.w500, color: AppColors.slate900)),
-                  Text(subtitle, style: const TextStyle(fontSize: 11.5, color: AppColors.slate400)),
+                  Row(
+                    children: [
+                      Text(
+                        title,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                          color: enabled ? AppColors.slate900 : AppColors.slate400,
+                        ),
+                      ),
+                      if (!enabled) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFEF3C7),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Text(
+                            'Tez kunda',
+                            style: TextStyle(
+                              color: Color(0xFFB45309),
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      color: enabled ? AppColors.slate400 : AppColors.slate300,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -591,7 +654,14 @@ class _CheckoutPageState extends State<CheckoutPage> {
               height: 20,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                border: Border.all(color: selected ? AppColors.brand : AppColors.slate300, width: selected ? 5 : 1.5),
+                border: Border.all(
+                  color: !enabled
+                      ? AppColors.slate200
+                      : selected
+                          ? AppColors.brand
+                          : AppColors.slate300,
+                  width: selected && enabled ? 5 : 1.5,
+                ),
               ),
             ),
           ],

@@ -8,6 +8,7 @@ import '../models/order.dart';
 import '../services/api.dart';
 import '../widgets/common.dart';
 import '../widgets/skeleton.dart';
+import 'contact_page.dart';
 
 const _terminal = {'delivered', 'cancelled'};
 
@@ -405,13 +406,24 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                     ),
                   ),
 
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 14),
                   GhostButton(
                     label: 'Elektron chekni ko\'rish',
                     icon: Icons.receipt_long_rounded,
                     expand: true,
                     onPressed: _showReceipt,
                   ),
+                  if (_store != null && (_store!.phones.isNotEmpty || _store!.socials.isNotEmpty)) ...[
+                    const SizedBox(height: 10),
+                    GhostButton(
+                      label: 'Do\'kon bilan bog\'lanish',
+                      icon: Icons.support_agent_rounded,
+                      expand: true,
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const ContactPage()),
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 24),
                 ],
               ),

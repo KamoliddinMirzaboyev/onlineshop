@@ -52,7 +52,7 @@ class CartPage extends StatelessWidget {
                             ),
                             const SizedBox(height: 8),
                             const Text(
-                              'Katalogimizdan eng sara taomlar va mahsulotlarni tanlang',
+                              'Katalogimizdan sifatli va sara mahsulotlarni tanlang',
                               textAlign: TextAlign.center,
                               style: TextStyle(fontSize: 14, color: AppColors.slate500),
                             ),
@@ -216,10 +216,18 @@ class CartPage extends StatelessWidget {
                                                 ),
                                               ),
                                               IconButton(
-                                                icon: const Icon(Icons.add_rounded, size: 16),
+                                                icon: Icon(
+                                                  Icons.add_rounded,
+                                                  size: 16,
+                                                  color: item.quantity < p.maxQuantity
+                                                      ? AppColors.slate700
+                                                      : AppColors.slate300,
+                                                ),
                                                 visualDensity: VisualDensity.compact,
                                                 padding: EdgeInsets.zero,
-                                                onPressed: () => cart.setQty(p.id, item.quantity + 1),
+                                                onPressed: item.quantity < p.maxQuantity
+                                                    ? () => cart.setQty(p.id, item.quantity + 1)
+                                                    : null,
                                               ),
                                             ],
                                           ),

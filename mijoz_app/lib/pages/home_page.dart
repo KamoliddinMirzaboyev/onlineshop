@@ -235,7 +235,7 @@ class _HomePageState extends State<HomePage> {
                   Icon(Icons.search_rounded, size: 20, color: AppColors.slate400),
                   SizedBox(width: 10),
                   Text(
-                    'Taomlar yoki mahsulotlarni qidirish...',
+                    'Mahsulotlarni qidirish...',
                     style: TextStyle(color: AppColors.slate400, fontSize: 13.5, fontWeight: FontWeight.w500),
                   ),
                 ],

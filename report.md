@@ -163,7 +163,64 @@ Future<bool> _tryRefreshToken() => _refreshFuture ??= _doRefresh()
 
 ## 🟠 YUQORI
 
-### Y1. Mijoz ilovasiga push bildirishnoma kelmaydi (Android 8+)
+### Y1. Mijoz ilovasiga push bildirishnoma kelmaydi — 🔴 **ASL SABAB: Firebase loyihalari mos emas**
+
+> **Aniqlandi (2026-09-11, jonli test bo'yicha):** mijoz ilovasi **butunlay
+> boshqa Firebase loyihasida** ro'yxatdan o'tgan — shuning uchun serverdan
+> yuborilgan birorta push yetib bormaydi.
+>
+> | Komponent | Firebase loyihasi |
+> |---|---|
+> | Server (`backend/.env` → `FIREBASE_CREDENTIALS_PATH`) | `barakali-bozor-5972a` |
+> | Kuryer APK (`kuryer/android/app/google-services.json`) | `barakali-bozor-5972a` ✅ |
+> | **Mijoz ilovasi** (`mijoz_app/android/app/google-services.json`) | **`barakali-bozor-client`** ❌ |
+> | **Mijoz ilovasi iOS** (`GoogleService-Info.plist`) | **`barakali-bozor-client`** ❌ |
+>
+> FCM tokeni **loyihaga bog'langan**. Mijoz ilovasi bergan token
+> `barakali-bozor-client` ga tegishli, server esa `barakali-bozor-5972a` nomidan
+> yuboradi → har bir urinish `SenderId mismatch` bilan tushadi. Kuryer push'lari
+> ishlayotgani ham shuni tasdiqlaydi (u to'g'ri loyihada).
+>
+> Yomoni: `fcm.py` bunday xatoni "token yaroqsiz" deb hisoblab, mijozning
+> tokenini **bazadan o'chirib yuborardi** — sabab yashirinardi.
+>
+> **Tekshirish (bir buyruq):**
+> ```bash
+> cd backend && python -m scripts.check_fcm
+> ```
+> Server va har bir ilovaning `project_id` sini solishtirib, mos kelmasa aniq
+> nima qilish kerakligini yozadi. `--user-id N` bilan test push ham yuboradi.
+>
+> **Server endi ikki loyihani qo'llab-quvvatlaydi:** mijoz ilovasi alohida
+> Firebase loyihasida qolsa ham ishlaydi — `FIREBASE_CUSTOMER_CREDENTIALS_PATH`
+> ga o'sha loyihaning service account kalitini bering (ilovani qayta chiqarish
+> shart emas). Bo'sh qoldirilsa kuryerning kaliti ishlatiladi (bitta loyiha).
+>
+> **SIZ BAJARASIZ (Firebase Console):**
+> 1. `barakali-bozor-5972a` loyihasiga Android ilova qo'shing — package
+>    `uz.barakalibozor.mijoz`; yangi `google-services.json` ni
+>    `mijoz_app/android/app/` ga qo'ying (eskisini almashtiring).
+> 2. Xuddi shu loyihaga iOS ilova qo'shing — bundle `uz.barakalibozor.mijoz`;
+>    `GoogleService-Info.plist` ni `mijoz_app/ios/Runner/` ga qo'ying va shu
+>    loyihaga APNs auth key yuklang.
+> 3. Ilovani qayta build qiling. Mavjud o'rnatmalar keyingi ochilishda yangi
+>    tokenni o'zi yozadi (`registerFcmToken`) — qo'shimcha ish shart emas.
+>
+> **Kodda tuzatildi:**
+> - `fcm.py` — sender-mismatch endi **ERROR** bilan logga yoziladi va token
+>   o'chirilmaydi; init paytida qaysi loyiha ulanganini logga chiqaradi
+>   (`FCM firebase-admin initialized (project=...)`).
+> - `fcm.py` — mijozga push endi `channel_id="orders"` bilan ketadi
+>   (kuryerniki `courier_orders` bo'lib qoldi).
+> - `mijoz_app` — "Buyurtmalar" kanali `MainActivity.kt` da yaratiladi
+>   (yangi paketsiz, ~10 qator Kotlin) va manifestda default kanal sifatida
+>   e'lon qilindi. Emulyatorda tekshirildi: `NotificationChannel{mId='orders',
+>   mName=Buyurtmalar, mImportance=4}`.
+> - `mijoz_app/lib/services/push.dart` — token yozish yagona joyga yig'ildi va
+>   endi **kirish bilanoq** yoziladi. Avval onboarding'da "Keyinroq" bosilsa
+>   token faqat ilova qayta ochilgandan keyin yozilardi.
+
+<details><summary>Asl tavsif (kanal muammosi)</summary>
 
 **Fayllar:** `backend/app/services/fcm.py:72-76` (`channel_id="courier_orders"`), `mijoz_app/android/app/src/main/AndroidManifest.xml` (kanal e'lon qilinmagan), `mijoz_app/lib/main.dart:97-113`
 
@@ -172,6 +229,8 @@ Server **barcha** push'larni — kuryerga ham, mijozga ham (`notify_user`, `fcm.
 **Real oqibat:** Android 8+ da mavjud bo'lmagan kanalga kelgan bildirishnoma **ko'rsatilmaydi**. Ilova ochiq turganda toast ishlaydi (`main.dart:83-87`), lekin ilova yopiq/fonda bo'lganda — "buyurtmangiz qabul qilindi/yo'lga chiqdi" xabarlari mijozga umuman yetib bormaydi. Bu butun buyurtma oqimining asosiy aloqa kanali.
 
 **Yechim:** `fcm.py` da `notify_user` uchun alohida kanal (`"orders"`) bering va mijoz ilovasida shu kanalni yarating; yoki manifestga default kanal meta-data qo'shib, ilovada o'sha kanalni yarating. Tekshirish: ilovani yopib, admin paneldan buyurtma holatini o'zgartiring.
+
+</details>
 
 ### Y2. Do'kon ish vaqti yo'q — faqat qo'lda tugma
 
@@ -303,7 +362,7 @@ app.add_middleware(CORSMiddleware, allow_origin_regex=".*", allow_credentials=Tr
 | 1 | **K1** — haqiqiy SMS shlyuzi (Eskiz.uz) | ⏳ **Qoldi — eng muhimi** |
 | 2 | **K3** — `stock` + aniq xato xabari | ✅ Tuzatildi |
 | 3 | **K4** — refresh Future bilan almashtirish | ✅ Tuzatildi |
-| 4 | **Y1** — FCM kanalini to'g'rilash | ⏳ Qoldi (1-2 soat) |
+| 4 | **Y1** — push kelmasligi | ⚠️ Kod tuzatildi, **Firebase Console'da ilovani `barakali-bozor-5972a` ga ko'chirish qoldi** |
 | 5 | **K2** — narx mantiqini bitta joyga yig'ish (`/orders/quote`) | ✅ Tuzatildi |
 | 6 | **Y3** — savat sinxronizatsiyasi | ✅ Tuzatildi (K3 bilan) |
 | 7 | **Y5, O7, Y7** — kichik, aniq tuzatishlar | ⏳ har biri < 1 soat |

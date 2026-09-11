@@ -24,6 +24,12 @@ class Settings(BaseSettings):
     algorithm: str = "HS256"
 
     environment: str = "development"
+
+    # SMS OTP: shlyuz ulanmaguncha har qanday raqam uchun `otp_fake_code`
+    # o'tadi. Ishga tushirishda `.env`da OTP_FAKE_MODE=false qilinadi —
+    # boshqa hech narsa o'zgartirilmaydi (qarang: services/otp.py).
+    otp_fake_mode: bool = True
+    otp_fake_code: str = "11111"
     api_base_url: str = "https://api.barakali-bozor.uz"
 
     # Telegram chat that receives new-order notifications (group/channel id)
@@ -58,6 +64,14 @@ class Settings(BaseSettings):
     # yoki FIREBASE_CREDENTIALS_PATH = serverdagi fayl yo'li.
     firebase_credentials_json: str = ""
     firebase_credentials_path: str = ""
+
+    # Mijoz ilovasi (mijoz_app) BOSHQA Firebase loyihasida bo'lsa — o'sha
+    # loyihaning service account kaliti. FCM tokeni loyihaga bog'langan:
+    # boshqa loyiha nomidan yuborilgan push hech qachon yetib bormaydi.
+    # Bo'sh qoldirilsa — yuqoridagi (kuryer) kalit ishlatiladi, ya'ni ikkala
+    # ilova bitta loyihada deb hisoblanadi.
+    firebase_customer_credentials_json: str = ""
+    firebase_customer_credentials_path: str = ""
 
     # Admin bootstrap
     first_admin_username: str = "admin"

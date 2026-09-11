@@ -107,7 +107,12 @@ class CartProvider extends ChangeNotifier {
     if (quantity <= 0) {
       _items.remove(productId);
     } else if (_items.containsKey(productId)) {
-      _items[productId]!.quantity = quantity;
+      final max = _items[productId]!.product.maxQuantity;
+      if (max > 0 && quantity > max) {
+        _items[productId]!.quantity = max;
+      } else {
+        _items[productId]!.quantity = quantity;
+      }
     } else {
       return;
     }

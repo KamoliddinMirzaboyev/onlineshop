@@ -10,6 +10,7 @@ import 'pages/notifications_page.dart';
 import 'pages/order_detail_page.dart';
 import 'services/store.dart';
 import 'services/cart.dart';
+import 'services/push.dart';
 import 'widgets/splash.dart';
 import 'widgets/toast.dart';
 
@@ -95,21 +96,8 @@ class _MijozAppState extends State<MijozApp> {
   }
 
   Future<void> _setupFCM() async {
-    try {
-      final messaging = FirebaseMessaging.instance;
-      await messaging.requestPermission();
-      final token = await messaging.getToken();
-      if (token != null) {
-        await api.post('/auth/fcm-token', {'fcm_token': token});
-      }
-      FirebaseMessaging.instance.onTokenRefresh.listen((newToken) {
-        if (api.hasToken) {
-          api.post('/auth/fcm-token', {'fcm_token': newToken}).catchError((_) => null);
-        }
-      });
-    } catch (e) {
-      debugPrint('FCM Error: $e');
-    }
+    await registerFcmToken(askPermission: true);
+    listenFcmTokenRefresh();
   }
 
   @override

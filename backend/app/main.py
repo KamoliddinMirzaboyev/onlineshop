@@ -72,15 +72,25 @@ if settings.environment == "production":
 app = FastAPI(title="Barakali Bozor API", version="1.0.0", docs_url="/docs" if settings.environment != "production" else None, redoc_url=None if settings.environment == "production" else "/redoc")
 app.add_middleware(SecurityHeadersMiddleware)
 
-# ponytail: vaqtincha hammaga ochiq (dasturlash bosqichi) — kechga prod
-# origin whitelist'ga (settings.cors_origins) qaytariladi.
-app.add_middleware(
-    CORSMiddleware,
-    allow_origin_regex=".*",
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# Production: faqat o'z domenlarimiz (admin/tadbirkor/TMA). Dev: hammasi ochiq.
+# `allow_origin_regex=".*"` + `allow_credentials=True` — istalgan sayt API'ga
+# credentialed so'rov yubora olishi demak, shuning uchun prod'da ishlatilmaydi.
+if settings.environment == "production":
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.cors_origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+else:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origin_regex=".*",
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
 api = APIRouter(prefix="/api")
 api.include_router(auth.router)

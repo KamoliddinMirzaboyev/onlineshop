@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../core/format.dart';
 import '../core/theme.dart';
 import '../services/api.dart';
+import '../services/push.dart';
 import '../widgets/common.dart';
 import '../widgets/otp_input.dart';
 import '../widgets/toast.dart';
@@ -25,14 +27,34 @@ class _AuthPageState extends State<AuthPage> {
 
   _Step _step = _Step.phone;
   bool _loading = false;
+  Timer? _resendTimer;
+  int _resendCountdown = 0;
 
   @override
   void dispose() {
+    _resendTimer?.cancel();
     _phoneController.dispose();
     _codeController.dispose();
     _firstNameController.dispose();
     _lastNameController.dispose();
     super.dispose();
+  }
+
+  void _startResendTimer() {
+    _resendTimer?.cancel();
+    setState(() => _resendCountdown = 60);
+    _resendTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      if (_resendCountdown <= 1) {
+        timer.cancel();
+        setState(() => _resendCountdown = 0);
+      } else {
+        setState(() => _resendCountdown--);
+      }
+    });
   }
 
   Future<void> _requestCode() async {
@@ -44,7 +66,10 @@ class _AuthPageState extends State<AuthPage> {
     setState(() => _loading = true);
     try {
       await api.post('/auth/otp/request', {'phone': phone});
-      setState(() => _step = _Step.otp);
+      if (mounted) {
+        setState(() => _step = _Step.otp);
+        _startResendTimer();
+      }
     } catch (e) {
       toast.error('Telefon raqami noto\'g\'ri');
     } finally {
@@ -103,6 +128,10 @@ class _AuthPageState extends State<AuthPage> {
   }
 
   void _goToPermissions() {
+    // Kirish bilanoq tokenni serverga yozamiz (ruxsat so'ramasdan — uni
+    // keyingi sahifa so'raydi). Busiz "Keyinroq" bosilsa token faqat ilova
+    // qayta ochilganda yozilardi va mijoz shu oraliqda push olmasdi.
+    registerFcmToken();
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(builder: (_) => const LocationPermissionPage()),
     );
@@ -279,15 +308,40 @@ class _AuthPageState extends State<AuthPage> {
           loading: _loading,
           onPressed: () => _verifyCode(),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 14),
+        Center(
+          child: _resendCountdown > 0
+              ? Text(
+                  'Kodni qayta yuborish (0:${_resendCountdown.toString().padLeft(2, '0')})',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: AppColors.slate400,
+                    fontWeight: FontWeight.w500,
+                  ),
+                )
+              : TextButton.icon(
+                  onPressed: _loading ? null : _requestCode,
+                  icon: const Icon(Icons.refresh_rounded, size: 16, color: AppColors.brand),
+                  label: const Text(
+                    'Kodni qayta yuborish',
+                    style: TextStyle(
+                      color: AppColors.brand,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+        ),
+        const SizedBox(height: 4),
         Center(
           child: TextButton.icon(
             onPressed: () => setState(() {
+              _resendTimer?.cancel();
               _step = _Step.phone;
               _codeController.clear();
             }),
-            icon: const Icon(Icons.edit_outlined, size: 16, color: AppColors.brand),
-            label: const Text('Raqamni o\'zgartirish', style: TextStyle(color: AppColors.brand, fontWeight: FontWeight.w600)),
+            icon: const Icon(Icons.edit_outlined, size: 16, color: AppColors.slate500),
+            label: const Text('Raqamni o\'zgartirish', style: TextStyle(color: AppColors.slate600, fontWeight: FontWeight.w600)),
           ),
         ),
       ];

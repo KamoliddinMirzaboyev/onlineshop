@@ -68,7 +68,11 @@ class ApiService {
 
   Future<void> setTokens({String? access, String? refresh}) async {
     _token = access;
-    if (refresh != null) _refreshToken = refresh;
+    if (refresh != null) {
+      _refreshToken = refresh;
+    } else if (access == null) {
+      _refreshToken = null;
+    }
 
     try {
       if (access != null) {

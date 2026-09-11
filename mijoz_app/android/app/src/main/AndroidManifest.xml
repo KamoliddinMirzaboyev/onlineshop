@@ -31,6 +31,14 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <!-- Server channel_id yubormagan (yoki noto'g'ri kanal yuborgan)
+             holatda ham bildirishnoma "Buyurtmalar" kanaliga tushsin —
+             kanalning o'zi MainActivity.kt da yaratiladi. Busiz Android 8+
+             uni "Miscellaneous" ostiga, ovozsiz tashlaydi. -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="orders" />
+
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

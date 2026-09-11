@@ -1,7 +1,6 @@
-import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import '../core/theme.dart';
-import '../services/api.dart';
+import '../services/push.dart';
 import '../widgets/common.dart';
 import 'app_shell.dart';
 
@@ -19,19 +18,17 @@ class _NotificationPermissionPageState extends State<NotificationPermissionPage>
   Future<void> _allow() async {
     setState(() => _loading = true);
     try {
-      final messaging = FirebaseMessaging.instance;
-      await messaging.requestPermission();
-      final token = await messaging.getToken();
-      if (token != null) {
-        await api.post('/auth/fcm-token', {'fcm_token': token});
-      }
-    } catch (_) {
+      await registerFcmToken(askPermission: true);
     } finally {
       _goNext();
     }
   }
 
   void _goNext() {
+    // "Keyinroq" bosilsa ham tokenni yozib qo'yamiz (ruxsat so'ramasdan):
+    // foydalanuvchi keyin sozlamalardan bildirishnomani yoqsa, push darhol
+    // ishlaydi — ilovani qayta ochish shart emas.
+    registerFcmToken();
     if (!mounted) return;
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(builder: (_) => const AppShell()),
