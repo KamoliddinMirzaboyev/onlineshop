@@ -205,6 +205,26 @@ def main(engine=engine) -> None:
                 )
             conn.execute(text(f"ALTER TABLE {table} ALTER COLUMN restaurant_id SET NOT NULL"))
 
+        # Eski (normalize_phone qo'shilishidan oldin saqlangan) raqamlar "+"siz
+        # yozilgan: "998901234567". Kirish esa doim "+998901234567" bo'yicha
+        # qidiradi — natijada bir odamga ikkita profil ochilib ketardi (Telegram
+        # profili topilmay, har safar yangi bo'sh profil yaratilardi). Shuning
+        # uchun eski qiymatlarni bir xil ko'rinishga keltiramiz.
+        try:
+            conn.execute(text(
+                r"""
+                UPDATE users SET phone = '+' || phone
+                WHERE phone IS NOT NULL AND phone <> ''
+                  AND phone NOT LIKE '+%'
+                  AND phone ~ '^998[0-9]{9}$'
+                  AND NOT EXISTS (
+                    SELECT 1 FROM users o WHERE o.phone = '+' || users.phone
+                  )
+                """
+            ))
+        except Exception as e:  # noqa: BLE001
+            print(f"⚠️ CRITICAL: phone normalize NOT applied: {e}")
+
         # Phone unique (NULL ruxsat — faqat telegram userlar). Dublikatlarni
         # eng kichik id saqlab, qolganlarini NULL qilamiz (keyin index).
         try:

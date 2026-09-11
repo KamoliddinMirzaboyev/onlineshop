@@ -109,7 +109,18 @@ def otp_verify(data: OtpVerifyIn, db: Session = Depends(get_db)):
 
     # phone bo'yicha user — botdan (Telegram) allaqachon shu raqam bilan
     # ro'yxatdan o'tgan bo'lsa xuddi shu akkauntga kiradi (bitta profil).
-    user = db.scalar(select(User).where(User.phone == data.phone))
+    # `data.phone` doim normalizatsiyalangan ("+998…"), lekin normalizatsiya
+    # qo'shilishidan oldin saqlangan eski qatorlarda "+" yo'q ("998…"). Faqat
+    # aniq mos kelishni qidirsak — o'sha odamga har safar yangi bo'sh profil
+    # ochilib ketardi (Telegram profili, buyurtmalari bilan ajralib qolardi).
+    user = db.scalar(
+        select(User)
+        .where(User.phone.in_([data.phone, data.phone.lstrip("+")]))
+        .order_by(User.id)
+    )
+    if user is not None and user.phone != data.phone:
+        user.phone = data.phone  # eski qatorni bir xil ko'rinishga keltiramiz
+        db.commit()
     if user is None:
         user = User(phone=data.phone, first_name=data.first_name)
         db.add(user)
