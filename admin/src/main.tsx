@@ -4,6 +4,19 @@ import { BrowserRouter } from "react-router-dom";
 import App from "./App";
 import "./index.css";
 
+// Yangi service worker skipWaiting+clientsClaim bilan sokin ishga tushadi,
+// lekin ochiq sahifa hali eski JS/HTML bilan ishlayveradi — shu sabab
+// avval hard refresh kerak bo'lardi. Nazoratchi almashganda bir marta
+// avtomatik reload qilamiz.
+if ("serviceWorker" in navigator) {
+  let reloaded = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (reloaded) return;
+    reloaded = true;
+    window.location.reload();
+  });
+}
+
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <BrowserRouter basename={import.meta.env.BASE_URL}>
