@@ -511,7 +511,7 @@ export default function OrdersPage() {
                     <Check size={18} strokeWidth={2.5} /> Yetkazildi
                   </button>
                 )}
-                {(o.status === "delivering" || o.status === "delivered") && (
+                {(o.status === "delivering" || o.status === "delivered" || o.source === "manual") && (
                   <button
                     onClick={() => printReceipt(o)}
                     className="w-full md:w-auto px-3.5 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold hover:bg-slate-100 hover:text-slate-900 hover:border-slate-300 transition inline-flex items-center justify-center gap-1.5 shadow-sm"
