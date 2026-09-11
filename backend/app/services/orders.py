@@ -129,6 +129,93 @@ def _generate_number() -> str:
     return "AF-" + secrets.token_hex(4).upper()
 
 
+def _active_zone(db: Session, restaurant_id: int) -> DeliveryZone | None:
+    return db.scalar(
+        select(DeliveryZone)
+        .where(DeliveryZone.restaurant_id == restaurant_id, DeliveryZone.is_active.is_(True))
+        .order_by(DeliveryZone.id)
+        .limit(1)
+    )
+
+
+def quote_order(
+    db: Session,
+    restaurant_id: int,
+    items: list,
+    lat: float | None,
+    lng: float | None,
+) -> dict:
+    """Buyurtma bermasdan yakuniy summani hisoblaydi — `create_order` bilan
+    AYNAN bir xil mantiq (calc_delivery_fee + distance_to_user).
+
+    Mijoz ilovasi narxni o'zi hisoblamasin: ekranda ko'rsatilgan summa bilan
+    haqiqiy yozilgan summa farq qilmasligi uchun yagona manba shu funksiya.
+    Ombor zaxiralanmaydi — faqat o'qiydi.
+    """
+    restaurant = db.get(Restaurant, restaurant_id)
+    if not restaurant or not restaurant.is_active:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Do'kon topilmadi")
+
+    qty_by_product: dict[int, float] = defaultdict(float)
+    for ci in items:
+        qty_by_product[ci.product_id] += ci.quantity
+
+    items_total = 0
+    issues: list[dict] = []
+    for product_id, qty in qty_by_product.items():
+        product = db.get(Product, product_id)
+        if not product or product.restaurant_id != restaurant.id or not product.is_available:
+            name = product.name_uz if product else f"#{product_id}"
+            issues.append({
+                "product_id": product_id,
+                "name_uz": name,
+                "reason": "unavailable",
+                "available_stock": 0,
+                "price": product.price if product else 0,
+                "message": f"'{name}' hozir sotuvda yo'q",
+            })
+            continue
+        if product.stock < qty:
+            issues.append({
+                "product_id": product_id,
+                "name_uz": product.name_uz,
+                "reason": "out_of_stock",
+                "available_stock": product.stock,
+                "price": product.price,
+                "message": (
+                    f"'{product.name_uz}' tugagan"
+                    if product.stock <= 0
+                    else f"'{product.name_uz}' uchun {product.stock:g} {product.unit} qoldi"
+                ),
+            })
+            continue
+        items_total += int(round(product.price * qty))
+
+    zone = _active_zone(db, restaurant.id)
+    distance_km = distance_to_user(restaurant, zone, lat, lng)
+    delivery_fee = calc_delivery_fee(
+        items_total,
+        distance_km,
+        free_from=restaurant.min_order,
+        per_km=restaurant.delivery_fee,
+    )
+    free_from = restaurant.min_order if restaurant.min_order > 0 else DEFAULT_FREE_DELIVERY_FROM
+    # Bepul chegaradan o'tgan bo'lsa haq 0 — koordinatasiz ham aniq.
+    # Aks holda masofa kerak: koordinata yo'q bo'lsa summa taxminiy.
+    fee_known = items_total >= free_from or distance_km is not None
+
+    return {
+        "items_total": items_total,
+        "delivery_fee": delivery_fee,
+        "total": items_total + delivery_fee,
+        "free_delivery_from": free_from,
+        "delivery_fee_known": fee_known,
+        "distance_km": distance_km,
+        "is_open": restaurant.is_open,
+        "issues": issues,
+    }
+
+
 def create_order(db: Session, user: User, data: OrderCreateIn) -> Order:
     if user.is_blocked:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Akkauntingiz bloklangan")
@@ -213,8 +300,12 @@ def create_order(db: Session, user: User, data: OrderCreateIn) -> Order:
         for product_id, qty in qty_by_product.items():
             product = db.get(Product, product_id)
             if not product or product.restaurant_id != restaurant.id or not product.is_available:
+                # Mijozga aynan qaysi mahsulot ekanini aytamiz — "Product 42
+                # unavailable" bilan u savatni tuzata olmaydi.
+                name = product.name_uz if product else f"#{product_id}"
                 raise HTTPException(
-                    status.HTTP_400_BAD_REQUEST, f"Product {product_id} unavailable"
+                    status.HTTP_400_BAD_REQUEST,
+                    f"'{name}' hozir sotuvda yo'q — savatdan olib tashlang",
                 )
             reserve_stock_atomic(db, product_id, qty, product_name=product.name_uz)
             reserved.append((product_id, qty))
@@ -357,8 +448,9 @@ def create_manual_order(
                 or product.restaurant_id != restaurant.id
                 or not product.is_available
             ):
+                name = product.name_uz if product else f"#{product_id}"
                 raise HTTPException(
-                    status.HTTP_400_BAD_REQUEST, f"Product {product_id} unavailable"
+                    status.HTTP_400_BAD_REQUEST, f"'{name}' hozir sotuvda yo'q"
                 )
             reserve_stock_atomic(db, product_id, qty, product_name=product.name_uz)
             reserved.append((product_id, qty))

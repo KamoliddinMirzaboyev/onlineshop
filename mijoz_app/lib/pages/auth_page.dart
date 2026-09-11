@@ -64,7 +64,10 @@ class _AuthPageState extends State<AuthPage> {
         'phone': _phoneController.text.trim(),
         'code': code,
       });
-      await api.setToken(res['token']['access_token']);
+      await api.setTokens(
+        access: res['token']['access_token'] as String?,
+        refresh: res['token']['refresh_token'] as String?,
+      );
       final firstName = (res['user']['first_name'] as String?) ?? '';
       if (firstName.trim().isEmpty) {
         setState(() => _step = _Step.name);

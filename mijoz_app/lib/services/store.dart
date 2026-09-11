@@ -15,6 +15,14 @@ class StoreProvider extends ChangeNotifier {
   static const _catalogCacheKey = 'af_cached_catalog';
   final _storage = const FlutterSecureStorage();
 
+  /// Katalogdagi barcha mahsulot — id bo'yicha. Savatni yangi narx/qoldiq
+  /// bilan solishtirish uchun (`CartProvider.syncWithCatalog`).
+  Map<int, Product> get productsById => {
+        for (final c in store?.categories ?? const <Category>[])
+          for (final sc in c.subcategories)
+            for (final p in sc.products) p.id: p,
+      };
+
   RestaurantDetail? store;
   bool loading = true;
   bool error = false;

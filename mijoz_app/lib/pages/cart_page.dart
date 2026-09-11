@@ -16,7 +16,11 @@ class CartPage extends StatelessWidget {
     final cart = context.watch<CartProvider>();
     final store = context.watch<StoreProvider>().store;
     final items = cart.items;
-    final deliveryFee = store?.deliveryFee ?? 0;
+    // `min_order` — serverda BEPUL YETKAZISH chegarasi (minimal buyurtma emas).
+    // Avval ilova uni minimal buyurtma deb bilib, undan kam savatni bloklardi
+    // va bepul chegara sifatida qat'iy 50000 ni ishlatardi.
+    final freeFrom = (store?.minOrder ?? 0) > 0 ? store!.minOrder : 50000;
+    final freeDelivery = cart.totalPrice >= freeFrom;
 
     return Scaffold(
       backgroundColor: AppColors.slate50,
@@ -92,20 +96,20 @@ class CartPage extends StatelessWidget {
                           Row(
                             children: [
                               Icon(
-                                cart.totalPrice >= 50000 ? Icons.check_circle_rounded : Icons.local_shipping_rounded,
+                                freeDelivery ? Icons.check_circle_rounded : Icons.local_shipping_rounded,
                                 size: 18,
-                                color: cart.totalPrice >= 50000 ? AppColors.emerald600 : AppColors.brand,
+                                color: freeDelivery ? AppColors.emerald600 : AppColors.brand,
                               ),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
-                                  cart.totalPrice >= 50000
+                                  freeDelivery
                                       ? 'Yetkazib berish bepul!'
-                                      : 'Bepul yetkazib berishgacha yana ${money(50000 - cart.totalPrice)} so‘m',
+                                      : 'Bepul yetkazib berishgacha yana ${money(freeFrom - cart.totalPrice)} so‘m',
                                   style: TextStyle(
                                     fontSize: 12.5,
                                     fontWeight: FontWeight.w600,
-                                    color: cart.totalPrice >= 50000 ? AppColors.emerald600 : AppColors.slate700,
+                                    color: freeDelivery ? AppColors.emerald600 : AppColors.slate700,
                                   ),
                                 ),
                               ),
@@ -115,10 +119,10 @@ class CartPage extends StatelessWidget {
                           ClipRRect(
                             borderRadius: BorderRadius.circular(4),
                             child: LinearProgressIndicator(
-                              value: (cart.totalPrice / 50000).clamp(0.0, 1.0),
+                              value: (cart.totalPrice / freeFrom).clamp(0.0, 1.0),
                               backgroundColor: AppColors.slate100,
                               valueColor: AlwaysStoppedAnimation<Color>(
-                                cart.totalPrice >= 50000 ? AppColors.emerald600 : AppColors.brand,
+                                freeDelivery ? AppColors.emerald600 : AppColors.brand,
                               ),
                               minHeight: 6,
                             ),
@@ -260,12 +264,14 @@ class CartPage extends StatelessWidget {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             const Text('Yetkazib berish', style: TextStyle(color: AppColors.slate500, fontSize: 13.5)),
+                            // Bepul chegaradan o'tган bo'lsa aniq 0; aks holda
+                            // haq masofaga bog'liq — manzil tanlangach hisoblanadi.
                             Text(
-                              deliveryFee == 0 ? 'Bepul' : '${money(deliveryFee)} so\'m',
+                              freeDelivery ? 'Bepul' : 'Manzilga qarab',
                               style: TextStyle(
                                 fontWeight: FontWeight.w600,
                                 fontSize: 14,
-                                color: deliveryFee == 0 ? AppColors.emerald600 : AppColors.slate900,
+                                color: freeDelivery ? AppColors.emerald600 : AppColors.slate500,
                               ),
                             ),
                           ],
@@ -277,64 +283,38 @@ class CartPage extends StatelessWidget {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text('Jami to\'lov', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.slate900)),
                             Text(
-                              '${money(cart.totalPrice + deliveryFee)} so\'m',
+                              freeDelivery ? 'Jami to\'lov' : 'Mahsulotlar uchun',
+                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.slate900),
+                            ),
+                            Text(
+                              '${money(cart.totalPrice)} so\'m',
                               style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: AppColors.brand),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 12),
-                        if (store != null && cart.totalPrice < store.minOrder)
-                          Container(
-                            margin: const EdgeInsets.only(bottom: 12),
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFFFFBEB),
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(color: const Color(0xFFFDE68A)),
-                            ),
-                            child: Row(
-                              children: [
-                                const Icon(Icons.info_outline, size: 16, color: Color(0xFFD97706)),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    'Minimal buyurtma: ${money(store.minOrder)} so‘m. Yana ${money(store.minOrder - cart.totalPrice)} so‘m kerak.',
-                                    style: const TextStyle(fontSize: 12, color: Color(0xFF92400E), fontWeight: FontWeight.w600),
-                                  ),
-                                ),
-                              ],
+                        if (!freeDelivery)
+                          const Padding(
+                            padding: EdgeInsets.only(top: 4),
+                            child: Text(
+                              'Yetkazish haqi manzil tanlangach qo\'shiladi',
+                              style: TextStyle(fontSize: 11.5, color: AppColors.slate400),
                             ),
                           ),
+                        const SizedBox(height: 12),
                         GestureDetector(
-                          onTap: () {
-                            if (store != null && cart.totalPrice < store.minOrder) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text('Minimal buyurtma miqdori: ${money(store.minOrder)} so‘m'),
-                                  backgroundColor: AppColors.rose500,
-                                ),
-                              );
-                              return;
-                            }
-                            Navigator.of(context).push(
-                              MaterialPageRoute(builder: (_) => const CheckoutPage()),
-                            );
-                          },
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(builder: (_) => const CheckoutPage()),
+                          ),
                           child: Container(
                             width: double.infinity,
                             padding: const EdgeInsets.symmetric(vertical: 16),
                             decoration: BoxDecoration(
-                              gradient: (store != null && cart.totalPrice < store.minOrder)
-                                  ? const LinearGradient(colors: [AppColors.slate400, AppColors.slate500])
-                                  : AppColors.brandGradient,
+                              gradient: AppColors.brandGradient,
                               borderRadius: BorderRadius.circular(16),
                               boxShadow: [
                                 BoxShadow(
-                                  color: (store != null && cart.totalPrice < store.minOrder)
-                                      ? Colors.transparent
-                                      : AppColors.brand.withValues(alpha: 0.35),
+                                  color: AppColors.brand.withValues(alpha: 0.35),
                                   blurRadius: 16,
                                   offset: const Offset(0, 6),
                                 ),

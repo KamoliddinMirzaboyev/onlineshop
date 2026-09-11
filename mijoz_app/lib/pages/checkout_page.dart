@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:provider/provider.dart';
+import '../models/quote.dart';
 import '../services/cart.dart';
 import '../services/api.dart';
 import '../services/store.dart';
@@ -31,11 +32,44 @@ class _CheckoutPageState extends State<CheckoutPage> {
   String _paymentMethod = 'cash';
   List<Map<String, dynamic>> _savedAddresses = [];
 
+  /// Serverdan olingan yakuniy summa. Ilova yetkazish haqini o'zi
+  /// hisoblamaydi — ekrandagi va yoziladigan summa bir xil bo'lishi shart.
+  OrderQuote? _quote;
+  bool _quoteLoading = false;
+  bool _orderBlocked = false;
+
   @override
   void initState() {
     super.initState();
     _loadUserAndAddresses();
     _resolveLocation();
+    _refreshQuote();
+  }
+
+  /// Savat yoki koordinata o'zgarganda serverdan qayta hisoblaymiz.
+  Future<void> _refreshQuote() async {
+    final cart = context.read<CartProvider>();
+    final store = context.read<StoreProvider>().store;
+    final restaurantId = store?.id ??
+        (cart.items.isNotEmpty ? cart.items.first.product.restaurantId : null);
+    if (restaurantId == null || cart.items.isEmpty) return;
+
+    setState(() => _quoteLoading = true);
+    try {
+      final res = await api.post('/orders/quote', {
+        'restaurant_id': restaurantId,
+        'items': cart.items.map((i) => i.toOrderPayload()).toList(),
+        'lat': _lat,
+        'lng': _lng,
+      });
+      if (mounted) {
+        setState(() => _quote = OrderQuote.fromJson(res as Map<String, dynamic>));
+      }
+    } catch (_) {
+      // Tarmoq xatosi — eski quote qoladi, summa "hisoblanmoqda" holatida.
+    } finally {
+      if (mounted) setState(() => _quoteLoading = false);
+    }
   }
 
   @override
@@ -114,6 +148,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
               'Joriy joylashuv (${pos.latitude.toStringAsFixed(4)}, ${pos.longitude.toStringAsFixed(4)})';
         }
       });
+      // Masofa ma'lum bo'ldi — yetkazish haqi endi aniq hisoblanadi.
+      _refreshQuote();
     } catch (e) {
       if (mounted && _lat == null) {
         setState(() => _locError = 'Joylashuv olinmadi. Qayta urinib ko‘ring.');
@@ -135,15 +171,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
     final cart = context.read<CartProvider>();
     final store = context.read<StoreProvider>().store;
 
-    if (store != null && cart.totalPrice < store.minOrder) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Minimal buyurtma miqdori: ${money(store.minOrder)} so‘m'),
-          backgroundColor: AppColors.rose500,
-        ),
-      );
-      return;
-    }
+    // `min_order` bo'yicha blok olib tashlandi: u serverda "bepul yetkazish
+    // chegarasi", minimal buyurtma emas — server bunday cheklov qo'ymaydi.
 
     final restaurantId = store?.id ??
         (cart.items.isNotEmpty
@@ -167,8 +196,11 @@ class _CheckoutPageState extends State<CheckoutPage> {
             ? null
             : _commentController.text.trim(),
         'payment_method': _paymentMethod,
-        'lat': _lat ?? 41.311081,
-        'lng': _lng ?? 69.240562,
+        // Joylashuv olinmasa soxta koordinata (shahar markazi) YUBORILMAYDI —
+        // aks holda masofa va yetkazish haqi noto'g'ri hisoblanardi, zona
+        // tekshiruvi ham yolg'on joydan o'tardi.
+        'lat': _lat,
+        'lng': _lng,
         'items': cart.items.map((i) => i.toOrderPayload()).toList(),
       };
       if (phone.isNotEmpty) {
@@ -209,8 +241,14 @@ class _CheckoutPageState extends State<CheckoutPage> {
     final cart = context.watch<CartProvider>();
     final store = context.watch<StoreProvider>().store;
     final storeClosed = store?.isOpen == false;
-    final deliveryFee = store?.deliveryFee ?? 0;
-    final total = cart.totalPrice + deliveryFee;
+    // Summani server hisoblaydi (`/orders/quote`). Avval ilova `delivery_fee`ni
+    // qat'iy narx deb qo'shardi — aslida u 1 km narxi, natijada ekrandagi jami
+    // haqiqiy yozilgan summadan farq qilardi.
+    final quote = _quote;
+    final itemsTotal = quote?.itemsTotal ?? cart.totalPrice;
+    final total = quote?.total ?? cart.totalPrice;
+    final blockingIssues = quote?.issues ?? const <QuoteIssue>[];
+    _orderBlocked = _loading || storeClosed || blockingIssues.isNotEmpty;
 
     return Scaffold(
       backgroundColor: AppColors.slate50,
@@ -365,7 +403,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text('Mahsulotlar (${cart.totalItems} ta)', style: const TextStyle(color: AppColors.slate500, fontSize: 13.5)),
-                              Text('${money(cart.totalPrice)} so\'m', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                              Text('${money(itemsTotal)} so\'m', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
                             ],
                           ),
                           const SizedBox(height: 8),
@@ -373,12 +411,34 @@ class _CheckoutPageState extends State<CheckoutPage> {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               const Text('Yetkazib berish', style: TextStyle(color: AppColors.slate500, fontSize: 13.5)),
-                              Text(
-                                deliveryFee == 0 ? 'Bepul' : '${money(deliveryFee)} so\'m',
-                                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: deliveryFee == 0 ? AppColors.emerald600 : AppColors.slate900),
-                              ),
+                              if (quote == null)
+                                const Text('Hisoblanmoqda…',
+                                    style: TextStyle(fontSize: 13, color: AppColors.slate400))
+                              else if (!quote.deliveryFeeKnown)
+                                const Text('Manzilga qarab',
+                                    style: TextStyle(fontSize: 13, color: AppColors.slate400))
+                              else
+                                Text(
+                                  quote.isFreeDelivery ? 'Bepul' : '${money(quote.deliveryFee)} so\'m',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 14,
+                                    color: quote.isFreeDelivery ? AppColors.emerald600 : AppColors.slate900,
+                                  ),
+                                ),
                             ],
                           ),
+                          if (quote != null && quote.deliveryFeeKnown && !quote.isFreeDelivery && quote.distanceKm != null)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: Align(
+                                alignment: Alignment.centerRight,
+                                child: Text(
+                                  '${quote.distanceKm!.toStringAsFixed(1)} km • ${money(quote.freeDeliveryFrom)} so\'mdan bepul',
+                                  style: const TextStyle(fontSize: 11.5, color: AppColors.slate400),
+                                ),
+                              ),
+                            ),
                           const Padding(
                             padding: EdgeInsets.symmetric(vertical: 10),
                             child: Divider(height: 1, color: Color(0xFFF1F5F9)),
@@ -387,24 +447,67 @@ class _CheckoutPageState extends State<CheckoutPage> {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               const Text('Jami', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.slate900)),
-                              Text('${money(total)} so\'m', style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w900, color: AppColors.brand)),
+                              Text(
+                                _quoteLoading && quote == null
+                                    ? '…'
+                                    : '${money(total)} so\'m',
+                                style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w900, color: AppColors.brand),
+                              ),
                             ],
                           ),
                         ],
                       ),
                     ),
+
+                    // Savatdagi muammoli mahsulotlar — buyurtma berishdan OLDIN
+                    // aytiladi (avval faqat checkout'da umumiy xato chiqardi).
+                    if (blockingIssues.isNotEmpty) ...[
+                      const SizedBox(height: 14),
+                      Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFEF2F2),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: const Color(0xFFFCA5A5)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Row(
+                              children: [
+                                Icon(Icons.remove_shopping_cart_outlined, color: AppColors.red600, size: 18),
+                                SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'Savatni to\'g\'rilash kerak',
+                                    style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.red600, fontSize: 13.5),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            for (final issue in blockingIssues)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 4),
+                                child: Text('• ${issue.message}',
+                                    style: const TextStyle(fontSize: 12.5, color: Color(0xFF991B1B))),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 24),
 
-                    // Tasdiqlash tugmasi
+                    // Tasdiqlash tugmasi — savatda muammo bo'lsa ham bloklanadi.
                     GestureDetector(
-                      onTap: (_loading || storeClosed) ? null : _placeOrder,
+                      onTap: _orderBlocked ? null : _placeOrder,
                       child: Container(
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         decoration: BoxDecoration(
-                          gradient: (_loading || storeClosed) ? null : AppColors.brandGradient,
-                          color: (_loading || storeClosed) ? AppColors.slate300 : null,
+                          gradient: _orderBlocked ? null : AppColors.brandGradient,
+                          color: _orderBlocked ? AppColors.slate300 : null,
                           borderRadius: BorderRadius.circular(16),
-                          boxShadow: (_loading || storeClosed)
+                          boxShadow: _orderBlocked
                               ? null
                               : [
                                   BoxShadow(

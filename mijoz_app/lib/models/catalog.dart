@@ -12,13 +12,24 @@ class Product {
   final int price;
   final String? unit;
   final bool isAvailable;
+  /// Ombor qoldig'i. Server buyurtmani `stock >= miqdor` bo'lmasa rad etadi —
+  /// shuning uchun ilova ham xuddi shu qoidaga qarab "Tugagan" ko'rsatadi.
+  final double stock;
 
   Product({
     required this.id, required this.restaurantId, required this.categoryId,
     required this.nameUz, required this.nameRu, this.descriptionUz,
     this.descriptionRu, this.imageUrl, required this.price,
-    this.unit, required this.isAvailable,
+    this.unit, required this.isAvailable, this.stock = 0,
   });
+
+  /// Sotib olish mumkinmi — sotuvda va qoldig'i bor.
+  bool get inStock => isAvailable && stock > 0;
+
+  /// Savatga qo'shish mumkin bo'lgan eng ko'p miqdor (butun dona).
+  /// Sotuvdan olingan mahsulot uchun 0 — barcha chaqiruvchilar shu yagona
+  /// chegaradan o'tadi (savat, stepper).
+  int get maxQuantity => inStock ? stock.floor() : 0;
 
   factory Product.fromJson(Map<String, dynamic> json) => Product(
     id: json['id'] as int,
@@ -32,6 +43,7 @@ class Product {
     price: _toInt(json['price']),
     unit: json['unit'] as String?,
     isAvailable: json['is_available'] ?? true,
+    stock: (json['stock'] as num?)?.toDouble() ?? 0,
   );
   Map<String, dynamic> toJson() => {
     'id': id,
@@ -45,6 +57,7 @@ class Product {
     'price': price,
     'unit': unit,
     'is_available': isAvailable,
+    'stock': stock,
   };
 }
 

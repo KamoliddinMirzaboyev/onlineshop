@@ -44,6 +44,44 @@ class OrderEditIn(BaseModel):
     items: list[CartItemIn] = Field(min_length=1)
 
 
+class OrderQuoteIn(BaseModel):
+    """Buyurtma bermasdan oldin yakuniy summani hisoblash so'rovi."""
+
+    restaurant_id: int
+    items: list[CartItemIn] = Field(min_length=1)
+    # Manzil hali tanlanmagan bo'lishi mumkin — u holda masofa noma'lum va
+    # yetkazish haqi faqat bepul chegaradan o'tgan bo'lsa aniq bo'ladi.
+    lat: float | None = Field(default=None, ge=-90, le=90)
+    lng: float | None = Field(default=None, ge=-180, le=180)
+
+
+class QuoteIssueOut(BaseModel):
+    """Savatdagi muammoli mahsulot — mijozga aynan nimasi to'g'ri emasligini
+    aytish uchun (narx o'zgargan / tugagan / sotuvdan olingan)."""
+
+    product_id: int
+    name_uz: str
+    # "unavailable" — sotuvdan olingan/o'chirilgan; "out_of_stock" — qoldiq yetmaydi;
+    # "price_changed" — savatdagi narx eskirgan.
+    reason: str
+    available_stock: float = 0
+    price: int = 0
+    message: str
+
+
+class OrderQuoteOut(BaseModel):
+    items_total: int
+    delivery_fee: int
+    total: int
+    # Shu summadan boshlab yetkazish bepul (do'kon sozlamasi).
+    free_delivery_from: int
+    # Yetkazish haqi hali aniq emas (manzil/koordinata yo'q).
+    delivery_fee_known: bool
+    distance_km: float | None = None
+    is_open: bool = True
+    issues: list[QuoteIssueOut] = []
+
+
 class OrderCreateIn(BaseModel):
     restaurant_id: int
     items: list[CartItemIn] = Field(min_length=1)

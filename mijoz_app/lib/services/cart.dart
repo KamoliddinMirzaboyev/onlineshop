@@ -76,9 +76,15 @@ class CartProvider extends ChangeNotifier {
     }
   }
 
+  /// Savatga qo'shadi. Ombor qoldig'idan oshmaydi — server ham aynan shu
+  /// chegarani qo'yadi (`reserve_stock_atomic`), shuning uchun oshirib
+  /// qo'yilsa buyurtma checkout'da rad etilardi.
   void add(Product product) {
+    final current = _items[product.id]?.quantity ?? 0;
+    final max = product.maxQuantity;
+    if (max <= 0 || current >= max) return;
     if (_items.containsKey(product.id)) {
-      _items[product.id]!.quantity++;
+      _items[product.id]!.quantity = current + 1;
     } else {
       _items[product.id] = CartItem(product: product, quantity: 1);
     }
@@ -119,5 +125,56 @@ class CartProvider extends ChangeNotifier {
     _items.clear();
     _saveToStorage();
     notifyListeners();
+  }
+
+  /// Savatni yangi katalog bilan solishtiradi.
+  ///
+  /// Savat qurilmada mahsulotning to'liq nusxasi (narxi bilan) sifatida
+  /// saqlanadi — sinxronlanmasa mijoz eski narxni ko'rib, serverdan boshqa
+  /// summa yozilardi; sotuvdan olingan yoki tugagan mahsulot esa faqat
+  /// checkout'da xato berardi. Shu yerda hammasi oldindan to'g'rilanadi.
+  ///
+  /// Qaytaradi: foydalanuvchiga ko'rsatiladigan o'zgarishlar ro'yxati.
+  List<String> syncWithCatalog(Map<int, Product> catalog) {
+    if (_items.isEmpty || catalog.isEmpty) return const [];
+
+    final changes = <String>[];
+    final removed = <int>[];
+
+    for (final entry in _items.entries.toList()) {
+      final cached = entry.value;
+      final fresh = catalog[entry.key];
+
+      if (fresh == null || !fresh.isAvailable) {
+        removed.add(entry.key);
+        changes.add('"${cached.product.nameUz}" sotuvdan olindi — savatdan chiqarildi');
+        continue;
+      }
+      if (fresh.maxQuantity <= 0) {
+        removed.add(entry.key);
+        changes.add('"${fresh.nameUz}" tugadi — savatdan chiqarildi');
+        continue;
+      }
+
+      if (cached.quantity > fresh.maxQuantity) {
+        changes.add('"${fresh.nameUz}" — omborda ${fresh.maxQuantity} ta qoldi');
+        cached.quantity = fresh.maxQuantity;
+      }
+      if (cached.product.price != fresh.price) {
+        changes.add('"${fresh.nameUz}" narxi yangilandi');
+      }
+      // Nusxani har doim yangisiga almashtiramiz (narx, rasm, qoldiq).
+      _items[entry.key] = CartItem(product: fresh, quantity: cached.quantity);
+    }
+
+    for (final id in removed) {
+      _items.remove(id);
+    }
+
+    if (changes.isNotEmpty) {
+      _saveToStorage();
+      notifyListeners();
+    }
+    return changes;
   }
 }

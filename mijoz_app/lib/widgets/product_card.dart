@@ -64,8 +64,8 @@ class ProductCard extends StatelessWidget {
                             child: const Icon(Icons.shopping_basket_outlined, size: 28, color: AppColors.slate400),
                           ),
                   ),
-                // Sotuvda yo'q overlay
-                if (!product.isAvailable)
+                // Sotuvda yo'q / ombor tugagan overlay
+                if (!product.inStock)
                   Positioned.fill(
                     child: Container(
                       color: Colors.black.withValues(alpha: 0.45),
@@ -140,7 +140,9 @@ class ProductCard extends StatelessWidget {
                   const Spacer(),
 
                   // 3. "Savatga" tugmasi / Mini-stepper
-                  if (!product.isAvailable)
+                  // Qoldiq yo'q mahsulotni savatga qo'shib bo'lmaydi — aks holda
+                  // buyurtma checkout'da server tomonidan rad etilardi.
+                  if (!product.inStock)
                     Container(
                       height: 30,
                       alignment: Alignment.center,
@@ -256,13 +258,19 @@ class _MiniStepper extends StatelessWidget {
               color: AppColors.brand,
             ),
           ),
-          // Qo'shish
+          // Qo'shish — qoldiqdan oshmaydi (server ham shu chegarani qo'yadi).
           GestureDetector(
-            onTap: () => cart.add(product),
+            onTap: qty >= product.maxQuantity
+                ? null
+                : () => cart.add(product),
             behavior: HitTestBehavior.opaque,
-            child: const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 7, vertical: 4),
-              child: Icon(Icons.add_rounded, size: 14, color: AppColors.brand),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+              child: Icon(
+                Icons.add_rounded,
+                size: 14,
+                color: qty >= product.maxQuantity ? AppColors.slate300 : AppColors.brand,
+              ),
             ),
           ),
         ],

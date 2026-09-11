@@ -117,7 +117,22 @@ class _MijozAppState extends State<MijozApp> {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => StoreProvider()),
-        ChangeNotifierProvider(create: (_) => CartProvider()),
+        // Katalog har yangilanganda savat u bilan solishtiriladi: eski narx,
+        // tugagan yoki sotuvdan olingan mahsulot checkout'gacha emas, darhol
+        // to'g'rilanadi va mijozga aytiladi.
+        ChangeNotifierProxyProvider<StoreProvider, CartProvider>(
+          create: (_) => CartProvider(),
+          update: (_, store, cart) {
+            final c = cart ?? CartProvider();
+            // build ichida notifyListeners chaqirmaslik uchun — frame'dan keyin.
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              for (final msg in c.syncWithCatalog(store.productsById)) {
+                toast.push(msg, title: 'Savat yangilandi');
+              }
+            });
+            return c;
+          },
+        ),
       ],
       child: MaterialApp(
         title: 'Barakali Bozor',
@@ -153,14 +168,29 @@ class _BootGateState extends State<_BootGate> {
   @override
   void initState() {
     super.initState();
-    Future.delayed(const Duration(milliseconds: 1100), () {
+    // Splash animatsiyasi to'liq, chiroyli ko'rinishi uchun 2100ms
+    Future.delayed(const Duration(milliseconds: 2100), () {
       if (mounted) setState(() => _ready = true);
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    if (!_ready) return const SplashScreen();
-    return api.hasToken ? const AppShell() : const AuthPage();
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 500),
+      switchInCurve: Curves.easeOutCubic,
+      switchOutCurve: Curves.easeInCubic,
+      transitionBuilder: (child, animation) {
+        return FadeTransition(
+          opacity: animation,
+          child: child,
+        );
+      },
+      child: _ready
+          ? (api.hasToken
+              ? const AppShell(key: ValueKey('shell_screen'))
+              : const AuthPage(key: ValueKey('auth_screen')))
+          : const SplashScreen(key: ValueKey('splash_screen')),
+    );
   }
 }

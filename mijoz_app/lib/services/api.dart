@@ -46,7 +46,10 @@ class ApiService {
 
   String? _token;
   String? _refreshToken;
-  bool _isRefreshing = false;
+  /// Parallel so'rovlar bitta refreshni kutadi. Avval `bool _isRefreshing` edi:
+  /// ikkinchi so'rov darhol `false` olib, tokenlarni o'chirib foydalanuvchini
+  /// login ekraniga tashlardi — refresh aslida muvaffaqiyatli bo'lsa ham.
+  Future<bool>? _refreshFuture;
 
   /// Called once from main() before runApp.
   Future<void> init() async {
@@ -93,12 +96,16 @@ class ApiService {
   /// Fired on a permanent 401 so the app can bounce back to the login screen.
   void Function()? onUnauthorized;
 
-  /// Fondagi avtomatik Refresh Token almashinuvi
-  Future<bool> _tryRefreshToken() async {
-    if (_isRefreshing || _refreshToken == null || _refreshToken!.isEmpty) {
-      return false;
+  /// Fondagi avtomatik Refresh Token almashinuvi.
+  /// Bir vaqtda bir nechta so'rov 401 olsa — hammasi shu bitta Future'ni kutadi.
+  Future<bool> _tryRefreshToken() {
+    if (_refreshToken == null || _refreshToken!.isEmpty) {
+      return Future.value(false);
     }
-    _isRefreshing = true;
+    return _refreshFuture ??= _doRefresh().whenComplete(() => _refreshFuture = null);
+  }
+
+  Future<bool> _doRefresh() async {
     try {
       final uri = Uri.parse('$_base/auth/refresh');
       final res = await http
@@ -118,8 +125,10 @@ class ApiService {
           return true;
         }
       }
-    } catch (_) {} finally {
-      _isRefreshing = false;
+    } catch (_) {
+      // Tarmoq uzilishi — bu yerda tokenlar o'chirilmaydi (pastdagi 401
+      // shoxobchasi hal qiladi), aks holda internet yo'qolganda ham chiqib
+      // ketardi.
     }
     return false;
   }

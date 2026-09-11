@@ -7,9 +7,9 @@ from app.core.db import get_db
 from app.core.ratelimit import rate_limiter
 from app.models import Order, User
 from app.models.enums import OrderStatus
-from app.schemas.order import OrderCreateIn, OrderEditIn, OrderOut
+from app.schemas.order import OrderCreateIn, OrderEditIn, OrderOut, OrderQuoteIn, OrderQuoteOut
 from app.services.notify import notify_new_order
-from app.services.orders import cancel_order, create_order, edit_pending_order
+from app.services.orders import cancel_order, create_order, edit_pending_order, quote_order
 from app.services.receipt import render_receipt
 from app.services.events import courier_events
 
@@ -38,6 +38,22 @@ def place_order(
     )
     courier_events.publish({"type": "orders_updated", "restaurant_id": order.restaurant_id})
     return order
+
+
+@router.post("/quote", response_model=OrderQuoteOut)
+def quote(
+    data: OrderQuoteIn,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Savat uchun yakuniy summani hisoblaydi (buyurtma yaratilmaydi).
+
+    Mijoz ilovasi yetkazish haqini o'zi hisoblamasligi uchun — ekrandagi summa
+    va haqiqiy yoziladigan summa bir xil bo'lsin. Savatdagi muammoli
+    mahsulotlar (tugagan/sotuvda yo'q) `issues` da qaytadi.
+    """
+    del user  # faqat autentifikatsiya uchun
+    return quote_order(db, data.restaurant_id, data.items, data.lat, data.lng)
 
 
 @router.get("", response_model=list[OrderOut])
