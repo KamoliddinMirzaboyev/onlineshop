@@ -1,9 +1,20 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show compute;
 import 'package:geolocator/geolocator.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../models/catalog.dart';
 import 'api.dart';
 
+// ponytail: katalogda yuzlab mahsulot bo'lsa, RestaurantDetail.fromJson'ning
+// nested map/toList zanjiri UI isolate'ni bir necha frame band qilishi mumkin —
+// compute() bilan alohida isolate'da parse qilinadi.
+RestaurantDetail _parseRestaurant(Map<String, dynamic> json) => RestaurantDetail.fromJson(json);
+
 class StoreProvider extends ChangeNotifier {
+  static const _catalogCacheKey = 'af_cached_catalog';
+  final _storage = const FlutterSecureStorage();
+
   RestaurantDetail? store;
   bool loading = true;
   bool error = false;
@@ -11,7 +22,27 @@ class StoreProvider extends ChangeNotifier {
   bool needsLocation = false;
 
   StoreProvider() {
-    load();
+    _initFromCacheAndLoad();
+  }
+
+  Future<void> _initFromCacheAndLoad() async {
+    // Stale-While-Revalidate: avval keshdagi do'kon va mahsulotlarni o'qiymiz
+    try {
+      final cached = await _storage.read(key: _catalogCacheKey);
+      if (cached != null && cached.isNotEmpty) {
+        final decoded = jsonDecode(cached);
+        if (decoded is Map<String, dynamic>) {
+          store = RestaurantDetail.fromJson(decoded);
+          loading = false;
+          notifyListeners();
+        }
+      }
+    } catch (e) {
+      debugPrint('Store cache read error: $e');
+    }
+
+    // Tarmoq orqali yangilab olamiz
+    await load();
   }
 
   Future<Position?> _resolvePosition() async {
@@ -31,16 +62,41 @@ class StoreProvider extends ChangeNotifier {
       return null;
     }
 
-    return Geolocator.getCurrentPosition(
-      locationSettings: const LocationSettings(
-        accuracy: LocationAccuracy.high,
-        timeLimit: Duration(seconds: 15),
-      ),
-    );
+    // Tezkor koordinata: avval tizim xotirasidagi oxirgi koordinatani tekshiramiz (<50ms)
+    try {
+      final lastPos = await Geolocator.getLastKnownPosition();
+      if (lastPos != null) {
+        return lastPos;
+      }
+    } catch (_) {}
+
+    // Aniqroq GPS: 4 soniya timeLimit bilan (15s kutib qotib qolmasligi uchun)
+    try {
+      return await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.medium,
+          timeLimit: Duration(seconds: 4),
+        ),
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _saveCatalogToCache(RestaurantDetail detail) async {
+    try {
+      final jsonStr = jsonEncode(detail.toJson());
+      await _storage.write(key: _catalogCacheKey, value: jsonStr);
+    } catch (e) {
+      debugPrint('Store cache write error: $e');
+    }
   }
 
   Future<void> load() async {
-    loading = true;
+    // Agar keshdan ma'lumot mavjud bo'lsa, ekran bo'sh qolmasligi uchun loading=true qilib to'sib qo'ymaymiz
+    if (store == null) {
+      loading = true;
+    }
     error = false;
     outOfRange = false;
     needsLocation = false;
@@ -52,10 +108,13 @@ class StoreProvider extends ChangeNotifier {
         // GPS yo'q — default do'kon (katalog ochiq).
         try {
           final res = await api.get('/restaurants/default');
-          store = RestaurantDetail.fromJson(res);
+          final parsed = await compute(_parseRestaurant, res as Map<String, dynamic>);
+          store = parsed;
+          _saveCatalogToCache(parsed);
         } catch (_) {
-          store = null;
-          error = true;
+          if (store == null) {
+            error = true;
+          }
         }
         return;
       }
@@ -63,7 +122,9 @@ class StoreProvider extends ChangeNotifier {
       final lng = position.longitude;
       try {
         final res = await api.get('/restaurants/nearest?lat=$lat&lng=$lng');
-        store = RestaurantDetail.fromJson(res);
+        final parsed = await compute(_parseRestaurant, res as Map<String, dynamic>);
+        store = parsed;
+        _saveCatalogToCache(parsed);
       } catch (e) {
         if (e.toString().contains('OUT_OF_RANGE')) {
           outOfRange = true;
@@ -72,16 +133,20 @@ class StoreProvider extends ChangeNotifier {
           // Tarmoq xatosi — default fallback (hudud emas).
           try {
             final res = await api.get('/restaurants/default');
-            store = RestaurantDetail.fromJson(res);
+            final parsed = await compute(_parseRestaurant, res as Map<String, dynamic>);
+            store = parsed;
+            _saveCatalogToCache(parsed);
           } catch (_) {
-            error = true;
+            if (store == null) {
+              error = true;
+            }
           }
         }
       }
     } catch (e) {
       if (e.toString().contains('OUT_OF_RANGE')) {
         outOfRange = true;
-      } else {
+      } else if (store == null) {
         error = true;
       }
     } finally {

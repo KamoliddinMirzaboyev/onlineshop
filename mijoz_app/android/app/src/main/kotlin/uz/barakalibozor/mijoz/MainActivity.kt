@@ -1,4 +1,4 @@
-package uz.rasta.mijoz
+package uz.barakalibozor.mijoz
 
 import io.flutter.embedding.android.FlutterActivity
 

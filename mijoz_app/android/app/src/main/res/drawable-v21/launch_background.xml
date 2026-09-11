@@ -1,12 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Modify this file to customize your launch splash screen -->
+<!-- Native splash — Dart SplashScreen (widgets/splash.dart) bilan bir xil
+     gradient + logo, shunda Flutter birinchi kadrni chizganda ko'rinadigan
+     "sakrash" (oq ekrandan yashilga) bo'lmaydi. -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:drawable="?android:colorBackground" />
-
-    <!-- You can insert your own image assets here -->
-    <!-- <item>
+    <item>
+        <shape android:shape="rectangle">
+            <gradient
+                android:startColor="#22C55E"
+                android:endColor="#16A34A"
+                android:angle="270" />
+        </shape>
+    </item>
+    <item>
         <bitmap
             android:gravity="center"
-            android:src="@mipmap/launch_image" />
-    </item> -->
+            android:src="@drawable/launch_logo" />
+    </item>
 </layer-list>

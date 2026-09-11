@@ -210,3 +210,15 @@ export interface Announcement {
   created_at: string;
   sent_at?: string | null;
 }
+
+export interface Banner {
+  id: number;
+  restaurant_id: number;
+  title: string;
+  subtitle?: string | null;
+  image_url?: string | null;
+  link_url?: string | null;
+  is_active: boolean;
+  sort_order: number;
+  created_at?: string;
+}

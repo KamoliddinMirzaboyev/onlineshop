@@ -4,7 +4,8 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.core.cache import cache_get_json, cache_set_json
 from app.core.db import get_db
-from app.models import Category, CategoryGroup, DeliveryZone, Product, Restaurant
+from app.models import Banner, Category, CategoryGroup, DeliveryZone, Product, Restaurant
+from app.schemas.banner import BannerOut
 from app.schemas.catalog import (
     CategoryGroupOut,
     CategoryWithSubcategories,
@@ -87,11 +88,28 @@ def _build_detail(restaurant: Restaurant, db: Session) -> RestaurantDetail:
         CategoryGroupOut.model_validate(g) for g in groups if g.id in linked_group_ids
     ]
 
+    banners = db.scalars(
+        select(Banner)
+        .where(Banner.restaurant_id == restaurant.id, Banner.is_active.is_(True))
+        .order_by(Banner.sort_order, Banner.id.desc())
+    ).all()
+    banners_out = [BannerOut.model_validate(b) for b in banners]
+
     detail = RestaurantDetail.model_validate(restaurant)
     detail.categories = cat_out
     detail.category_groups = groups_out
+    detail.banners = banners_out
     cache_set_json(cache_key, detail.model_dump(mode="json"), CACHE_TTL)
     return detail
+
+
+@router.get("/banners", response_model=list[BannerOut])
+def list_active_banners(restaurant_id: int | None = None, db: Session = Depends(get_db)):
+    """Mijoz ilovasi uchun faol bannerlar ro'yxati."""
+    stmt = select(Banner).where(Banner.is_active.is_(True)).order_by(Banner.sort_order, Banner.id.desc())
+    if restaurant_id is not None:
+        stmt = stmt.where(Banner.restaurant_id == restaurant_id)
+    return db.scalars(stmt).all()
 
 
 # Yagona do'kon — admin default_store bilan bir xil (eng kichik id).

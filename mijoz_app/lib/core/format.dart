@@ -1,6 +1,27 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'theme.dart';
+
+/// "+998 90 123 45 67" — foydalanuvchi raqam terganda avtomatik formatlaydi
+/// (bo'shliqlarni o'zi qo'yadi, +998'dan ortiq raqam kiritilmaydi).
+class UzPhoneFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
+    var digits = newValue.text.replaceAll(RegExp(r'\D'), '');
+    if (digits.startsWith('998')) digits = digits.substring(3);
+    if (digits.length > 9) digits = digits.substring(0, 9);
+
+    final buf = StringBuffer('+998');
+    if (digits.isNotEmpty) buf.write(' ');
+    for (var i = 0; i < digits.length; i++) {
+      buf.write(digits[i]);
+      if ((i == 1 || i == 4 || i == 6) && i != digits.length - 1) buf.write(' ');
+    }
+    final text = buf.toString();
+    return TextEditingValue(text: text, selection: TextSelection.collapsed(offset: text.length));
+  }
+}
 
 /// Mirrors `src/lib/format.ts` from the courier web app.
 
@@ -15,6 +36,9 @@ String money(num n) {
   return (n < 0 ? '-' : '') + buf.toString();
 }
 
+/// "123 456 so'm"
+String formatPrice(num n) => '${money(n)} so\'m';
+
 String _two(int n) => n.toString().padLeft(2, '0');
 
 /// "05.07 14:30"
@@ -25,8 +49,8 @@ String formatDateTime(String iso) {
 }
 
 const _monthsShort = [
-  'янв', 'фев', 'мар', 'апр', 'май', 'июн',
-  'июл', 'авг', 'сен', 'окт', 'ноя', 'дек',
+  'yan', 'fev', 'mar', 'apr', 'may', 'iyun',
+  'iyul', 'avg', 'sen', 'okt', 'noy', 'dek',
 ];
 
 /// "05 июл"
@@ -77,6 +101,29 @@ String statusLabel(String s) => statusLabelMap[s] ?? s;
     case 'pending':
     default:
       return (AppColors.slate100, AppColors.slate700);
+  }
+}
+
+/// IconData corresponding to each order status
+IconData statusIcon(String s) {
+  switch (s) {
+    case 'confirmed':
+      return Icons.check_circle_outline_rounded;
+    case 'preparing':
+      return Icons.soup_kitchen_rounded;
+    case 'ready':
+      return Icons.inventory_2_outlined;
+    case 'accepted':
+      return Icons.assignment_turned_in_outlined;
+    case 'delivering':
+      return Icons.delivery_dining_rounded;
+    case 'delivered':
+      return Icons.task_alt_rounded;
+    case 'cancelled':
+      return Icons.cancel_outlined;
+    case 'pending':
+    default:
+      return Icons.schedule_rounded;
   }
 }
 

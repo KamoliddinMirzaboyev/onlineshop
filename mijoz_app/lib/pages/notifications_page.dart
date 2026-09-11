@@ -4,9 +4,10 @@ import '../core/theme.dart';
 import '../models/notification.dart';
 import '../services/api.dart';
 import '../widgets/common.dart';
+import '../widgets/skeleton.dart';
 import 'order_detail_page.dart';
 
-/// Bot orqali yuborilgan barcha xabarlar — buyurtma holati va e'lonlar.
+/// Bildirishnomalar sahifasi.
 class NotificationsPage extends StatefulWidget {
   const NotificationsPage({super.key});
 
@@ -57,14 +58,31 @@ class _NotificationsPageState extends State<NotificationsPage> {
             const PageHeader(title: 'Bildirishnomalar', back: true),
             Expanded(
               child: _error
-                  ? ErrorBanner('Xatolik. Qayta urinib ko\'ring.')
+                  ? Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.error_outline_rounded, size: 40, color: AppColors.red500),
+                            const SizedBox(height: 10),
+                            const Text('Xatolik yuz berdi', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                            const SizedBox(height: 12),
+                            AppButton(label: 'Qayta urinish', onPressed: _load),
+                          ],
+                        ),
+                      ),
+                    )
                   : _loading
-                      ? const Center(child: CircularProgressIndicator())
+                      ? const NotificationsSkeleton()
                       : _items.isEmpty
-                          ? const Center(
-                              child: Text('🔔  Bildirishnoma yo\'q', style: TextStyle(color: AppColors.slate400)),
+                          ? const AppEmptyState(
+                              icon: Icons.notifications_off_outlined,
+                              title: 'Yangi xabarlar yo\'q',
+                              subtitle: 'Buyurtmangiz holati va maxsus takliflar shu yerda ko\'rsatiladi.',
                             )
                           : RefreshIndicator(
+                              color: AppColors.brand,
                               onRefresh: _load,
                               child: ListView.builder(
                                 padding: const EdgeInsets.all(16),
@@ -89,30 +107,31 @@ class _NotificationTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.only(bottom: 12),
       child: AppCard(
         onTap: item.orderId != null
-            ? () => Navigator.of(context)
-                .push(MaterialPageRoute(builder: (_) => OrderDetailPage(orderId: item.orderId!)))
+            ? () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => OrderDetailPage(orderId: item.orderId!)),
+                )
             : null,
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              width: 36,
-              height: 36,
+              width: 42,
+              height: 42,
               decoration: BoxDecoration(
-                color: (_broadcast ? AppColors.amber600 : AppColors.brand).withValues(alpha: 0.12),
-                shape: BoxShape.circle,
+                color: (_broadcast ? const Color(0xFFFEF3C7) : AppColors.brandSoft),
+                borderRadius: BorderRadius.circular(12),
               ),
               alignment: Alignment.center,
               child: Icon(
                 _broadcast ? Icons.campaign_rounded : Icons.local_shipping_rounded,
-                size: 18,
-                color: _broadcast ? AppColors.amber600 : AppColors.brand,
+                size: 22,
+                color: _broadcast ? const Color(0xFFD97706) : AppColors.brand,
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 14),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -120,25 +139,43 @@ class _NotificationTile extends StatelessWidget {
                   Row(
                     children: [
                       Expanded(
-                        child: Text(item.title,
-                            style: TextStyle(
-                                fontWeight: item.isRead ? FontWeight.w500 : FontWeight.w700,
-                                fontSize: 13.5, color: AppColors.slate900)),
+                        child: Text(
+                          item.title,
+                          style: TextStyle(
+                            fontWeight: item.isRead ? FontWeight.w600 : FontWeight.w800,
+                            fontSize: 14,
+                            color: AppColors.slate900,
+                          ),
+                        ),
                       ),
                       if (!item.isRead)
                         Container(
-                          width: 7, height: 7,
-                          margin: const EdgeInsets.only(left: 6, top: 2),
+                          width: 8,
+                          height: 8,
+                          margin: const EdgeInsets.only(left: 6),
                           decoration: const BoxDecoration(color: AppColors.brand, shape: BoxShape.circle),
                         ),
                     ],
                   ),
-                  const SizedBox(height: 3),
-                  Text(item.body,
-                      style: const TextStyle(fontSize: 12.5, color: AppColors.slate500, height: 1.35),
-                      maxLines: 3, overflow: TextOverflow.ellipsis),
-                  const SizedBox(height: 6),
-                  Text(formatDateTime(item.createdAt), style: const TextStyle(fontSize: 11, color: AppColors.slate400)),
+                  const SizedBox(height: 4),
+                  Text(
+                    item.body,
+                    style: const TextStyle(fontSize: 13, color: AppColors.slate500, height: 1.35),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(formatDateTime(item.createdAt), style: const TextStyle(fontSize: 11.5, color: AppColors.slate400)),
+                      if (item.orderId != null)
+                        const Row(
+                          children: [
+                            Text('Ko\'rish', style: TextStyle(fontSize: 12, color: AppColors.brand, fontWeight: FontWeight.w700)),
+                            Icon(Icons.chevron_right_rounded, size: 16, color: AppColors.brand),
+                          ],
+                        ),
+                    ],
+                  ),
                 ],
               ),
             ),

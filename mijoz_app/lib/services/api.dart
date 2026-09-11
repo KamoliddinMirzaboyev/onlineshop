@@ -10,6 +10,23 @@ class ApiException implements Exception {
   ApiException(this.statusCode, this.message);
   final int statusCode;
   final String message;
+
+  String get userFriendlyMessage {
+    try {
+      final decoded = jsonDecode(message);
+      if (decoded is Map && decoded['detail'] != null) {
+        final detail = decoded['detail'];
+        if (detail is String) return detail;
+        if (detail is List && detail.isNotEmpty) {
+          final first = detail.first;
+          if (first is Map && first['msg'] != null) return first['msg'].toString();
+        }
+        return detail.toString();
+      }
+    } catch (_) {}
+    return message.trim().isNotEmpty ? message : 'Xatolik yuz berdi';
+  }
+
   @override
   String toString() => '$statusCode: $message';
 }
@@ -24,47 +41,94 @@ class ApiService {
 
   static const _base = 'https://api.barakali-bozor.uz/api';
   static const _tokenKey = 'af_mijoz_token';
+  static const _refreshTokenKey = 'af_mijoz_refresh_token';
   static const _storage = FlutterSecureStorage();
 
   String? _token;
+  String? _refreshToken;
+  bool _isRefreshing = false;
 
   /// Called once from main() before runApp.
   Future<void> init() async {
     try {
       _token = await _storage.read(key: _tokenKey);
+      _refreshToken = await _storage.read(key: _refreshTokenKey);
     } catch (_) {
       _token = null;
+      _refreshToken = null;
     }
   }
 
   bool get hasToken => _token != null && _token!.isNotEmpty;
+  String? get token => _token;
+  String? get refreshToken => _refreshToken;
 
-  Future<void> setToken(String? t) async {
-    _token = t;
+  Future<void> setTokens({String? access, String? refresh}) async {
+    _token = access;
+    if (refresh != null) _refreshToken = refresh;
+
     try {
-      if (t != null) {
-        await _storage.write(key: _tokenKey, value: t);
+      if (access != null) {
+        await _storage.write(key: _tokenKey, value: access);
       } else {
         await _storage.delete(key: _tokenKey);
       }
+      if (refresh != null) {
+        await _storage.write(key: _refreshTokenKey, value: refresh);
+      } else if (access == null) {
+        await _storage.delete(key: _refreshTokenKey);
+      }
     } catch (_) {
-      // Keychain/Keystore vaqtincha ishlamasa ham — token xotirada saqlanadi,
-      // shu sessiya davomida kirish uzilmaydi.
+      // Keychain/Keystore vaqtincha ishlamasa ham — xotirada saqlanadi.
     }
   }
+
+  Future<void> setToken(String? t) => setTokens(access: t);
 
   Map<String, String> get _headers => {
         'Content-Type': 'application/json',
         if (hasToken) 'Authorization': 'Bearer $_token',
       };
 
-  /// Fired on a 401 so the app can bounce back to the login screen.
+  /// Fired on a permanent 401 so the app can bounce back to the login screen.
   void Function()? onUnauthorized;
+
+  /// Fondagi avtomatik Refresh Token almashinuvi
+  Future<bool> _tryRefreshToken() async {
+    if (_isRefreshing || _refreshToken == null || _refreshToken!.isEmpty) {
+      return false;
+    }
+    _isRefreshing = true;
+    try {
+      final uri = Uri.parse('$_base/auth/refresh');
+      final res = await http
+          .post(
+            uri,
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'refresh_token': _refreshToken}),
+          )
+          .timeout(const Duration(seconds: 10));
+
+      if (res.statusCode == 200) {
+        final data = jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+        final newAccess = data['access_token'] as String?;
+        final newRefresh = data['refresh_token'] as String?;
+        if (newAccess != null && newAccess.isNotEmpty) {
+          await setTokens(access: newAccess, refresh: newRefresh);
+          return true;
+        }
+      }
+    } catch (_) {} finally {
+      _isRefreshing = false;
+    }
+    return false;
+  }
 
   Future<dynamic> _request(
     String method,
     String path, {
     Object? body,
+    bool isRetry = false,
   }) async {
     final uri = Uri.parse('$_base$path');
     const timeout = Duration(seconds: 15);
@@ -84,10 +148,20 @@ class ApiService {
     }
 
     if (res.statusCode == 401) {
-      await setToken(null);
+      // Refresh token endpoint o'zi 401 bersa yoki allaqachon retry qilingan bo'lsa
+      if (!isRetry && path != '/auth/refresh' && _refreshToken != null) {
+        final refreshed = await _tryRefreshToken();
+        if (refreshed) {
+          // Yangi access token bilan xuddi shu so'rovni qayta yuboramiz!
+          return _request(method, path, body: body, isRetry: true);
+        }
+      }
+
+      await setTokens(access: null, refresh: null);
       onUnauthorized?.call();
       throw UnauthorizedException();
     }
+
     if (res.statusCode < 200 || res.statusCode >= 300) {
       throw ApiException(res.statusCode, res.body);
     }

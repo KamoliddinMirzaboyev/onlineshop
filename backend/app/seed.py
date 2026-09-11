@@ -11,7 +11,7 @@ from app.core.security import hash_password
 from app.models import AdminUser, Business, PlatformAdmin, Restaurant
 from app.models.enums import AdminRole
 
-DEFAULT_STORE_NAME = "Do'kon"
+DEFAULT_STORE_NAME = "Barakali Bozor"
 
 
 def seed() -> None:

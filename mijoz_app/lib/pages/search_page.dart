@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../core/theme.dart';
@@ -18,22 +19,44 @@ class SearchPage extends StatefulWidget {
 class _SearchPageState extends State<SearchPage> {
   final _controller = TextEditingController();
   String _q = '';
+  Timer? _debounce;
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _controller.dispose();
     super.dispose();
+  }
+
+  void _onChanged(String v) {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 300), () {
+      if (mounted) setState(() => _q = v);
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final store = context.watch<StoreProvider>().store;
-    final all = <Product>[
-      for (final c in store?.categories ?? <Category>[])
-        for (final sc in c.subcategories) ...sc.products,
-    ];
+    final seen = <int>{};
+    final all = <Product>[];
+    for (final c in store?.categories ?? <Category>[]) {
+      for (final sc in c.subcategories) {
+        for (final p in sc.products) {
+          if (seen.add(p.id)) {
+            all.add(p);
+          }
+        }
+      }
+    }
     final needle = _q.trim().toLowerCase();
-    final results = needle.isEmpty ? all : all.where((p) => p.nameUz.toLowerCase().contains(needle)).toList();
+    final results = needle.isEmpty
+        ? all
+        : all
+            .where((p) =>
+                p.nameUz.toLowerCase().contains(needle) ||
+                p.nameRu.toLowerCase().contains(needle))
+            .toList();
 
     return Scaffold(
       backgroundColor: AppColors.slate50,
@@ -47,8 +70,8 @@ class _SearchPageState extends State<SearchPage> {
                   padding: const EdgeInsets.all(12),
                   child: TextField(
                     controller: _controller,
-                    autofocus: true,
-                    onChanged: (v) => setState(() => _q = v),
+                    autofocus: false,
+                    onChanged: _onChanged,
                     decoration: InputDecoration(
                       hintText: 'Qidirish',
                       prefixIcon: const Icon(Icons.search, size: 20),
@@ -62,9 +85,12 @@ class _SearchPageState extends State<SearchPage> {
                   child: results.isEmpty
                       ? const Center(child: Text('Hech narsa topilmadi', style: TextStyle(color: AppColors.slate400)))
                       : GridView.builder(
-                          padding: const EdgeInsets.fromLTRB(12, 0, 12, 100),
+                          padding: const EdgeInsets.fromLTRB(10, 0, 10, 100),
                           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 3, mainAxisSpacing: 10, crossAxisSpacing: 10, childAspectRatio: 0.62,
+                            crossAxisCount: 3,
+                            mainAxisSpacing: 10,
+                            crossAxisSpacing: 8,
+                            childAspectRatio: 0.50,
                           ),
                           itemCount: results.length,
                           itemBuilder: (context, i) => ProductCard(product: results[i]),

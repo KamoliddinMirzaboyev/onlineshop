@@ -71,91 +71,183 @@ class _SkeletonState extends State<Skeleton> with SingleTickerProviderStateMixin
 
 Widget _cardSkel(Widget child) => AppCard(child: child);
 
-class DashboardSkeleton extends StatelessWidget {
-  const DashboardSkeleton({super.key});
+/// Bosh sahifa — banner slayder + kategoriya kartalari grid'i.
+/// Mirrors `home_page.dart`'s `_buildBanners()` + category grid.
+class HomeSkeleton extends StatelessWidget {
+  const HomeSkeleton({super.key});
 
   @override
   Widget build(BuildContext context) {
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
       children: [
-        _cardSkel(Row(children: [
-          const Skeleton(width: 44, height: 44, borderRadius: 12),
-          const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: const [
-              Skeleton(width: 96, height: 12),
-              SizedBox(height: 8),
-              Skeleton(width: 40, height: 24),
-            ],
-          ),
-        ])),
-        const SizedBox(height: 16),
-        const Skeleton(width: 64, height: 12),
-        const SizedBox(height: 8),
-        Row(
+        const Skeleton(height: 140, borderRadius: 22, expand: true),
+        const SizedBox(height: 20),
+        const Skeleton(width: 120, height: 18),
+        const SizedBox(height: 12),
+        GridView.count(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          crossAxisCount: 2,
+          mainAxisSpacing: 12,
+          crossAxisSpacing: 12,
+          childAspectRatio: 1.3,
           children: List.generate(
-            3,
-            (i) => Expanded(
-              child: Padding(
-                padding: EdgeInsets.only(right: i < 2 ? 12 : 0),
-                child: _cardSkel(Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
-                    Skeleton(width: 16, height: 16, borderRadius: 999),
-                    SizedBox(height: 8),
-                    Skeleton(width: 48, height: 20),
-                    SizedBox(height: 8),
-                    Skeleton(width: 56, height: 12),
-                  ],
-                )),
-              ),
-            ),
+            6,
+            (_) => const Skeleton(width: double.infinity, height: double.infinity, borderRadius: 20),
           ),
         ),
-        const SizedBox(height: 16),
-        Row(
-          children: List.generate(
-            2,
-            (i) => Expanded(
-              child: Padding(
-                padding: EdgeInsets.only(right: i < 1 ? 12 : 0),
-                child: _cardSkel(Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
-                    Skeleton(width: 64, height: 12),
-                    SizedBox(height: 8),
-                    Skeleton(width: 96, height: 24),
-                    SizedBox(height: 6),
-                    Skeleton(width: 80, height: 12),
-                  ],
-                )),
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        _cardSkel(Column(
+      ],
+    );
+  }
+}
+
+/// Buyurtmalar ro'yxati — `orders_page.dart`'dagi `_OrderCard` bilan bir xil shakl.
+class OrdersListSkeleton extends StatelessWidget {
+  const OrdersListSkeleton({super.key, this.count = 4});
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
+      itemCount: count,
+      itemBuilder: (_, __) => Padding(
+        padding: const EdgeInsets.only(bottom: 14),
+        child: _cardSkel(Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Skeleton(width: 96, height: 12),
-            const SizedBox(height: 12),
-            SizedBox(
-              height: 112,
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: List.generate(
-                  7,
-                  (i) => Expanded(
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 3),
-                      child: Skeleton(height: 40.0 + (i % 4) * 18, borderRadius: 4, expand: true),
-                    ),
-                  ),
+            Row(
+              children: [
+                const Skeleton(width: 64, height: 22, borderRadius: 8),
+                const SizedBox(width: 8),
+                Expanded(child: const Skeleton(height: 12, expand: true)),
+                const SizedBox(width: 8),
+                const Skeleton(width: 70, height: 20, borderRadius: 999),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Row(
+              children: List.generate(
+                4,
+                (i) => const Padding(
+                  padding: EdgeInsets.only(right: 8),
+                  child: Skeleton(width: 48, height: 48, borderRadius: 12),
                 ),
               ),
             ),
+            const SizedBox(height: 14),
+            const Divider(height: 1, color: Color(0xFFF1F5F9)),
+            const SizedBox(height: 12),
+            Row(
+              children: const [
+                Skeleton(width: 90, height: 13),
+                Spacer(),
+                Skeleton(width: 70, height: 15),
+              ],
+            ),
+          ],
+        )),
+      ),
+    );
+  }
+}
+
+/// Bildirishnomalar ro'yxati — `notifications_page.dart`'dagi `_NotificationTile`
+/// bilan bir xil shakl.
+class NotificationsSkeleton extends StatelessWidget {
+  const NotificationsSkeleton({super.key, this.count = 6});
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: count,
+      itemBuilder: (_, __) => Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: _cardSkel(Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Skeleton(width: 42, height: 42, borderRadius: 12),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: const [
+                  Skeleton(height: 14, expand: true),
+                  SizedBox(height: 8),
+                  Skeleton(height: 12, expand: true),
+                  SizedBox(height: 4),
+                  Skeleton(width: 160, height: 12),
+                  SizedBox(height: 8),
+                  Skeleton(width: 90, height: 11),
+                ],
+              ),
+            ),
+          ],
+        )),
+      ),
+    );
+  }
+}
+
+/// Profil sahifasi — sarlavha karta + shaxsiy ma'lumotlar + yordam bo'limi.
+/// Mirrors `profile_page.dart`'dagi haqiqiy karta tuzilishi.
+class ProfileSkeleton extends StatelessWidget {
+  const ProfileSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
+      children: [
+        _cardSkel(Row(
+          children: [
+            const Skeleton(width: 62, height: 62, borderRadius: 31),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: const [
+                  Skeleton(width: 140, height: 17),
+                  SizedBox(height: 8),
+                  Skeleton(width: 110, height: 13),
+                ],
+              ),
+            ),
+          ],
+        )),
+        const SizedBox(height: 16),
+        const Skeleton(width: 130, height: 13),
+        const SizedBox(height: 8),
+        _cardSkel(Column(
+          children: [
+            for (int i = 0; i < 3; i++) ...[
+              if (i > 0) const Divider(height: 1, color: Color(0xFFF1F5F9)),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Row(
+                  children: const [
+                    Skeleton(width: 20, height: 20, borderRadius: 6),
+                    SizedBox(width: 14),
+                    Skeleton(width: 70, height: 13),
+                    Spacer(),
+                    Skeleton(width: 90, height: 13),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        )),
+        const SizedBox(height: 16),
+        const Skeleton(width: 160, height: 13),
+        const SizedBox(height: 8),
+        _cardSkel(Row(
+          children: const [
+            Skeleton(width: 36, height: 36, borderRadius: 10),
+            SizedBox(width: 12),
+            Expanded(child: Skeleton(height: 14, expand: true)),
           ],
         )),
       ],
@@ -163,154 +255,7 @@ class DashboardSkeleton extends StatelessWidget {
   }
 }
 
-class OrderCardSkeleton extends StatelessWidget {
-  const OrderCardSkeleton({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return _cardSkel(Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: const [
-            Skeleton(width: 112, height: 24),
-            Skeleton(width: 80, height: 20),
-          ],
-        ),
-        const SizedBox(height: 12),
-        const Skeleton(height: 16, expand: true),
-        const SizedBox(height: 8),
-        const Skeleton(width: 180, height: 16),
-        const SizedBox(height: 12),
-        Row(
-          children: List.generate(
-            4,
-            (i) => const Padding(
-              padding: EdgeInsets.only(right: 6),
-              child: Skeleton(width: 40, height: 40, borderRadius: 8),
-            ),
-          ),
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: const [
-            Expanded(child: Skeleton(height: 36, borderRadius: 12)),
-            SizedBox(width: 8),
-            Expanded(child: Skeleton(height: 36, borderRadius: 12)),
-          ],
-        ),
-      ],
-    ));
-  }
-}
-
-class ListSkeleton extends StatelessWidget {
-  const ListSkeleton({super.key, this.count = 4});
-  final int count;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView.separated(
-      padding: const EdgeInsets.all(16),
-      itemCount: count,
-      separatorBuilder: (_, __) => const SizedBox(height: 12),
-      itemBuilder: (_, __) => const OrderCardSkeleton(),
-    );
-  }
-}
-
-class HistorySkeleton extends StatelessWidget {
-  const HistorySkeleton({super.key, this.count = 5});
-  final int count;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView.separated(
-      padding: const EdgeInsets.all(16),
-      itemCount: count,
-      separatorBuilder: (_, __) => const SizedBox(height: 12),
-      itemBuilder: (_, __) => _cardSkel(Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: const [
-              Skeleton(width: 128, height: 20),
-              Skeleton(width: 80, height: 20),
-            ],
-          ),
-          const SizedBox(height: 8),
-          const Skeleton(width: 200, height: 16),
-          const SizedBox(height: 8),
-          const Skeleton(width: 96, height: 12),
-        ],
-      )),
-    );
-  }
-}
-
-class EarningsSkeleton extends StatelessWidget {
-  const EarningsSkeleton({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        AppCard(
-          color: AppColors.brand.withValues(alpha: 0.9),
-          border: Border.all(color: Colors.transparent),
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Skeleton(width: 112, height: 16, color: Colors.white.withValues(alpha: 0.3)),
-              const SizedBox(height: 8),
-              Skeleton(width: 176, height: 32, color: Colors.white.withValues(alpha: 0.3)),
-              const SizedBox(height: 8),
-              Skeleton(width: 144, height: 16, color: Colors.white.withValues(alpha: 0.3)),
-            ],
-          ),
-        ),
-        const SizedBox(height: 16),
-        AppCard(
-          padding: EdgeInsets.zero,
-          child: Column(
-            children: List.generate(
-              5,
-              (i) => Container(
-                decoration: BoxDecoration(
-                  border: Border(
-                    top: i == 0
-                        ? BorderSide.none
-                        : const BorderSide(color: AppColors.slate100),
-                  ),
-                ),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: const [
-                        Skeleton(width: 80, height: 16),
-                        SizedBox(height: 6),
-                        Skeleton(width: 96, height: 12),
-                      ],
-                    ),
-                    const Skeleton(width: 96, height: 20),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
+/// Buyurtma tafsiloti — bosqich progress + mahsulotlar + ma'lumot kartasi.
 class OrderDetailSkeleton extends StatelessWidget {
   const OrderDetailSkeleton({super.key});
 

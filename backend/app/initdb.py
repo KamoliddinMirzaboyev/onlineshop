@@ -87,7 +87,8 @@ _PUSH_COLUMNS = (
 _USER_COLUMNS = (
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_blocked BOOLEAN NOT NULL DEFAULT FALSE",
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash VARCHAR(255)",
-    "ALTER TABLE users ADD COLUMN IF NOT EXISTS fcm_token VARCHAR(255)",
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS fcm_token VARCHAR(512)",
+    "ALTER TABLE users ALTER COLUMN fcm_token TYPE VARCHAR(512)",
 )
 # Xodim akkaunti: ism va telefon (do'kon yaratilganda tadbirkor kiritadi).
 _ADMIN_USER_COLUMNS = (
@@ -223,7 +224,10 @@ def main(engine=engine) -> None:
                 "ON users (phone) WHERE phone IS NOT NULL AND phone <> ''"
             ))
         except Exception as e:  # noqa: BLE001
-            print(f"phone unique index skip: {e}")
+            # Bu bajarilmasa — bir xil telefon raqamiga bir nechta profil
+            # yaratilishi mumkin (Telegram/OTP orqali kirish bo'linib qoladi).
+            # Deploy loglarida bu qatorni ko'rsangiz — qo'lda tekshiring.
+            print(f"⚠️ CRITICAL: phone unique index NOT applied: {e}")
     print("Tables created / verified.")
 
 

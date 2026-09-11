@@ -18,26 +18,44 @@ Future<void> launchExternal(String url) async {
   }
 }
 
-/// Status pill — Tailwind `.pill` with per-status colours.
+/// Status pill — with per-status colours and icons.
 class StatusPill extends StatelessWidget {
-  const StatusPill(this.status, {super.key});
+  const StatusPill(this.status, {super.key, this.showIcon = true});
   final String status;
+  final bool showIcon;
 
   @override
   Widget build(BuildContext context) {
     final (bg, fg) = statusPillColors(status);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(999)),
-      child: Text(
-        statusLabel(status),
-        style: TextStyle(color: fg, fontSize: 12, fontWeight: FontWeight.w600),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (showIcon) ...[
+            Icon(statusIcon(status), size: 13, color: fg),
+            const SizedBox(width: 4),
+          ],
+          Text(
+            statusLabel(status),
+            style: TextStyle(
+              color: fg,
+              fontSize: 11.5,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.1,
+            ),
+          ),
+        ],
       ),
     );
   }
 }
 
-/// Filled brand button — Tailwind `.btn`. `color` overrides the fill.
+/// Filled brand button with tactile scale animation and optional icon.
 class AppButton extends StatefulWidget {
   const AppButton({
     super.key,
@@ -46,8 +64,8 @@ class AppButton extends StatefulWidget {
     this.color = AppColors.brand,
     this.expand = false,
     this.loading = false,
-    this.padding = const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-    this.fontSize = 14,
+    this.padding = const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+    this.fontSize = 15,
     this.icon,
   });
 
@@ -75,17 +93,30 @@ class _AppButtonState extends State<AppButton> {
       padding: widget.padding,
       decoration: BoxDecoration(
         color: widget.color.withValues(alpha: disabled ? 0.5 : 1),
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: const [
-          BoxShadow(color: Color(0x0A000000), blurRadius: 4, offset: Offset(0, 1)),
-        ],
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: disabled
+            ? null
+            : [
+                BoxShadow(
+                  color: widget.color.withValues(alpha: 0.28),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
       ),
       child: Row(
         mainAxisSize: widget.expand ? MainAxisSize.max : MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          if (widget.icon != null) ...[
-            Icon(widget.icon, size: 16, color: Colors.white),
+          if (widget.loading) ...[
+            const SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2.2, color: Colors.white),
+            ),
+            const SizedBox(width: 10),
+          ] else if (widget.icon != null) ...[
+            Icon(widget.icon, size: 18, color: Colors.white),
             const SizedBox(width: 8),
           ],
           Text(
@@ -93,7 +124,8 @@ class _AppButtonState extends State<AppButton> {
             style: TextStyle(
               color: Colors.white,
               fontSize: widget.fontSize,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.2,
             ),
           ),
         ],
@@ -101,7 +133,7 @@ class _AppButtonState extends State<AppButton> {
     );
 
     return GestureDetector(
-      onTapDown: disabled ? null : (_) => setState(() => _scale = 0.95),
+      onTapDown: disabled ? null : (_) => setState(() => _scale = 0.96),
       onTapUp: disabled ? null : (_) => setState(() => _scale = 1),
       onTapCancel: () => setState(() => _scale = 1),
       onTap: disabled ? null : widget.onPressed,
@@ -114,7 +146,7 @@ class _AppButtonState extends State<AppButton> {
   }
 }
 
-/// Outlined "ghost" button — Tailwind `.btn-ghost`.
+/// Outlined / soft button — Tailwind `.btn-ghost`.
 class GhostButton extends StatelessWidget {
   const GhostButton({
     super.key,
@@ -122,10 +154,11 @@ class GhostButton extends StatelessWidget {
     required this.onPressed,
     this.expand = false,
     this.icon,
-    this.padding = const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+    this.padding = const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
     this.fontSize = 14,
     this.textColor = AppColors.slate700,
-    this.borderColor = AppColors.slate200,
+    this.borderColor = const Color(0xFFE2E8F0),
+    this.backgroundColor = Colors.white,
   });
 
   final String label;
@@ -136,25 +169,27 @@ class GhostButton extends StatelessWidget {
   final double fontSize;
   final Color textColor;
   final Color borderColor;
+  final Color backgroundColor;
 
   @override
   Widget build(BuildContext context) {
     return Pressable(
-      borderRadius: 12,
+      borderRadius: 16,
       onTap: onPressed ?? () {},
       child: Container(
         width: expand ? double.infinity : null,
         padding: padding,
         decoration: BoxDecoration(
-          border: Border.all(color: borderColor),
-          borderRadius: BorderRadius.circular(12),
+          color: backgroundColor,
+          border: Border.all(color: borderColor, width: 1.2),
+          borderRadius: BorderRadius.circular(16),
         ),
         child: Row(
           mainAxisSize: expand ? MainAxisSize.max : MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             if (icon != null) ...[
-              Icon(icon, size: 16, color: textColor),
+              Icon(icon, size: 17, color: textColor),
               const SizedBox(width: 8),
             ],
             Text(
@@ -162,7 +197,8 @@ class GhostButton extends StatelessWidget {
               style: TextStyle(
                 color: textColor,
                 fontSize: fontSize,
-                fontWeight: FontWeight.w500,
+                fontWeight: FontWeight.w600,
+                letterSpacing: -0.1,
               ),
             ),
           ],
@@ -172,7 +208,7 @@ class GhostButton extends StatelessWidget {
   }
 }
 
-/// Sticky page header — Tailwind `PageHeader.tsx`.
+/// Sticky page header with modern rounded back button and crisp typography.
 class PageHeader extends StatelessWidget {
   const PageHeader({
     super.key,
@@ -188,12 +224,7 @@ class PageHeader extends StatelessWidget {
   final String? subtitle;
   final bool loading;
   final VoidCallback? onRefresh;
-  /// Refresh tugmasi o'rniga (yoki undan tashqari) ko'rsatiladigan vidjet —
-  /// masalan bildirishnomalar qo'ng'irog'i.
   final Widget? trailing;
-  /// Push qilingan (tab bo'lmagan) sahifalarda orqaga tugmasi — bo'lmasa
-  /// iOS'da chiqib ketishning UI yo'li qolmaydi (Android tizim tugmasi bor,
-  /// lekin iOS'da yo'q).
   final bool back;
 
   @override
@@ -202,33 +233,51 @@ class PageHeader extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: const BoxDecoration(
         color: Colors.white,
-        border: Border(bottom: BorderSide(color: AppColors.slate200)),
+        border: Border(bottom: BorderSide(color: Color(0xFFF1F5F9), width: 1)),
       ),
       child: Row(
         children: [
           if (back)
             Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: IconButton(
-                onPressed: () => Navigator.of(context).pop(),
-                icon: const Icon(Icons.arrow_back_ios_new, size: 18),
-                color: AppColors.slate700,
-                visualDensity: VisualDensity.compact,
+              padding: const EdgeInsets.only(right: 12),
+              child: GestureDetector(
+                onTap: () => Navigator.of(context).pop(),
+                child: Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: AppColors.slate100,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.arrow_back_ios_new_rounded,
+                    size: 16,
+                    color: AppColors.slate700,
+                  ),
+                ),
               ),
             ),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
                   title,
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.slate900,
+                    letterSpacing: -0.3,
+                  ),
                 ),
-                if (subtitle != null)
+                if (subtitle != null) ...[
+                  const SizedBox(height: 2),
                   Text(
                     subtitle!,
                     style: const TextStyle(fontSize: 12, color: AppColors.slate400),
                   ),
+                ],
               ],
             ),
           ),
@@ -239,7 +288,7 @@ class PageHeader extends StatelessWidget {
               onPressed: onRefresh,
               tooltip: 'Yangilash',
               icon: _SpinningRefresh(spinning: loading),
-              color: AppColors.slate400,
+              color: AppColors.slate500,
             ),
         ],
       ),
@@ -310,6 +359,85 @@ class ErrorBanner extends StatelessWidget {
   }
 }
 
+/// Modern illustrated empty state with circular badge, title, subtitle and optional action button.
+class AppEmptyState extends StatelessWidget {
+  const AppEmptyState({
+    super.key,
+    required this.icon,
+    required this.title,
+    this.subtitle,
+    this.actionLabel,
+    this.onAction,
+  });
+
+  final IconData icon;
+  final String title;
+  final String? subtitle;
+  final String? actionLabel;
+  final VoidCallback? onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 48),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                color: AppColors.brandSoft,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.brand.withValues(alpha: 0.1),
+                    blurRadius: 20,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
+              ),
+              child: Icon(icon, size: 38, color: AppColors.brand),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                color: AppColors.slate900,
+                letterSpacing: -0.2,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            if (subtitle != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                subtitle!,
+                style: const TextStyle(
+                  fontSize: 13.5,
+                  color: AppColors.slate500,
+                  height: 1.4,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+            if (actionLabel != null && onAction != null) ...[
+              const SizedBox(height: 24),
+              AppButton(
+                label: actionLabel!,
+                onPressed: onAction,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 13),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 /// Empty-state card — icon + message centered in a card.
 class EmptyState extends StatelessWidget {
   const EmptyState({super.key, required this.icon, required this.message});
@@ -319,13 +447,32 @@ class EmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AppCard(
-      padding: const EdgeInsets.all(40),
-      child: Column(
-        children: [
-          Icon(icon, size: 32, color: AppColors.slate400.withValues(alpha: 0.4)),
-          const SizedBox(height: 8),
-          Text(message, style: const TextStyle(color: AppColors.slate400)),
-        ],
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 36),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 52,
+              height: 52,
+              decoration: BoxDecoration(
+                color: AppColors.slate100,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, size: 24, color: AppColors.slate400),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              message,
+              style: const TextStyle(
+                color: AppColors.slate500,
+                fontSize: 13.5,
+                fontWeight: FontWeight.w500,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
       ),
     );
   }

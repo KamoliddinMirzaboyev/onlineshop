@@ -18,7 +18,7 @@ from app.core.tz import tashkent_today_start_utc
 from app.core.security import hash_password
 from app.services.events import courier_events
 from app.models import (
-    AdminUser, Business, Category, CategoryGroup, Order, OrderItem, Product,
+    AdminUser, Banner, Business, Category, CategoryGroup, Order, OrderItem, Product,
     PushSubscription, Restaurant, SupplyRecord, User,
 )
 from app.models.enums import OrderStatus
@@ -27,6 +27,7 @@ from app.schemas.admin import (
     StockUpdate, SupplyRecordIn, SupplyRecordOut, TopProduct,
 )
 from app.schemas.admin import AdminUserOut
+from app.schemas.banner import BannerIn, BannerOut
 from app.schemas.catalog import (
     CategoryGroupIn, CategoryGroupOut, CategoryIn, CategoryOut, ProductIn, ProductAdminOut,
     RestaurantOut, StoreSettingsIn,
@@ -293,6 +294,64 @@ def delete_category_group(
     g = db.get(CategoryGroup, gid)
     if g and g.restaurant_id == store.id:
         db.delete(g)  # categories.group_id SET NULL (ondelete) — kategoriyalar o'chmaydi
+        db.commit()
+        invalidate_restaurant_catalog(store.id)
+
+
+# ── Banners (Reklamalar & Yangiliklar) ─────────────────────────────
+@router.get("/banners", response_model=list[BannerOut])
+def list_admin_banners(
+    store: Restaurant = Depends(current_restaurant),
+    db: Session = Depends(get_db),
+):
+    return db.scalars(
+        select(Banner)
+        .where(Banner.restaurant_id == store.id)
+        .order_by(Banner.sort_order, Banner.id.desc())
+    ).all()
+
+
+@router.post("/banners", response_model=BannerOut, status_code=201)
+def create_banner(
+    data: BannerIn,
+    store: Restaurant = Depends(current_restaurant),
+    db: Session = Depends(get_db),
+):
+    b = Banner(**data.model_dump(), restaurant_id=store.id)
+    db.add(b)
+    db.commit()
+    db.refresh(b)
+    invalidate_restaurant_catalog(store.id)
+    return b
+
+
+@router.put("/banners/{banner_id}", response_model=BannerOut)
+def update_banner(
+    banner_id: int,
+    data: BannerIn,
+    store: Restaurant = Depends(current_restaurant),
+    db: Session = Depends(get_db),
+):
+    b = db.get(Banner, banner_id)
+    if not b or b.restaurant_id != store.id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Banner topilmadi")
+    for k, v in data.model_dump().items():
+        setattr(b, k, v)
+    db.commit()
+    db.refresh(b)
+    invalidate_restaurant_catalog(store.id)
+    return b
+
+
+@router.delete("/banners/{banner_id}", status_code=204)
+def delete_banner(
+    banner_id: int,
+    store: Restaurant = Depends(current_restaurant),
+    db: Session = Depends(get_db),
+):
+    b = db.get(Banner, banner_id)
+    if b and b.restaurant_id == store.id:
+        db.delete(b)
         db.commit()
         invalidate_restaurant_catalog(store.id)
 

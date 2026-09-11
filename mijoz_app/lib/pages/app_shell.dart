@@ -16,13 +16,28 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> {
   int _index = 0;
-
-  static const _tabs = [HomePage(), SearchPage(), OrdersPage(), ProfilePage()];
+  // ponytail: faqat bir marta ochilgan tab qurilib, IndexedStack'da saqlanadi —
+  // ilova ochilishida barcha 4 tab (va ularning timer/tarmoq so'rovlari) darhol
+  // ishga tushmaydi.
+  final Set<int> _visited = {0};
 
   @override
   Widget build(BuildContext context) {
+    _visited.add(_index);
+    final tabs = [
+      HomePage(isActive: _index == 0),
+      const SearchPage(),
+      OrdersPage(isActive: _index == 2),
+      const ProfilePage(),
+    ];
     return Scaffold(
-      body: IndexedStack(index: _index, children: _tabs),
+      body: IndexedStack(
+        index: _index,
+        children: [
+          for (var i = 0; i < tabs.length; i++)
+            _visited.contains(i) ? tabs[i] : const SizedBox.shrink(),
+        ],
+      ),
       bottomNavigationBar: BottomNav(index: _index, onChanged: (i) => setState(() => _index = i)),
     );
   }

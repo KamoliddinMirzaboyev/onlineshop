@@ -4,9 +4,7 @@ import '../core/theme.dart';
 import '../widgets/common.dart';
 import 'notification_permission_page.dart';
 
-/// Onboarding — joylashuv ruxsati. Ro'yxatdan o'tgach, eng yaqin do'konni
-/// topish uchun bir marta so'raladi (keyin StoreProvider ham so'raydi, lekin
-/// ruxsat allaqachon berilgan bo'lsa jim o'tkazib yuboradi).
+/// Onboarding — joylashuv ruxsati sahifasi.
 class LocationPermissionPage extends StatefulWidget {
   const LocationPermissionPage({super.key});
 
@@ -31,9 +29,6 @@ class _LocationPermissionPageState extends State<LocationPermissionPage> {
     }
   }
 
-  // ponytail: har safar joriy (hali disposed bo'lmagan) sahifaning o'z
-  // context'i orqali navigatsiya — bu navbatdagi sahifaga callback sifatida
-  // uzatilgan tashqi context bilan bog'liq "deactivated widget" xatosini oldini oladi.
   void _goNext() {
     if (!mounted) return;
     Navigator.of(context).pushReplacement(
@@ -44,32 +39,53 @@ class _LocationPermissionPageState extends State<LocationPermissionPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.slate50,
+      backgroundColor: Colors.white,
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
+              const Spacer(),
+              // Icon container
               Container(
-                width: 96,
-                height: 96,
-                decoration: const BoxDecoration(color: AppColors.brandLight, shape: BoxShape.circle),
-                child: const Icon(Icons.location_on_rounded, size: 48, color: Colors.white),
-              ),
-              const SizedBox(height: 24),
-              const Text(
-                'Joylashuvingizni ulashing',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.slate900),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Eng yaqin do\'kon va yetkazib berish vaqtini aniq hisoblash uchun joylashuvingiz kerak',
-                style: TextStyle(fontSize: 14, color: AppColors.slate500),
-                textAlign: TextAlign.center,
+                width: 104,
+                height: 104,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF22C55E), Color(0xFF15803D)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.brand.withValues(alpha: 0.3),
+                      blurRadius: 28,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
+                ),
+                child: const Icon(Icons.location_on_rounded, size: 52, color: Colors.white),
               ),
               const SizedBox(height: 32),
+              const Text(
+                'Joylashuvingizni ulashing 📍',
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w900,
+                  color: AppColors.slate900,
+                  letterSpacing: -0.4,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Sizga eng yaqin bo\'lgan filiallarni ko\'rsatish va yetkazib berish vaqtini daqiqasigacha aniq hisoblash uchun joylashuv ruxsati zarur.',
+                style: TextStyle(fontSize: 14, color: AppColors.slate500, height: 1.45),
+                textAlign: TextAlign.center,
+              ),
+              const Spacer(),
               AppButton(
                 label: 'Ruxsat berish',
                 expand: true,
@@ -77,9 +93,13 @@ class _LocationPermissionPageState extends State<LocationPermissionPage> {
                 onPressed: _allow,
               ),
               const SizedBox(height: 12),
-              TextButton(
+              GhostButton(
+                label: 'Keyinroq',
+                expand: true,
+                textColor: AppColors.slate500,
+                borderColor: Colors.transparent,
+                backgroundColor: Colors.transparent,
                 onPressed: _goNext,
-                child: const Text('Keyinroq', style: TextStyle(color: AppColors.slate400)),
               ),
             ],
           ),

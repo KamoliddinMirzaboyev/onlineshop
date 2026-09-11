@@ -36,6 +36,9 @@ void _handleMessageTap(GlobalKey<NavigatorState> navKey, RemoteMessage message) 
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Xotira va keshni tejash: mahsulotlar rasmlari xotiradan oshib ketmasligi uchun chegara
+  PaintingBinding.instance.imageCache.maximumSize = 120;
+  PaintingBinding.instance.imageCache.maximumSizeBytes = 60 * 1024 * 1024; // 60MB
   await api.init();
   try {
     await Firebase.initializeApp();
@@ -60,9 +63,8 @@ class _MijozAppState extends State<MijozApp> {
   void initState() {
     super.initState();
     api.onUnauthorized = () {
-      // Token bekor qilindi (401) — keyingi kim kirsa ham avvalgi
-      // foydalanuvchining savatchasi ko'rmasin.
-      context.read<CartProvider>().clear();
+      // Token muddati tugaganda / bekor bo'lganda kirish sahifasiga yo'naltirish.
+      // Savatcha o'chirilmaydi — foydalanuvchi qayta kirganda buyumlari saqlanib qoladi.
       _navKey.currentState?.pushAndRemoveUntil(
         MaterialPageRoute(builder: (_) => const AuthPage()),
         (route) => false,
@@ -100,6 +102,11 @@ class _MijozAppState extends State<MijozApp> {
       if (token != null) {
         await api.post('/auth/fcm-token', {'fcm_token': token});
       }
+      FirebaseMessaging.instance.onTokenRefresh.listen((newToken) {
+        if (api.hasToken) {
+          api.post('/auth/fcm-token', {'fcm_token': newToken}).catchError((_) => null);
+        }
+      });
     } catch (e) {
       debugPrint('FCM Error: $e');
     }

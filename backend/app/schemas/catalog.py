@@ -102,11 +102,15 @@ class StoreSettingsIn(BaseModel):
     delivery_fee: int = 2_000
 
 
+from app.schemas.banner import BannerOut
+
+
 class RestaurantDetail(RestaurantOut):
     categories: list[CategoryWithSubcategories] = []
     # Title'lar — mijoz ilovasi shu ro'yxat + har categoriyaning group_id'si orqali
     # kategoriyalarni sarlavha ostida guruhlaydi (group_id=None — sarlavhasiz).
     category_groups: list[CategoryGroupOut] = []
+    banners: list[BannerOut] = []
 
 
 # ── Admin write schemas ──────────────────────────────────────────

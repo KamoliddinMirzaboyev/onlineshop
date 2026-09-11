@@ -60,6 +60,25 @@ def decode_token(token: str) -> dict | None:
         return None
 
 
+def create_refresh_token(
+    subject: str,
+    role: str,
+    *,
+    expires_days: int = 30,
+) -> str:
+    """Uzoq muddatli Refresh Token (standart: 30 kun, purpose='refresh')."""
+    expire = datetime.now(timezone.utc) + timedelta(days=expires_days)
+    payload: dict = {"sub": str(subject), "role": role, "exp": expire, "purpose": "refresh"}
+    return jwt.encode(payload, settings.secret_key, algorithm=settings.algorithm)
+
+
+def verify_refresh_token(token: str) -> dict | None:
+    payload = decode_token(token)
+    if not payload or payload.get("purpose") != "refresh":
+        return None
+    return payload
+
+
 # ── Telegram WebApp initData verification ────────────────────────
 # https://core.telegram.org/bots/webapps#validating-data-received-via-the-mini-app
 def verify_telegram_init_data(init_data: str, max_age_seconds: int = 86400) -> dict | None:

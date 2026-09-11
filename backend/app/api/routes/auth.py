@@ -7,13 +7,19 @@ from app.api.deps import get_current_user
 from app.core.db import get_db
 from app.core.phone import normalize_phone
 from app.core.ratelimit import rate_limiter
-from app.core.security import create_access_token, verify_telegram_init_data
+from app.core.security import (
+    create_access_token,
+    create_refresh_token,
+    verify_refresh_token,
+    verify_telegram_init_data,
+)
 from app.models import User
 from app.schemas.auth import (
     AuthResult,
     FCMTokenIn,
     OtpRequestIn,
     OtpVerifyIn,
+    RefreshTokenIn,
     TelegramAuthIn,
     TokenOut,
     UserOut,
@@ -82,8 +88,12 @@ def telegram_auth(data: TelegramAuthIn, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(user)
 
-    token = create_access_token(subject=str(user.id), role="user")
-    return AuthResult(token=TokenOut(access_token=token), user=UserOut.model_validate(user))
+    access_token = create_access_token(subject=str(user.id), role="user")
+    refresh_token = create_refresh_token(subject=str(user.id), role="user")
+    return AuthResult(
+        token=TokenOut(access_token=access_token, refresh_token=refresh_token),
+        user=UserOut.model_validate(user),
+    )
 
 
 @router.post("/otp/request", dependencies=[Depends(_otp_request_limit)])
@@ -118,8 +128,33 @@ def otp_verify(data: OtpVerifyIn, db: Session = Depends(get_db)):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Akkauntingiz bloklangan")
 
     db.refresh(user)
-    token = create_access_token(subject=str(user.id), role="user")
-    return AuthResult(token=TokenOut(access_token=token), user=UserOut.model_validate(user))
+    access_token = create_access_token(subject=str(user.id), role="user")
+    refresh_token = create_refresh_token(subject=str(user.id), role="user")
+    return AuthResult(
+        token=TokenOut(access_token=access_token, refresh_token=refresh_token),
+        user=UserOut.model_validate(user),
+    )
+
+
+@router.post("/refresh", response_model=TokenOut)
+def refresh_token(data: RefreshTokenIn, db: Session = Depends(get_db)):
+    payload = verify_refresh_token(data.refresh_token)
+    if not payload or "sub" not in payload:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Yaroqsiz yoki muddati o'tgan refresh token")
+
+    try:
+        user_id = int(payload["sub"])
+    except (ValueError, TypeError):
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Yaroqsiz token subyekti")
+
+    user = db.get(User, user_id)
+    if not user or user.is_blocked:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Foydalanuvchi topilmadi yoki bloklangan")
+
+    role = payload.get("role", "user")
+    new_access_token = create_access_token(subject=str(user.id), role=role)
+    new_refresh_token = create_refresh_token(subject=str(user.id), role=role)
+    return TokenOut(access_token=new_access_token, refresh_token=new_refresh_token)
 
 
 @router.post("/fcm-token")
@@ -161,3 +196,41 @@ def update_me(
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Bu telefon allaqachon band")
     db.refresh(user)
     return user
+
+
+@router.delete("/fcm-token", status_code=204)
+def clear_fcm_token(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    user.fcm_token = None
+    db.commit()
+
+
+@router.delete("/me", status_code=204)
+def delete_me(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Apple Guideline 5.1.1(v) — Account Deletion.
+    Foydalanuvchi o'z hisobini to'liq o'chirishi uchun.
+    Agar faol buyurtmalari bo'lsa (delivering va h.k.) — xatolik beradi.
+    Buyurtmasi bo'lmasa — to'liq o'chiriladi.
+    Tarixiy buyurtmalari bo'lsa — barcha PII (ism, telefon, manzil, fcm) tozalanadi."""
+    active_statuses = {"pending", "confirmed", "preparing", "ready", "accepted", "delivering"}
+    has_active = any(o.status in active_statuses for o in user.orders)
+    if has_active:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "Faol buyurtmalaringiz mavjud. Avval buyurtma yakunlanishi kerak.",
+        )
+
+    for addr in list(user.addresses):
+        db.delete(addr)
+
+    if not user.orders:
+        db.delete(user)
+    else:
+        user.phone = None
+        user.first_name = "O'chirilgan foydalanuvchi"
+        user.last_name = None
+        user.username = None
+        user.telegram_id = None
+        user.fcm_token = None
+        user.is_blocked = True
+
+    db.commit()

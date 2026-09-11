@@ -12,9 +12,23 @@ logger = logging.getLogger(__name__)
 FAKE_CODE = "11111"
 
 
+# Apple Reviewer / Demo test raqamlari (har doim 11111 kod bilan o'tadi)
+DEMO_PHONES = {
+    "+998901234567",
+    "+998900000000",
+    "+998990000000",
+    "998901234567",
+    "998900000000",
+}
+
+
 def send_otp(phone: str) -> None:
-    logger.info("OTP (mock) %s -> %s", phone, FAKE_CODE)
+    logger.info("OTP %s -> %s", phone, FAKE_CODE)
 
 
 def verify_otp(phone: str, code: str) -> bool:
-    return code.strip() == FAKE_CODE
+    c = code.strip()
+    p = phone.strip()
+    if p in DEMO_PHONES and c == FAKE_CODE:
+        return True
+    return c == FAKE_CODE

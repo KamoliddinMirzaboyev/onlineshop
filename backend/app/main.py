@@ -4,7 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.api.routes import (
-    addresses, admin, admin_auth, auth, business, business_auth, catalog, courier,
+    addresses, admin, admin_auth, auth, banners, business, business_auth, catalog, courier,
     geo_route, notifications, orders, platform, platform_auth, uploads,
 )
 from app.api.routes.uploads import UPLOAD_DIR
@@ -85,6 +85,7 @@ app.add_middleware(
 api = APIRouter(prefix="/api")
 api.include_router(auth.router)
 api.include_router(catalog.router)
+api.include_router(banners.router)
 api.include_router(geo_route.router)
 api.include_router(addresses.router)
 api.include_router(notifications.router)

@@ -5,6 +5,7 @@ import { Toaster } from "sonner";
 import { hasToken, setToken } from "./api";
 import { ConfirmHost } from "./components/Confirm";
 import Layout from "./components/Layout";
+import BannersPage from "./pages/BannersPage";
 import CouriersPage from "./pages/CouriersPage";
 import DashboardPage from "./pages/DashboardPage";
 import DeliveryZonePage from "./pages/DeliveryZonePage";
@@ -103,6 +104,7 @@ export default function App() {
       <Route path="/" element={<Protected><DashboardPage /></Protected>} />
       <Route path="/orders" element={<Protected><OrdersPage /></Protected>} />
       <Route path="/products" element={<Protected><ProductsPage /></Protected>} />
+      <Route path="/banners" element={<Protected><BannersPage /></Protected>} />
       <Route path="/warehouse" element={<Protected><WarehousePage /></Protected>} />
       <Route path="/supplies" element={<Protected><SuppliesPage /></Protected>} />
       <Route path="/delivery-zone" element={<Protected><DeliveryZonePage /></Protected>} />
