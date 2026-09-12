@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import { api } from "../api/client";
 import type { Order, Product, RestaurantDetail } from "../api/types";
 import { loc, type Lang } from "../i18n";
-import { money, unitLabel } from "../lib/format";
+import { fmtQty, money, qtyStep, unitLabel } from "../lib/format";
 import OptimizedImage from "./OptimizedImage";
 
 interface DraftLine {
@@ -76,10 +76,11 @@ export default function OrderEditor({
     setDraft((d) => ({
       ...d,
       [p.id]: d[p.id]
-        ? { ...d[p.id], quantity: d[p.id].quantity + 1 }
+        ? { ...d[p.id], quantity: d[p.id].quantity + qtyStep(p.unit) }
         : {
             product_id: p.id, name_uz: p.name_uz, name_ru: p.name_ru,
-            image_url: p.image_url, price: p.price, unit: p.unit, quantity: 1, note: null,
+            image_url: p.image_url, price: p.price, unit: p.unit,
+            quantity: qtyStep(p.unit), note: null,
           },
     }));
 
@@ -160,7 +161,7 @@ export default function OrderEditor({
                   <Plus size={16} />
                   {draft[p.id] && (
                     <span className="absolute -top-1 -right-1 h-4 min-w-4 px-1 rounded-full bg-slate-900 text-white text-[10px] font-bold flex items-center justify-center tabular-nums">
-                      {draft[p.id].quantity}
+                      {fmtQty(draft[p.id].quantity)}
                     </span>
                   )}
                 </span>
@@ -189,16 +190,16 @@ export default function OrderEditor({
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <button
-                    onClick={() => setQty(l.product_id, l.quantity - 1)}
+                    onClick={() => setQty(l.product_id, l.quantity - qtyStep(l.unit))}
                     className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center"
                   >
-                    {l.quantity <= 1 ? <Trash2 size={15} className="text-red-500" /> : <Minus size={15} />}
+                    {l.quantity <= qtyStep(l.unit) ? <Trash2 size={15} className="text-red-500" /> : <Minus size={15} />}
                   </button>
                   <span className="w-8 text-center text-sm font-semibold tabular-nums">
-                    {l.quantity}
+                    {fmtQty(l.quantity)}
                   </span>
                   <button
-                    onClick={() => setQty(l.product_id, l.quantity + 1)}
+                    onClick={() => setQty(l.product_id, l.quantity + qtyStep(l.unit))}
                     className="h-8 w-8 rounded-full bg-brand text-white flex items-center justify-center"
                   >
                     <Plus size={15} />

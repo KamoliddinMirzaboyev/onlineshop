@@ -17,13 +17,21 @@ export function unitLabel(unit?: string | null, lang = "uz"): string {
   return lang === "ru" ? RU_UNIT[unit] ?? unit : unit;
 }
 
+/** Stepperda +/- necha birlikka o'zgarishi — kg/litrda 0.5 (1.5 kg un ham
+ * buyurtma qilish mumkin), dona kabi sanoq birliklarda 1. */
+export function qtyStep(unit?: string | null): number {
+  return unit === "kg" || unit === "litr" ? 0.5 : 1;
+}
+
+/** "1", "1.5" — butun sonda "1", kasrda bitta kasr xona. */
+export function fmtQty(quantity: number): string {
+  return Number.isInteger(quantity) ? String(quantity) : quantity.toFixed(1);
+}
+
 /** Miqdor + o'lchov birligi: "2 kg", "3 dona". Birlik bo'lmasa faqat son. */
 export function qtyUnit(quantity: number, unit?: string | null, lang = "uz"): string {
-  const n = Number.isInteger(quantity)
-    ? String(quantity)
-    : String(Number(quantity.toFixed(3)));
   const u = unitLabel(unit, lang);
-  return u ? `${n} ${u}` : n;
+  return u ? `${fmtQty(quantity)} ${u}` : fmtQty(quantity);
 }
 
 /** O'zbek raqamini "+998 88 888 88 88" ko'rinishiga keltiradi.

@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import OptimizedImage from "../components/OptimizedImage";
 import PageHeader from "../components/PageHeader";
 import { loc, useI18n } from "../i18n";
-import { money, unitLabel } from "../lib/format";
+import { fmtQty, money, qtyStep, unitLabel } from "../lib/format";
 import { prewarmCheckoutLocation } from "../lib/prewarmLocation";
 import { useCart } from "../store/cart";
 import { haptic } from "../telegram";
@@ -67,16 +67,16 @@ export default function CartPage() {
                 <span className="font-semibold text-base text-slate-900">{money(product.price * quantity)}</span>
                 <div className="flex items-center gap-1 rounded-full bg-slate-100 px-1 py-1">
                   <button
-                    onClick={() => cart.setQty(product.id, quantity - 1)}
+                    onClick={() => cart.setQty(product.id, quantity - qtyStep(product.unit))}
                     className="h-8 w-8 flex items-center justify-center text-slate-600 active:scale-90 transition"
                   >
                     <Minus size={16} />
                   </button>
                   <span className="min-w-[2.5rem] text-center text-sm font-medium text-slate-900">
-                    {quantity} {product.unit ? unitLabel(product.unit, lang) : ""}
+                    {fmtQty(quantity)} {product.unit ? unitLabel(product.unit, lang) : ""}
                   </span>
                   <button
-                    onClick={() => cart.setQty(product.id, quantity + 1)}
+                    onClick={() => cart.setQty(product.id, quantity + qtyStep(product.unit))}
                     className="h-8 w-8 flex items-center justify-center text-slate-600 active:scale-90 transition"
                   >
                     <Plus size={16} />

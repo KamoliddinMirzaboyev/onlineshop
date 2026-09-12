@@ -10,6 +10,11 @@ type Catalog = { cats: Category[]; groups: CategoryGroup[]; products: Product[] 
 
 const money = (n?: number | null) => (n || 0).toLocaleString("ru-RU").replace(/,/g, " ");
 
+// Kg/litrda 0.5 qadam bilan kasr miqdor (1.5 kg un) — dona/quti kabi sanoq
+// birliklarda 1 qadam.
+const qtyStep = (p: Product) => (p.unit === "kg" || p.unit === "litr" ? 0.5 : 1);
+const fmtQty = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
+
 const LABEL: Record<OrderStatus, string> = {
   pending: "Yangi", confirmed: "Tasdiqlandi", preparing: "Tayyorlanmoqda",
   ready: "Tayyor", accepted: "Kuryer qabul qildi", delivering: "Yetkazilmoqda",
@@ -284,7 +289,9 @@ function PhoneOrderModal({
   const lines = Object.entries(sel)
     .map(([id, qty]) => ({ p: byId.get(+id)!, qty }))
     .filter((l) => l.p);
-  const count = lines.reduce((s, l) => s + l.qty, 0);
+  // Turli mahsulot soni — miqdorlar yig'indisi emas (kg va dona aralash
+  // bo'lsa bitta songa qo'shib bo'lmaydi).
+  const count = lines.length;
   const itemsTotal = lines.reduce((s, l) => s + l.p.price * l.qty, 0);
   const valid = lines.length > 0 && phoneDigits(phone).length === 9 && address.trim().length >= 4;
   const openedCat = openCat != null ? cats.find((c) => c.id === openCat) : null;
@@ -324,7 +331,7 @@ function PhoneOrderModal({
           )}
           {qty > 0 && (
             <span className="absolute top-2 left-2 bg-brand text-white text-xs font-extrabold rounded-lg px-1.5 py-0.5">
-              ×{qty}
+              ×{fmtQty(qty)}
             </span>
           )}
         </div>
@@ -335,16 +342,16 @@ function PhoneOrderModal({
           <div className="text-xs text-slate-500">{money(p.price)} so'm / {p.unit}</div>
           {qty > 0 ? (
             <div className="flex items-center justify-between mt-1">
-              <button className="icon-btn h-9 w-9" onClick={() => setQty(p.id, qty - 1)}>
+              <button className="icon-btn h-9 w-9" onClick={() => setQty(p.id, qty - qtyStep(p))}>
                 <Minus size={16} />
               </button>
-              <span className="font-extrabold tabular-nums">{qty}</span>
-              <button className="icon-btn h-9 w-9" onClick={() => setQty(p.id, qty + 1)}>
+              <span className="font-extrabold tabular-nums">{fmtQty(qty)}</span>
+              <button className="icon-btn h-9 w-9" onClick={() => setQty(p.id, qty + qtyStep(p))}>
                 <Plus size={16} />
               </button>
             </div>
           ) : (
-            <button className="btn w-full py-1.5 text-xs mt-1" onClick={() => setQty(p.id, 1)}>
+            <button className="btn w-full py-1.5 text-xs mt-1" onClick={() => setQty(p.id, qtyStep(p))}>
               <Plus size={14} /> Qo'shish
             </button>
           )}
@@ -423,15 +430,15 @@ function PhoneOrderModal({
                     <div className="min-w-0 flex-1">
                       <div className="text-sm font-medium text-slate-800 truncate">{l.p.name_uz}</div>
                       <div className="text-xs text-slate-500">
-                        {money(l.p.price)} × {l.qty} = {money(l.p.price * l.qty)} so'm
+                        {money(l.p.price)} × {fmtQty(l.qty)} = {money(l.p.price * l.qty)} so'm
                       </div>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
-                      <button className="icon-btn" onClick={() => setQty(l.p.id, l.qty - 1)}>
+                      <button className="icon-btn" onClick={() => setQty(l.p.id, l.qty - qtyStep(l.p))}>
                         <Minus size={14} />
                       </button>
-                      <span className="w-6 text-center text-sm font-bold tabular-nums">{l.qty}</span>
-                      <button className="icon-btn" onClick={() => setQty(l.p.id, l.qty + 1)}>
+                      <span className="w-8 text-center text-sm font-bold tabular-nums">{fmtQty(l.qty)}</span>
+                      <button className="icon-btn" onClick={() => setQty(l.p.id, l.qty + qtyStep(l.p))}>
                         <Plus size={14} />
                       </button>
                     </div>

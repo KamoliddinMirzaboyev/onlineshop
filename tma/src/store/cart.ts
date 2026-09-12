@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { Product } from "../api/types";
+import { qtyStep } from "../lib/format";
 
 export interface CartLine {
   product: Product;
@@ -30,7 +31,10 @@ export const useCart = create<CartState>()(
           const switching = s.restaurantId !== null && s.restaurantId !== product.restaurant_id;
           const lines = switching ? {} : { ...s.lines };
           const existing = lines[product.id];
-          lines[product.id] = { product, quantity: (existing?.quantity ?? 0) + 1 };
+          lines[product.id] = {
+            product,
+            quantity: (existing?.quantity ?? 0) + qtyStep(product.unit),
+          };
           return { lines, restaurantId: product.restaurant_id };
         }),
 
@@ -56,8 +60,9 @@ export const useCart = create<CartState>()(
 
       clear: () => set({ lines: {}, restaurantId: null }),
 
-      count: () =>
-        Object.values(get().lines).reduce((n, l) => n + l.quantity, 0),
+      // Turli mahsulot soni — miqdorlar yig'indisi emas (kg va dona aralash
+      // bo'lsa bitta songa qo'shib bo'lmaydi).
+      count: () => Object.keys(get().lines).length,
 
       total: () =>
         Object.values(get().lines).reduce((n, l) => n + l.quantity * l.product.price, 0),

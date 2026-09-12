@@ -3,7 +3,7 @@ import { Minus, Plus } from "lucide-react";
 import type { Product } from "../api/types";
 import OptimizedImage from "./OptimizedImage";
 import { loc, useI18n } from "../i18n";
-import { money, unitLabel } from "../lib/format";
+import { fmtQty, money, qtyStep, unitLabel } from "../lib/format";
 import { useCart } from "../store/cart";
 import { haptic } from "../telegram";
 
@@ -29,7 +29,7 @@ export default function ProductCard({
     haptic("light");
   };
   const dec = () => {
-    cart.setQty(product.id, qty - 1);
+    cart.setQty(product.id, qty - qtyStep(product.unit));
     haptic("light");
   };
 
@@ -95,7 +95,7 @@ export default function ProductCard({
                   transition={{ type: "spring", stiffness: 500, damping: 24 }}
                   className="text-xs font-semibold tabular-nums text-slate-900 px-0.5 min-w-[1.25rem] text-center"
                 >
-                  {qty}
+                  {fmtQty(qty)}
                 </motion.span>
 
                 <motion.button
