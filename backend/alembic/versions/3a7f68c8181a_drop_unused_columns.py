@@ -11,8 +11,8 @@ Revision ID: 3a7f68c8181a
 Revises: 32f617e503df
 Create Date: 2026-09-12 14:30:22.048064
 """
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 
 
 revision = '3a7f68c8181a'
@@ -21,13 +21,28 @@ branch_labels = None
 depends_on = None
 
 
+def _columns(table: str) -> set[str]:
+    bind = op.get_bind()
+    return {c["name"] for c in sa.inspect(bind).get_columns(table)}
+
+
 def upgrade() -> None:
-    op.drop_column("delivery_zones", "min_order")
-    op.drop_column("delivery_zones", "fee")
-    op.drop_column("users", "password_hash")
+    # Idempotent: `app/initdb.py` eski deploy'lar uchun shu ustunlarni
+    # `DROP COLUMN IF EXISTS` bilan allaqachon olib tashlagan bo'lishi mumkin
+    # (u konteyner startida, migratsiyadan oldin ishlaydi). Tekshirmasak,
+    # `op.drop_column` "column does not exist" bilan yiqilardi.
+    zone_cols = _columns("delivery_zones")
+    if "min_order" in zone_cols:
+        op.drop_column("delivery_zones", "min_order")
+    if "fee" in zone_cols:
+        op.drop_column("delivery_zones", "fee")
+    if "password_hash" in _columns("users"):
+        op.drop_column("users", "password_hash")
 
 
 def downgrade() -> None:
+    if "password_hash" in _columns("users"):
+        return  # allaqachon qaytarilgan
     op.add_column(
         "users",
         sa.Column("password_hash", sa.VARCHAR(length=255), nullable=True),
