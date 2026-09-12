@@ -67,6 +67,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
   }
 
   Future<void> _handleAdjust() async {
+    if (_updating) return;
     final order = _res.data;
     final item = _editingItem;
     if (order == null || item == null) return;
@@ -100,6 +101,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
   /// Yo'lga chiqish — backend kuryerning BARCHA accepted buyurtmalarini
   /// optimal reysga qo'shib yuboradi.
   Future<void> _setStatus(String status) async {
+    if (_updating) return; // ikki marta bosish — takroriy status so'rovi
     final order = _res.data;
     if (order == null) return;
     setState(() => _updating = true);
@@ -127,6 +129,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
   }
 
   Future<void> _markDelivered() async {
+    if (_updating) return;
     final order = _res.data;
     if (order == null) return;
     if (!await RouteFlow.confirmOutOfOrder(context, order)) return;

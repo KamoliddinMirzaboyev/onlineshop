@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { get, post, setToken } from "./api";
+import { get, post, revokeSession, setToken } from "./api";
 import type { SuperAdmin } from "./types";
 
 interface AuthState {
@@ -34,6 +34,7 @@ export const useAuth = create<AuthState>((set) => ({
     }
   },
   logout: () => {
+    revokeSession("/platform/auth/logout");
     setToken(null);
     set({ admin: null });
   },

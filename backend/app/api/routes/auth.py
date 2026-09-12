@@ -1,13 +1,14 @@
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, resolve_refresh_principal
+from app.api.deps import get_current_user, resolve_refresh_principal, revoke_session
 from app.core.config import settings
 from app.core.db import get_db
+from app.core.token_blacklist import is_revoked
 from app.core.phone import normalize_phone
 from app.core.ratelimit import rate_limiter
 from app.core.security import (
@@ -20,6 +21,7 @@ from app.models import User
 from app.schemas.auth import (
     AuthResult,
     FCMTokenIn,
+    LogoutIn,
     OtpRequestIn,
     OtpVerifyIn,
     RefreshTokenIn,
@@ -163,6 +165,9 @@ def otp_verify(data: OtpVerifyIn, db: Session = Depends(get_db)):
 @router.post("/refresh", response_model=TokenOut)
 def refresh_token(data: RefreshTokenIn, db: Session = Depends(get_db)):
     """Barcha rollar uchun: mijoz, do'kon xodimi, kuryer, tadbirkor, platforma."""
+    # Logout qilingan refresh token bilan yangi sessiya ochib bo'lmasin.
+    if is_revoked(data.refresh_token):
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Refresh token bekor qilingan")
     payload = verify_refresh_token(data.refresh_token)
     if not payload or "sub" not in payload:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Yaroqsiz yoki muddati o'tgan refresh token")
@@ -183,6 +188,20 @@ def refresh_token(data: RefreshTokenIn, db: Session = Depends(get_db)):
         access_token=create_access_token(subject=str(sub_id), role=current_role),
         refresh_token=create_refresh_token(subject=str(sub_id), role=current_role),
     )
+
+
+@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+def logout(
+    data: LogoutIn | None = None,
+    authorization: str | None = Header(default=None),
+):
+    """Chiqish: access va refresh token serverda bekor qilinadi.
+
+    Avval logout faqat qurilma xotirasidan o'chirardi — o'g'irlangan token
+    30 kun davomida haqiqiy bo'lib qolardi.
+    """
+    revoke_session(authorization, data.refresh_token if data else None)
+    return None
 
 
 @router.post("/fcm-token")

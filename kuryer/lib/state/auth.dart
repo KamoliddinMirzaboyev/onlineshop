@@ -73,6 +73,8 @@ class AuthState extends ChangeNotifier {
     try {
       await fcm.clearToken();
     } catch (_) {}
+    // Token serverda ham bekor qilinsin (Redis qora ro'yxati).
+    await api.logout('/admin/auth/logout');
     // Avval sessiyani yopish — UI darhol Login'ga o'tsin.
     username = null;
     name = null;

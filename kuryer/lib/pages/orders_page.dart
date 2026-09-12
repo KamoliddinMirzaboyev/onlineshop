@@ -54,6 +54,7 @@ class _OrdersPageState extends State<OrdersPage> {
   /// Yo'lga chiqish. order_ids bitta bo'lsa ham backend kuryerning BARCHA
   /// accepted buyurtmalarini optimal reysga qo'shib yuboradi.
   Future<void> _setStatus(int id, String status) async {
+    if (_updating != null) return; // ikki marta bosish — takroriy status so'rovi
     setState(() => _updating = id);
     try {
       final body = await locationService.gpsBody({
@@ -80,6 +81,7 @@ class _OrdersPageState extends State<OrdersPage> {
 
   /// Barcha accepted buyurtmalarni optimal marshrut bilan yo'lga chiqaradi.
   Future<void> _startRoute({bool includeIntoActive = false}) async {
+    if (_updating != null) return; // marshrut ikki marta qurilmasin
     final accepted =
         (_res.data ?? []).where((o) => o.status == 'accepted').toList();
     if (accepted.isEmpty) return;
@@ -115,6 +117,7 @@ class _OrdersPageState extends State<OrdersPage> {
   }
 
   Future<void> _reoptimizeRoute() async {
+    if (_updating != null) return;
     setState(() => _updating = -2);
     try {
       final body = await locationService.gpsBody();
@@ -133,6 +136,7 @@ class _OrdersPageState extends State<OrdersPage> {
   }
 
   Future<void> _markDelivered(int id) async {
+    if (_updating != null) return;
     Order? target;
     for (final o in _res.data ?? const <Order>[]) {
       if (o.id == id) {

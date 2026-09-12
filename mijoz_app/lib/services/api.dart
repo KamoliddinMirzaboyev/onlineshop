@@ -210,6 +210,19 @@ class ApiService {
     return jsonDecode(utf8.decode(res.bodyBytes));
   }
 
+  /// Chiqishdan oldin serverga xabar: token Redis qora ro'yxatiga tushadi.
+  /// Javob kutilmaydi va xato yutiladi — internet yo'q bo'lsa ham foydalanuvchi
+  /// ilovadan chiqa olishi kerak (lokal tokenlar baribir o'chiriladi).
+  Future<void> logout(String path) async {
+    if (!hasToken) return;
+    final refresh = _refreshToken;
+    try {
+      await _request('POST', path, body: {'refresh_token': refresh});
+    } catch (_) {
+      /* offline / 401 — lokal tozalash baribir bajariladi */
+    }
+  }
+
   Future<dynamic> get(String path) => _request('GET', path);
   Future<dynamic> post(String path, Object? body) => _request('POST', path, body: body);
   Future<dynamic> patch(String path, Object? body) => _request('PATCH', path, body: body);

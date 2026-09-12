@@ -1,8 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Header, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_business
+from app.api.deps import get_current_business, revoke_session
 from app.core.db import get_db
 from app.core.ratelimit import rate_limiter
 from app.core.security import (
@@ -13,7 +13,7 @@ from app.core.security import (
     verify_password_safe,
 )
 from app.models import Business
-from app.schemas.auth import AdminLoginIn, TokenOut
+from app.schemas.auth import AdminLoginIn, LogoutIn, TokenOut
 from app.schemas.business import BusinessOut
 from app.schemas.courier import ChangePasswordIn
 
@@ -33,6 +33,20 @@ def business_login(data: AdminLoginIn, db: Session = Depends(get_db)):
         access_token=create_access_token(subject=str(business.id), role="businessman"),
         refresh_token=create_refresh_token(subject=str(business.id), role="businessman"),
     )
+
+
+@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+def business_logout(
+    data: LogoutIn | None = None,
+    authorization: str | None = Header(default=None),
+):
+    """Chiqish: token serverda ham bekor qilinadi.
+
+    Avval logout faqat klient xotirasidan o'chirardi — o'g'irlangan yoki
+    boshqa qurilmada qolgan token 30 kun davomida ishlayverardi.
+    """
+    revoke_session(authorization, data.refresh_token if data else None)
+    return None
 
 
 @router.get("/me", response_model=BusinessOut)

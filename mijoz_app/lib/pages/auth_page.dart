@@ -58,6 +58,8 @@ class _AuthPageState extends State<AuthPage> {
   }
 
   Future<void> _requestCode() async {
+    // Ikki marta bosilsa ikkita SMS ketardi (pul + rate limit).
+    if (_loading) return;
     final phone = _phoneController.text.trim();
     if (phone.replaceAll(RegExp(r'\D'), '').length < 12) {
       toast.error('Telefon raqamni to\'liq kiriting');
@@ -78,6 +80,8 @@ class _AuthPageState extends State<AuthPage> {
   }
 
   Future<void> _verifyCode([String? directCode]) async {
+    // Avtomatik to'ldirish + qo'lda bosish bir vaqtda tushishi mumkin.
+    if (_loading) return;
     final code = directCode ?? _codeController.text.trim();
     if (code.isEmpty) {
       toast.error('SMS kodni kiriting');
@@ -108,6 +112,7 @@ class _AuthPageState extends State<AuthPage> {
   }
 
   Future<void> _submitName() async {
+    if (_loading) return;
     final first = _firstNameController.text.trim();
     if (first.isEmpty) {
       toast.error('Ismingizni kiriting');

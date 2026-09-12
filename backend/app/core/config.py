@@ -70,8 +70,16 @@ class Settings(BaseSettings):
     # Har bir gunicorn worker o'z pool'iga ega — jami ulanish soni taxminan
     # workers * (db_pool_size + db_max_overflow). Postgres max_connections'dan
     # oshmasligi kerak (default 100).
-    db_pool_size: int = 5
-    db_max_overflow: int = 10
+    #
+    # 4 worker uchun hisob: doimiy 4*8=32, eng yuqori portlashda 4*20=80.
+    # Bot konteyneri uchun ~20 zaxira qoladi. Avval 5/10 edi — mijoz polling,
+    # admin panellar va kuryer geolokatsiyasi bir vaqtda tushganda bitta
+    # worker pool'i tugab, "QueuePool limit reached" xatosi chiqardi.
+    db_pool_size: int = 8
+    db_max_overflow: int = 12
+    # Pool tugaganda cheksiz kutib turmaydi — 30s dan keyin aniq xato qaytadi
+    # (so'rov osilib qolgandan ko'ra tez xato yaxshi).
+    db_pool_timeout: int = 30
     db_pool_recycle: int = 1800
 
     redis_url: str = "redis://redis:6379/0"

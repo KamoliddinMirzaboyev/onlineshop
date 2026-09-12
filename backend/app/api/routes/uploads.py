@@ -28,6 +28,7 @@ _ALLOWED = {
     "image/gif": ".gif",
 }
 _MAX_BYTES = 8 * 1024 * 1024  # 8 MB
+_CHUNK_BYTES = 256 * 1024  # oqimdan bir marta o'qiladigan bo'lak
 
 
 def _sniff(data: bytes) -> str | None:
@@ -58,9 +59,19 @@ async def upload_image(file: UploadFile = File(...)):
             "Faqat rasm fayllari (jpg, png, webp, gif)",
         )
 
-    data = await file.read()
-    if len(data) > _MAX_BYTES:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Fayl 8 MB dan katta")
+    # Oqim bilan o'qiymiz: `await file.read()` butun faylni RAM ga solardi —
+    # 1-2 GB yuborilsa kichik VPS da OOM killer butun API ni o'chirardi.
+    # Chegaradan oshgan zahoti to'xtaymiz, ortiqcha bayt xotiraga tushmaydi.
+    chunks: list[bytes] = []
+    total = 0
+    while chunk := await file.read(_CHUNK_BYTES):
+        total += len(chunk)
+        if total > _MAX_BYTES:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "Fayl 8 MB dan katta")
+        chunks.append(chunk)
+    data = b"".join(chunks)
+    if not data:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Fayl bo'sh")
 
     # Magic-byte tekshiruvi — kontent haqiqatan rasm ekanini tasdiqlaydi.
     if not _sniff(data):

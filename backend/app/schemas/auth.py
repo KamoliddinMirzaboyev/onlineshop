@@ -56,6 +56,15 @@ class RefreshTokenIn(BaseModel):
     refresh_token: str
 
 
+class LogoutIn(BaseModel):
+    """Logout: refresh token ixtiyoriy — yuborilsa u ham bekor qilinadi.
+
+    Access token Authorization sarlavhasidan olinadi.
+    """
+
+    refresh_token: str | None = None
+
+
 class UserOut(BaseModel):
     id: int
     telegram_id: int | None = None

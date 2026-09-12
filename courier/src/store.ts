@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { get, patch, post, setToken } from "./api";
+import { get, patch, post, revokeSession, setToken } from "./api";
 import { clearCache } from "./lib/cache";
 import { syncPush } from "./push";
 
@@ -73,6 +73,7 @@ export const useAuth = create<AuthState>((set) => ({
     }
   },
   logout: () => {
+    revokeSession("/admin/auth/logout");
     setToken(null);
     clearCache();
     set({ username: null, name: null, phone: null, role: null });

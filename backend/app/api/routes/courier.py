@@ -11,6 +11,7 @@ import json
 
 from app.api.deps import get_current_admin
 from app.core.security import create_access_token, decode_token
+from app.core.token_blacklist import is_revoked
 from app.core.config import settings
 from app.core.db import get_db
 from app.models import (
@@ -88,6 +89,8 @@ def get_current_courier_ws(
     token: str = Query(...),
     db: Session = Depends(get_db),
 ) -> AdminUser:
+    if is_revoked(token):
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Token bekor qilingan")
     payload = decode_token(token)
     if not payload or payload.get("role") not in {r.value for r in AdminRole}:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid token")

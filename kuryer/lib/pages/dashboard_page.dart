@@ -77,6 +77,7 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Future<void> _deliver(Order o) async {
+    if (_updatingId != null) return; // takroriy yetkazish so'rovi bo'lmasin
     setState(() => _updatingId = o.id);
     try {
       // Faqat shu buyurtma — order_ids: null bo'lsa backend courierning
@@ -101,6 +102,7 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Future<void> _markDelivered(Order o) async {
+    if (_updatingId != null) return;
     final pool = _orders.data ?? const <Order>[];
     if (!await RouteFlow.confirmOutOfOrder(context, o, deliveringPool: pool)) {
       return;

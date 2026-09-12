@@ -17,6 +17,21 @@ export function setToken(t: string | null, r: string | null = null) {
   else localStorage.removeItem(REFRESH_KEY);
 }
 
+/** Logout: tokenni serverda ham bekor qiladi (Redis qora ro'yxati).
+ *  Tokenlar lokal tozalanishidan oldin nusxa olinadi; javob kutilmaydi —
+ *  `keepalive` so'rov sahifa yopilsa ham yuboriladi. */
+export function revokeSession(path: string): void {
+  const t = token;
+  const r = refreshToken;
+  if (!t) return;
+  void fetch(`${BASE}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${t}` },
+    body: JSON.stringify({ refresh_token: r }),
+    keepalive: true,
+  }).catch(() => {});
+}
+
 export function hasToken() {
   return !!token;
 }

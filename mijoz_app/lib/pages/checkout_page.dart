@@ -211,6 +211,11 @@ class _CheckoutPageState extends State<CheckoutPage> {
   }
 
   Future<void> _placeOrder() async {
+    // Ikki marta bosishdan himoya. `_loading` faqat keyingi kadrda tugmani
+    // o'chiradi — shu oraliqda ikkinchi bosish ham serverga yetib borib,
+    // bitta savatdan ikkita buyurtma ochilardi (ombor ham 2 marta kamayardi).
+    if (_loading) return;
+
     final address = _addressController.text.trim();
     if (address.length < 3) {
       ScaffoldMessenger.of(context).showSnackBar(

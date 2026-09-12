@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.core.db import get_db
 from app.core.security import decode_token
+from app.core.token_blacklist import is_revoked, revoke
 from app.models import AdminUser, Business, PlatformAdmin, Restaurant, User
 from app.models.enums import AdminRole
 
@@ -11,6 +12,32 @@ def _bearer(authorization: str | None) -> str:
     if not authorization or not authorization.lower().startswith("bearer "):
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Missing bearer token")
     return authorization.split(" ", 1)[1]
+
+
+def _decode_active(authorization: str | None) -> dict | None:
+    """Tokenni o'qiydi va logout qilingan (bekor qilingan) bo'lsa rad etadi.
+
+    Barcha rol dependency'lari shu yerdan o'tadi — bitta joyda tekshirilsa
+    yangi endpoint qo'shilganda tekshiruv esdan chiqmaydi.
+    """
+    token = _bearer(authorization)
+    if is_revoked(token):
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Token bekor qilingan")
+    return decode_token(token)
+
+
+def revoke_session(authorization: str | None, refresh_token: str | None = None) -> None:
+    """Logout: joriy access token va (yuborilgan bo'lsa) refresh token bekor
+    qilinadi. Barcha panellar (mijoz/admin/tadbirkor/platforma) shuni ishlatadi.
+
+    Ataylab hech qanday principal talab qilinmaydi — foydalanuvchisi o'chirilgan
+    yoki bloklangan token ham chiqib ketishi mumkin bo'lsin.
+    """
+    if authorization and authorization.lower().startswith("bearer "):
+        access = authorization.split(" ", 1)[1]
+        revoke(access, decode_token(access))
+    if refresh_token:
+        revoke(refresh_token, decode_token(refresh_token))
 
 
 def _sub_id(payload: dict, detail: str) -> int:
@@ -25,7 +52,7 @@ def get_current_user(
     authorization: str | None = Header(default=None),
     db: Session = Depends(get_db),
 ) -> User:
-    payload = decode_token(_bearer(authorization))
+    payload = _decode_active(authorization)
     if not payload or payload.get("role") != "user":
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid token")
     # Qisqa muddatli stream ticket'lar oddiy API uchun yaroqsiz.
@@ -43,7 +70,7 @@ def get_current_admin(
     authorization: str | None = Header(default=None),
     db: Session = Depends(get_db),
 ) -> AdminUser:
-    payload = decode_token(_bearer(authorization))
+    payload = _decode_active(authorization)
     if not payload or payload.get("role") not in {r.value for r in AdminRole}:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid admin token")
     if payload.get("purpose"):
@@ -72,7 +99,7 @@ def get_current_business(
     authorization: str | None = Header(default=None),
     db: Session = Depends(get_db),
 ) -> Business:
-    payload = decode_token(_bearer(authorization))
+    payload = _decode_active(authorization)
     if not payload or payload.get("role") != "businessman":
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid business token")
     if payload.get("purpose"):
@@ -91,7 +118,7 @@ def get_current_platform_admin(
     authorization: str | None = Header(default=None),
     db: Session = Depends(get_db),
 ) -> PlatformAdmin:
-    payload = decode_token(_bearer(authorization))
+    payload = _decode_active(authorization)
     if not payload or payload.get("role") != "platform_superadmin":
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid platform token")
     if payload.get("purpose"):
@@ -117,7 +144,7 @@ def get_current_staff_or_business(
 
     Kuryer bu yerga kira olmaydi — unda alohida /courier router bor.
     """
-    payload = decode_token(_bearer(authorization))
+    payload = _decode_active(authorization)
     if not payload:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid token")
     if payload.get("purpose"):
@@ -179,7 +206,7 @@ def require_uploader(
 ) -> AdminUser | Business | PlatformAdmin:
     """Rasm yuklash — do'kon xodimi va tadbirkor (mahsulot rasmi), hamda platform
     admin (e'lon rasmi). Kuryer va oddiy foydalanuvchi kira olmaydi."""
-    payload = decode_token(_bearer(authorization))
+    payload = _decode_active(authorization)
     if payload and payload.get("role") == "platform_superadmin":
         admin = db.get(PlatformAdmin, _sub_id(payload, "Invalid token"))
         if not admin or not admin.is_active:

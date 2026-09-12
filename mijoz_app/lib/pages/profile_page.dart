@@ -197,6 +197,8 @@ class _ProfilePageState extends State<ProfilePage> {
     try {
       await api.delete('/auth/fcm-token');
     } catch (_) {}
+    // Token serverda ham bekor qilinsin (o'g'irlangan qurilmada ishlamasin).
+    await api.logout('/auth/logout');
     await api.setToken(null);
     if (!mounted) return;
     context.read<CartProvider>().clear();
