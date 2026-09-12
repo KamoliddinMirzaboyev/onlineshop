@@ -8,9 +8,9 @@ from app.core.db import SessionLocal
 from app.core.phone import normalize_phone
 from app.models import DeliveryZone, Order, OrderStatus, Restaurant, User
 from app.services.geo import (
+    cached_reverse_geocode,
     distance_to_user,
     is_within_zone,
-    reverse_geocode,
     zone_is_configured,
 )
 from app.services.orders import calc_delivery_fee
@@ -118,7 +118,12 @@ def get_contact_restaurant() -> Restaurant | None:
 
 
 def set_order_location(order_id: int, lat: float, lng: float) -> tuple[bool, str | None]:
-    """lat/lng + reverse-geocode manzil + masofa/fee qayta hisob.
+    """lat/lng + masofa/fee qayta hisob. Manzil matni keyin aniqlashtiriladi.
+
+    TASHQI GEOCODE BU YERDA CHAQIRILMAYDI: u 3 ta API'ga boradi va eng yomon
+    holatda ~16 soniya oladi. Bu funksiya bot handleridan chaqiriladi, ya'ni
+    shuncha vaqt BUTUN bot muzlab qolardi. Aniq manzilni `refine_order_address`
+    fonda yozadi (keshda tayyor bo'lsa darhol oladi).
 
     Returns (ok, error_code) — error_code: out_of_zone | not_found | None
     """
@@ -130,7 +135,7 @@ def set_order_location(order_id: int, lat: float, lng: float) -> tuple[bool, str
         order.lat = lat
         order.lng = lng
 
-        line = reverse_geocode(lat, lng)
+        line = cached_reverse_geocode(lat, lng)
         if line:
             order.address_line = line
         elif not (order.address_line or "").strip():

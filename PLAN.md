@@ -13,12 +13,13 @@
 
 | Ko'rsatkich | Holat |
 |---|---|
-| Backend testlari | **166 ta, hammasi o'tadi** (audit oldidan 118 o'tar, 7 yiqilardi) |
+| Backend testlari | **185 ta, hammasi o'tadi** (audit oldidan 118 o'tar, 7 yiqilardi) |
 | Web ilovalar | 5 tasi ham `tsc --noEmit` + `build` o'tadi |
 | Flutter ilovalar | 2 tasi ham `analyze` + `test` + `build apk` o'tadi |
 | Migratsiya | Alembic baseline bor, `alembic check` toza |
-| CI | `.github/workflows/ci.yml` yozilgan, **secrets hali qo'yilmagan** |
-| Prod deploy | Eski `deploy.sh` ishlayapti — bootstrap'ga o'tkazilmagan |
+| CI | `.github/workflows/ci.yml` ishlayapti; **DEPLOY_* secrets hali qo'yilmagan** (deploy qadami o'tkazib yuboriladi) |
+| Prod deploy | `ops/deploy.sh` bootstrap orqali ishlayapti, konteynerlar non-root |
+| Store sahifalari | `/privacy`, `/terms`, `/account-deletion` — tayyor va ulangan |
 
 Birinchi auditdagi 20 ta kamchilikdan **18 tasi yopildi**. Ochiq qolgani —
 quyidagi 2 ta kritik masala (ataylab, SMS shlyuzi ulangandan keyin).
@@ -29,36 +30,36 @@ quyidagi 2 ta kritik masala (ataylab, SMS shlyuzi ulangandan keyin).
 
 Bu uchtasi bajarilmaguncha real mijozlarga ochilmaydi.
 
-### B-1. SMS OTP soxta rejimda (KRITIK)
+### B-1. SMS shlyuzini ulash (KRITIK — kod tayyor, kalit kerak)
 
-**Muammo.** `OTP_FAKE_MODE=true` bo'lsa, telefon raqamini bilgan har kim
-o'sha hisobga `11111` kodi bilan kiradi. `false` qilinsa —
-`app/services/otp.py:32` dagi `_send_sms()` hali `NotImplementedError`
-tashlaydi, ya'ni login butunlay to'xtaydi. Hozir ikki holatdan biri: yo
-xavfli, yo buzuq.
+**Holat.** Real OTP oqimi **yozildi va testlangan**: tasodifiy 5 xonali kod
+(`secrets`), Redis'da TTL 5 daqiqa, bir martalik, 5 ta urinish chegarasi,
+`compare_digest` bilan solishtirish, Redis yo'q bo'lsa **fail-closed**.
+Eskiz.uz integratsiyasi tayyor (token keshi, 401'da qayta login).
 
-**Ta'sir.** Har qanday mijoz hisobini egallash: buyurtma tarixi, manzillar,
-telefon raqami. Hisobdan buyurtma berish.
+**Qolgani — faqat kalit.** `OTP_FAKE_MODE=true` ekan, telefon raqamini bilgan
+har kim `11111` bilan o'sha hisobga kiradi. Bu ATAYLAB shunday: shlyuz
+ulanmaguncha usiz hech kim ilovaga kira olmaydi.
 
-**Yechim.**
-1. Prod `.env` dagi qiymatni tekshiring (men o'qiy olmadim — ruxsat yo'q):
-   `grep OTP_FAKE_MODE /opt/allfoods/backend/.env`
-2. Eskiz.uz (yoki boshqa shlyuz) shartnomasi, API kaliti `.env` ga:
-   `SMS_GATEWAY_TOKEN`, `SMS_SENDER`.
-3. `_send_sms()` ni to'ldiring: tasodifiy 5 xonali kod generatsiya qiling,
-   Redis'ga `otp:<phone>` kaliti bilan **TTL 5 daqiqa** yozing, SMS yuboring.
-4. `verify_otp()` Redis'dan o'qisin, bir marta ishlatilgach o'chirsin
-   (`GETDEL`), 5 tadan ortiq noto'g'ri urinishda kalitni bekor qilsin.
-5. `.env` da `OTP_FAKE_MODE=false`.
+**Ishga tushirish (shartnoma bo'lgach, 5 daqiqa):**
+```bash
+# /opt/allfoods/backend/.env
+SMS_PROVIDER=eskiz
+ESKIZ_EMAIL=...
+ESKIZ_PASSWORD=...
+ESKIZ_FROM=4546          # tasdiqlangan nom yoki qisqa raqam
+OTP_FAKE_MODE=false
+```
+Boshqa hech narsa o'zgartirilmaydi. Har startda log yozadi: fake rejim
+yoqiqmi, shlyuz sozlanganmi.
 
 **Fayllar.** `backend/app/services/otp.py`, `backend/app/core/config.py`
 
-**Tekshiruv.** `tests/test_otp_auth.py` allaqachon yozilgan — `real_mode`
-fixture'idagi ikki test shlyuzsiz hech kim kira olmasligini tasdiqlaydi.
-Shlyuz ulangandan keyin ularni yangi xulqqa moslang va Redis TTL testini
-qo'shing.
+**Tekshiruv.** `tests/test_otp_auth.py` — 20 ta test: kod tasodifiyligi,
+bir martaliligi, urinish chegarasi, Redis yiqilganda kirish yopilishi,
+SMS ketmasa kod qolib ketmasligi.
 
-### B-2. Demo raqamlar doimiy backdoor (KRITIK)
+### B-2. Demo raqamlarni yopish (shlyuzdan keyin)
 
 **Muammo.** `app/services/otp.py:23` dagi `DEMO_PHONES` — 3 ta raqam
 (`+998901234567`, `+998900000000`, `+998990000000`) fake rejim o'chirilgandan
@@ -94,11 +95,16 @@ baseline deb belgilanadi) — bu bir martalik va xavfsiz.
 
 ---
 
-## 3. Yangi topilgan kamchiliklar
+## 3. Ikkinchi audit natijalari
+
+**Bu bo'limdagi hamma narsa bajarildi** (2026-09-12). Har band tarix uchun
+qoldirilgan: muammo nima edi, nega muhim edi va qanday yopildi.
 
 ### Yuqori — yuk oshganda sinadigan joylar
 
 #### Y-1. `GET /api/orders` cheklanmagan, har 15 soniyada so'raladi
+
+> **BAJARILDI.** `limit` (standart 20, max 100) + `offset` + `active=true` (faqat yakunlanmagan buyurtmalar — polling shuni ishlatadi).
 
 **Muammo.** `backend/app/api/routes/orders.py:69` — mijozning BARCHA
 buyurtmalari, `limit` yo'q, har biriga `items` selectinload qilinadi.
@@ -122,6 +128,8 @@ qiladi. 100 shunday mijoz — backend tiz cho'kadi.
 ortiq qaytarmasligini tasdiqlash.
 
 #### Y-2. Ommaviy xabar (broadcast) miqyoslanmaydi
+
+> **BAJARILDI.** Bitta `bulk_insert_mappings`, FCM tokenlar bitta `SELECT` bilan (`fcm.notify_users_bulk`), Telegram'ga 20 xabar/sekund chegarasi, natija jurnalga yoziladi. 5 000 mijozda 10 000 DB sessiya → 2 ta.
 
 **Muammo.** `backend/app/services/notify.py:162` — `broadcast_post` har bir
 mijoz uchun ketma-ket:
@@ -149,6 +157,8 @@ ettirilmaydi.
 
 #### Y-3. Bot event loop'i sinxron DB va tashqi HTTP bilan bloklanadi
 
+> **BAJARILDI.** `app/bot/arepo.py` — har bir DB funksiyasi `asyncio.to_thread` ichida; 25 ta chaqiruv o'tkazildi. `set_order_location` endi faqat keshdagi manzilni oladi, aniqlashtirish fonda (`refine_order_address`). `tests/test_bot_async.py` yangi DB funksiyasi o'ralmay qolsa yiqiladi.
+
 **Muammo.** `app/bot/middleware.py:27` har bir xabar/callback uchun
 `repo.get_user()` — sinxron SQLAlchemy chaqiruvi — `async def` ichida,
 `to_thread`siz. Handlerlarning hammasi ham shunday
@@ -175,6 +185,8 @@ kechikishi sekundlarga chiqadi; joylashuv yuborilganda bot "o'ladi".
 
 #### Y-4. Web kuryer PWA joylashuvni filtr'siz yuboradi
 
+> **BAJARILDI.** 15 m + 10 s filtri (Flutter'dagi `distanceFilter: 15` bilan bir xil).
+
 **Muammo.** `courier/src/location.ts:11` — `watchPosition` bilan
 `enableHighAccuracy: true`, lekin masofa filtri yo'q. Har bir GPS fire →
 `POST /courier/location` → `AdminUser` UPDATE + commit + Redis publish
@@ -200,6 +212,8 @@ o'tmagan bo'lsa — yubormang.
 
 #### O-1. Buyurtmani hard-delete qilish, audit jurnalisiz
 
+> **OCHIQ** — soft-delete katta o'zgarish, alohida rejalashtiriladi.
+
 `backend/app/api/routes/admin.py:753` — tadbirkor yoki do'kon superadmini
 istalgan buyurtmani butunlay o'chiradi. Aylanma, foyda, kuryer statistikasi
 shu qatordan hisoblanadi — o'chgandan keyin hech qayerda izi qolmaydi.
@@ -209,6 +223,8 @@ o'chirganini yozadigan `audit_log` jadvali qo'shing. Hisobotlar
 `deleted_at IS NULL` bo'yicha filtrlansin.
 
 #### O-2. admin va businessman bitta ulkan JS chunk yuboradi
+
+> **BAJARILDI.** Og'ir sahifalar `React.lazy`: admin 1.8 MB → **276 KB** boshlang'ich chunk, businessman → 280 KB (Hisobotlar alohida yuklanadi).
 
 `admin/dist` — **2.1 MB**, ichida bitta 1.8 MB `index-*.js` (xlsx-js-style +
 jspdf + recharts + leaflet hammasi birga). `businessman` — 1.9 MB. TMA to'g'ri
@@ -225,6 +241,8 @@ funksiyalari.
 
 #### O-3. React panellarda ErrorBoundary yo'q
 
+> **BAJARILDI.** 4 ta panelga qo'shildi — xato matni bilan, qayta yuklash tugmasi.
+
 `tma/src/components/ErrorBoundary.tsx` bor, `admin`/`businessman`/`courier`/
 `superadmin` da yo'q. Bitta komponentdagi render xatosi butun sahifani oq
 ekranga aylantiradi va foydalanuvchi nima bo'lganini bilmaydi.
@@ -232,6 +250,8 @@ ekranga aylantiradi va foydalanuvchi nima bo'lganini bilmaydi.
 **Yechim.** TMA'dagi komponentni ko'chiring, har bir `App.tsx` ni o'rang.
 
 #### O-4. Boshqa cheklanmagan ro'yxatlar
+
+> **BAJARILDI.** `/admin/products`, `/admin/admin-users`, `/platform/announcements` — `limit`/`offset` qo'shildi.
 
 | Endpoint | Fayl |
 |---|---|
@@ -246,12 +266,16 @@ bo'lib og'irlashadi. `limit`/`offset` qo'shing (`admin_orders` dagi naqsh).
 
 #### O-5. Polling javoblarida ETag / 304 yo'q
 
+> **OCHIQ** — Y-1 dan keyin javoblar ancha kichrayди; ETag keyingi bosqichda.
+
 `/orders`, `/admin/orders`, `/courier/orders` har 10–15 soniyada to'liq JSON
 qaytaradi, hatto hech narsa o'zgarmagan bo'lsa ham. `ETag` +
 `If-None-Match` bilan o'zgarmagan javob 304 bo'lib, trafik va
 serializatsiya vaqti keskin kamayadi.
 
 #### O-6. OTP kodi va telefon raqami jurnalga yoziladi
+
+> **BAJARILDI.** `mask_phone()` — `+99890***4567`; kod faqat fake rejimda (u ham WARNING bilan).
 
 `backend/app/services/otp.py:37` — `logger.info("OTP (fake) %s -> %s", phone,
 code)`. Docker loglari saqlanadi va ular orqali kirish mumkin.
@@ -261,11 +285,15 @@ code)`. Docker loglari saqlanadi va ular orqali kirish mumkin.
 
 #### O-7. `users.password_hash` — o'lik ustun
 
+> **BAJARILDI.** Model, `initdb` va Alembic migratsiyasi (`3a7f68c8181a`).
+
 `backend/app/models/user.py:29`. Hech qayerda o'qilmaydi ham, yozilmaydi ham
 (mijozlar Telegram yoki OTP bilan kiradi, parol yo'q). Alembic migratsiyasi
 bilan o'chiring.
 
 #### O-8. Klaviatura va skrinreader qo'llab-quvvatlashi zaif
+
+> **OCHIQ** — alohida o'tish talab qiladi.
 
 300+ tugmaga jami 22 ta `aria-label`. Ko'p tugmalar faqat ikonka
 (`<button><Trash2/></button>`) — skrinreader "tugma" deydi, xolos. Fokus
@@ -276,6 +304,8 @@ holati (`:focus-visible`) hech qayerda aniqlanmagan.
 
 #### O-9. Telegram yuborish xatolari jim yutiladi
 
+> **BAJARILDI.** `_send*` endi `bool` qaytaradi va xatoni jurnalga yozadi (403 — mijoz botni bloklagan — INFO, qolgani WARNING).
+
 `notify.py` dagi `_send`, `_send_photo`, `_send_photo_url`, `_ask_location`
 — hammasi `except Exception: pass`. Xabar yetib bormasa hech kim bilmaydi.
 
@@ -283,6 +313,8 @@ holati (`:focus-visible`) hech qayerda aniqlanmagan.
 `retry_after` ni hurmat qilib qayta urinish.
 
 #### O-10. Zona sozlamalaridagi "Narx" va "Min. buyurtma" hech narsa qilmaydi
+
+> **BAJARILDI.** Maydonlar model, sxema, admin UI va bazadan olib tashlandi.
 
 `admin/src/pages/DeliveryZonePage.tsx:69,88` — admin yetkazish hududi uchun
 `fee` va `min_order` kiritadi, ular `delivery_zones` jadvaliga yoziladi ham.
@@ -304,6 +336,8 @@ do'kon qiymatidan ustun bo'lsin deb `calc_delivery_fee` ga ulang. Tavsiya:
 
 #### O-11. `edit_pending_order` faqat `HTTPException` da rollback qiladi
 
+> **BAJARILDI.** `except BaseException` — `create_order` bilan bir xil.
+
 `backend/app/services/orders.py:628` — `create_order` da bu tuzatildi, bu
 yerda qolgan. Amalda `get_db` sessiyani yopganda rollback bo'ladi, shuning
 uchun xavf past, lekin izchillik uchun `except BaseException` ga o'tkazing.
@@ -312,8 +346,8 @@ uchun xavf past, lekin izchillik uchun `except BaseException` ga o'tkazing.
 
 ### Past — qulaylik va tozalik
 
-- **P-1.** `tma/tsconfig.tsbuildinfo` git'da kuzatilyapti — build artefakti,
-  `.gitignore` ga chiqarilsin.
+- **P-1.** ~~`tma/tsconfig.tsbuildinfo` git'da kuzatilyapti~~ — **bajarildi**
+  (`.gitignore` ga `*.tsbuildinfo`).
 - **P-2.** Bot FSM Redis bo'lmasa `MemoryStorage` ga tushadi
   (`bot/run.py:18`) — restart'da yarim qolgan onboarding yo'qoladi. Prod'da
   Redis bor, lekin bu holat ogohlantirishsiz o'tadi; `ENVIRONMENT=production`
@@ -339,29 +373,23 @@ uchun xavf past, lekin izchillik uchun `except BaseException` ga o'tkazing.
 
 ---
 
-## 5. Ish tartibi
+## 5. Keyingi ishlar
 
-**Faza 0 — ishga tushirish bloklari (1–2 kun)**
-1. B-3 server bootstrap (30 daqiqa)
-2. GitHub secrets: `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_SSH_KEY`
-3. B-1 SMS shlyuz
-4. B-2 demo raqamlar
+**Ishga tushirishdan oldin**
+1. Eskiz.uz shartnomasi → `.env` ga kalitlar → `OTP_FAKE_MODE=false` (B-1)
+2. Store tekshiruvi tugagach `DEMO_LOGIN_ENABLED=false` (B-2)
+3. GitHub secrets: `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_SSH_KEY` —
+   qo'yilmaguncha CI deploy qadamini o'tkazib yuboradi
+4. Play Console: Data Safety formasi (`/privacy` va `/account-deletion`
+   havolalari bilan), App Store Connect: Privacy Nutrition Labels
+5. Yangi kuryer APK chiqib, kuryerlar yangilangach
+   `ACCESS_TOKEN_EXPIRE_MINUTES=60` (hozir 720 — P-4)
 
-**Faza 1 — yuk ostida sinadigan joylar (3–5 kun)**
-5. Y-1 `/orders` sahifalash
-6. Y-3 bot event loop (avval `to_thread`, keyin geocode'ni fonga)
-7. Y-4 kuryer web GPS filtri
-8. Y-2 broadcast (avval "tez yechim", navbat keyinroq)
-
-**Faza 2 — barqarorlik va sifat (1–2 hafta)**
-9. O-1 audit jurnali / soft-delete
-10. O-2 bundle bo'lish
-11. O-3 ErrorBoundary
-12. O-4, O-5 ro'yxatlar va ETag
-13. O-6…O-11
-
-**Faza 3 — qarz**
-14. P-1…P-4
+**Keyingi bosqich**
+6. O-1 audit jurnali / soft-delete — moliyaviy tarix izsiz o'chmasin
+7. O-5 ETag / 304 — polling trafigini kamaytirish
+8. O-8 klaviatura va skrinreader
+9. P-2, P-3
 
 ---
 

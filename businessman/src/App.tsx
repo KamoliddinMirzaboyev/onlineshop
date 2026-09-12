@@ -1,21 +1,24 @@
-import { useEffect, useState } from "react";
+import { Suspense, lazy, useEffect, useState } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { Toaster } from "sonner";
 import { hasToken, setToken } from "./api";
 import { ConfirmHost } from "./components/Confirm";
 import Layout from "./components/Layout";
-import CustomersPage from "./pages/CustomersPage";
 import DashboardPage from "./pages/DashboardPage";
 import LoginPage from "./pages/LoginPage";
 import OrdersPage from "./pages/OrdersPage";
-import PostPage from "./pages/PostPage";
-import ProductsPage from "./pages/ProductsPage";
-import ReportsPage from "./pages/ReportsPage";
-import SettingsPage from "./pages/SettingsPage";
-import StaffPage from "./pages/StaffPage";
-import StoresPage from "./pages/StoresPage";
-import WarehousePage from "./pages/WarehousePage";
 import { useAuth } from "./store";
+
+// Og'ir sahifalar alohida chunk: Hisobotlar recharts + xlsx-js-style
+// olib keladi va boshlang'ich bundle'ni 1.9 MB qilib qo'yardi.
+const CustomersPage = lazy(() => import("./pages/CustomersPage"));
+const PostPage = lazy(() => import("./pages/PostPage"));
+const ProductsPage = lazy(() => import("./pages/ProductsPage"));
+const ReportsPage = lazy(() => import("./pages/ReportsPage"));
+const SettingsPage = lazy(() => import("./pages/SettingsPage"));
+const StaffPage = lazy(() => import("./pages/StaffPage"));
+const StoresPage = lazy(() => import("./pages/StoresPage"));
+const WarehousePage = lazy(() => import("./pages/WarehousePage"));
 
 function Protected({ children }: { children: React.ReactNode }) {
   const { business, loadMe } = useAuth();
@@ -51,6 +54,7 @@ export default function App() {
         toastOptions={{ style: { borderRadius: "12px" } }}
       />
       <ConfirmHost />
+      <Suspense fallback={<div className="p-10 text-center text-slate-400">Yuklanmoqda…</div>}>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/" element={<Protected><DashboardPage /></Protected>} />
@@ -65,6 +69,7 @@ export default function App() {
         <Route path="/settings" element={<Protected><SettingsPage /></Protected>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      </Suspense>
     </>
   );
 }

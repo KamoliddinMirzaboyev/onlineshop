@@ -98,13 +98,12 @@ export interface Order {
   items: OrderItem[];
 }
 
+// Yetkazish hududi — faqat doira. `fee`/`min_order` maydonlari olib
+// tashlandi: ular saqlangan, lekin hech qayerda hisobga olinmagan
+// (yetkazish haqi do'kon darajasida — `free_delivery_from` / `delivery_fee`).
 export interface DeliveryZone {
   id?: number;
   name: string;
-  fee: number;
-  // Zona darajasidagi minimal buyurtma — do'kondagi `free_delivery_from`
-  // (bepul yetkazish chegarasi) bilan adashtirmaslik kerak.
-  min_order: number;
   is_active: boolean;
   center_lat?: number | null;
   center_lng?: number | null;

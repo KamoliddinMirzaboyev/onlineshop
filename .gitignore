@@ -67,3 +67,6 @@ bblogobg.png
 /Play Market/
 /Play Market.zip
 kuryer/store/play/release/
+
+# TS build artefaktlari
+*.tsbuildinfo

@@ -30,35 +30,45 @@ _MAX_ETA = 180
 _SANE_MIN_PER_KM = (0.3, 40.0)
 
 
-def _duration_min(o: Order) -> float | None:
-    start = o.delivering_started_at
-    end = o.courier_delivered_at
+def _minutes_between(start, end) -> float | None:
     if not start or not end:
         return None
     secs = (end - start).total_seconds()
     return secs / 60.0 if secs > 0 else None
 
 
-def _samples(db: Session) -> list[float]:
-    """So'nggi yetkazib berishlardan min/km namunalari."""
+def _duration_min(o: Order) -> float | None:
+    return _minutes_between(o.delivering_started_at, o.courier_delivered_at)
+
+
+def _samples(db: Session, restaurant_id: int | None = None) -> list[float]:
+    """So'nggi yetkazib berishlardan min/km namunalari.
+
+    Faqat kerakli 3 ta ustun o'qiladi — avval butun `Order` obyektlari
+    (200 tagacha, item'lari bilan) yuklanardi.
+    """
     since = datetime.now(timezone.utc) - timedelta(days=_SAMPLE_DAYS)
-    rows = db.scalars(
-        select(Order)
-        .where(
-            Order.status == OrderStatus.delivered,
-            Order.distance_km.is_not(None),
-            Order.delivering_started_at.is_not(None),
-            Order.courier_delivered_at.is_not(None),
-            Order.updated_at >= since,
-        )
+    cond = [
+        Order.status == OrderStatus.delivered,
+        Order.distance_km.is_not(None),
+        Order.delivering_started_at.is_not(None),
+        Order.courier_delivered_at.is_not(None),
+        Order.updated_at >= since,
+    ]
+    if restaurant_id is not None:
+        cond.append(Order.restaurant_id == restaurant_id)
+
+    rows = db.execute(
+        select(Order.distance_km, Order.delivering_started_at, Order.courier_delivered_at)
+        .where(*cond)
         .order_by(Order.updated_at.desc())
         .limit(_SAMPLE_LIMIT)
     ).all()
 
     out: list[float] = []
-    for o in rows:
-        dur = _duration_min(o)
-        dist = o.distance_km or 0.0
+    for dist, start, end in rows:
+        dur = _minutes_between(start, end)
+        dist = dist or 0.0
         if dur is None or dist < 0.2:        # juda yaqin — masofaga bog'lash noaniq
             continue
         mpk = dur / dist
@@ -67,28 +77,35 @@ def _samples(db: Session) -> list[float]:
     return out
 
 
-def learned_minutes_per_km(db: Session) -> float:
+def learned_minutes_per_km(db: Session, restaurant_id: int | None = None) -> float:
     """O'rganilgan o'rtacha min/km; namuna kam bo'lsa — statik baseline."""
-    s = _samples(db)
+    s = _samples(db, restaurant_id)
     if len(s) >= _MIN_SAMPLES:
         return sum(s) / len(s)
     return _FALLBACK_MIN_PER_KM
 
 
-def estimate_minutes(db: Session, distance_km: float | None) -> int:
-    """Masofadan ETA (daqiqa). distance yo'q bo'lsa baseline buferni qaytaradi."""
-    mpk = learned_minutes_per_km(db)
+def minutes_from_rate(distance_km: float | None, minutes_per_km: float) -> int:
+    """Tayyor min/km dan ETA. Marshrutdagi har buyurtma uchun alohida
+    `learned_minutes_per_km` chaqirish (N ta og'ir so'rov) shart emas."""
     dist = distance_km or 0.0
-    raw = dist * mpk + _BUFFER_MIN
+    raw = dist * minutes_per_km + _BUFFER_MIN
     rounded = round(raw / _ROUND_TO) * _ROUND_TO
     return int(max(_MIN_ETA, min(_MAX_ETA, rounded)))
+
+
+def estimate_minutes(
+    db: Session, distance_km: float | None, restaurant_id: int | None = None
+) -> int:
+    """Masofadan ETA (daqiqa). distance yo'q bo'lsa baseline buferni qaytaradi."""
+    return minutes_from_rate(distance_km, learned_minutes_per_km(db, restaurant_id))
 
 
 def delivery_stats(db: Session, restaurant_id: int) -> dict:
     """Tahlil uchun yig'ma o'rtachalar: namuna soni, o'rtacha masofa, vaqt, min/km."""
     since = datetime.now(timezone.utc) - timedelta(days=_SAMPLE_DAYS)
-    rows = db.scalars(
-        select(Order)
+    rows = db.execute(
+        select(Order.distance_km, Order.delivering_started_at, Order.courier_delivered_at)
         .where(
             Order.status == OrderStatus.delivered,
             Order.restaurant_id == restaurant_id,
@@ -104,9 +121,9 @@ def delivery_stats(db: Session, restaurant_id: int) -> dict:
     durs: list[float] = []
     dists: list[float] = []
     mpks: list[float] = []
-    for o in rows:
-        dur = _duration_min(o)
-        dist = o.distance_km or 0.0
+    for dist, start, end in rows:
+        dur = _minutes_between(start, end)
+        dist = dist or 0.0
         if dur is None or dist < 0.2:
             continue
         mpk = dur / dist
@@ -124,5 +141,5 @@ def delivery_stats(db: Session, restaurant_id: int) -> dict:
         "avg_duration_min": avg(durs),
         "avg_minutes_per_km": avg(mpks),
         "learned": n >= _MIN_SAMPLES,
-        "minutes_per_km_used": round(learned_minutes_per_km(db), 2),
+        "minutes_per_km_used": round(learned_minutes_per_km(db, restaurant_id), 2),
     }

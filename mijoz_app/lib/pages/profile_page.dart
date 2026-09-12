@@ -494,7 +494,14 @@ class _ProfilePageState extends State<ProfilePage> {
                                 icon: Icons.privacy_tip_outlined,
                                 label: 'Maxfiylik siyosati',
                                 trailing: const Icon(Icons.open_in_new_rounded, size: 18, color: AppColors.slate400),
-                                onTap: () => launchExternal('https://barakali-bozor.uz/privacy'),
+                                onTap: () => launchExternal('https://www.barakali-bozor.uz/privacy'),
+                              ),
+                              const Divider(height: 1, color: Color(0xFFF1F5F9), indent: 52),
+                              _ActionItemRow(
+                                icon: Icons.description_outlined,
+                                label: 'Ommaviy oferta',
+                                trailing: const Icon(Icons.open_in_new_rounded, size: 18, color: AppColors.slate400),
+                                onTap: () => launchExternal('https://www.barakali-bozor.uz/terms'),
                               ),
                               const Divider(height: 1, color: Color(0xFFF1F5F9), indent: 52),
                               const _ActionItemRow(

@@ -37,7 +37,7 @@ from app.schemas.courier import (
     LocationUpdateIn,
 )
 from app.schemas.order import OrderOut, OrderStatusUpdate
-from app.services.eta import estimate_minutes
+from app.services.eta import learned_minutes_per_km, minutes_from_rate
 from app.services.geo import shop_origin
 from app.services.notify import (
     notify_delivering_eta,
@@ -447,19 +447,23 @@ def _apply_route_sequences(
     optimized,
     *,
     now: datetime | None = None,
+    restaurant_id: int | None = None,
 ) -> list[Order]:
     """route_sequence / leg / ETA ni yozadi (status o'zgarmaydi)."""
     by_id = {o.id: o for o in orders}
     now = now or datetime.now(timezone.utc)
     cumulative_km = 0.0
     ordered: list[Order] = []
+    # O'rganilgan tezlik BIR MARTA hisoblanadi — avval har buyurtma uchun
+    # alohida chaqirilib, marshrutdagi har nuqtada 200 qatorli so'rov ketardi.
+    rate = learned_minutes_per_km(db, restaurant_id)
     for seq, (oid, leg) in enumerate(
         zip(optimized.order_ids, optimized.leg_km), start=1
     ):
         order = by_id[oid]
         cumulative_km += leg
-        eta = estimate_minutes(
-            db, cumulative_km if cumulative_km > 0 else order.distance_km
+        eta = minutes_from_rate(
+            cumulative_km if cumulative_km > 0 else order.distance_km, rate
         )
         order.route_group_id = optimized.route_group_id
         order.route_sequence = seq
@@ -566,7 +570,9 @@ def _build_and_apply_route(
     prev_etas = {o.id: o.eta_minutes for o in orders}
     stops = [RouteStop(order_id=o.id, lat=o.lat, lng=o.lng) for o in orders]
     optimized = optimize_route(depot, stops, route_group_id=keep_group_id)
-    ordered = _apply_route_sequences(db, orders, optimized)
+    ordered = _apply_route_sequences(
+        db, orders, optimized, restaurant_id=orders[0].restaurant_id
+    )
     return optimized.route_group_id, optimized.total_km, ordered, prev_etas
 
 

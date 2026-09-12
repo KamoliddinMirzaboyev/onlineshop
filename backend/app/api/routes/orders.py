@@ -1,4 +1,4 @@
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
@@ -65,14 +65,44 @@ def quote(
     return quote_order(db, data.restaurant_id, data.items, data.lat, data.lng)
 
 
+# Faol buyurtmalar — ilova shularni qisqa intervalda so'rab turadi.
+_ACTIVE_STATUSES = (
+    OrderStatus.pending,
+    OrderStatus.confirmed,
+    OrderStatus.preparing,
+    OrderStatus.ready,
+    OrderStatus.accepted,
+    OrderStatus.delivering,
+)
+
+
 @router.get("", response_model=list[OrderOut])
-def my_orders(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    return db.scalars(
+def my_orders(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    limit: int = Query(default=20, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    active: bool = Query(
+        default=False,
+        description="Faqat yakunlanmagan buyurtmalar (polling uchun — javob kichik).",
+    ),
+):
+    """Mijozning buyurtmalari, yangisidan eskisiga.
+
+    Avval BARCHA buyurtmalar (cheklovsiz) qaytardi va ilova buni har 15
+    soniyada so'rardi — ko'p buyurtmali mijozda javob yuzlab qatorga
+    chiqib ketardi. Endi sahifalanadi; polling `active=true` bilan faqat
+    yakunlanmaganlarni oladi.
+    """
+    stmt = (
         select(Order)
         .where(Order.user_id == user.id)
         .order_by(Order.created_at.desc())
         .options(selectinload(Order.items), selectinload(Order.assigned_courier))
-    ).all()
+    )
+    if active:
+        stmt = stmt.where(Order.status.in_(_ACTIVE_STATUSES))
+    return db.scalars(stmt.limit(limit).offset(offset)).all()
 
 
 @router.get("/{order_id}", response_model=OrderOut)

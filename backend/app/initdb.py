@@ -74,6 +74,10 @@ _ZONE_COLUMNS = (
     "ALTER TABLE delivery_zones ADD COLUMN IF NOT EXISTS radius_km DOUBLE PRECISION",
     # Poligon zona hech qachon yozilmagan — faqat doira ishlatiladi.
     "ALTER TABLE delivery_zones DROP COLUMN IF EXISTS polygon",
+    # fee / min_order hech qayerda o'qilmagan: yetkazish haqi do'kon
+    # darajasida hisoblanadi. Admin ularni kiritib, hech narsa o'zgarmasdi.
+    "ALTER TABLE delivery_zones DROP COLUMN IF EXISTS fee",
+    "ALTER TABLE delivery_zones DROP COLUMN IF EXISTS min_order",
 )
 _PUSH_COLUMNS = (
     "ALTER TABLE push_subscriptions ADD COLUMN IF NOT EXISTS admin_user_id INTEGER "
@@ -84,11 +88,13 @@ _PUSH_COLUMNS = (
     "REFERENCES restaurants(id) ON DELETE CASCADE",
 )
 # Foydalanuvchini bloklash (admin paneldan) — buyurtma bera olmaydi.
-# password_hash / fcm_token — mijoz app (telefon login + push); create_all
+# fcm_token — mijoz app (push); create_all
 # mavjud jadvalga ustun qo'shmaydi, shuning uchun idempotent ALTER.
 _USER_COLUMNS = (
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_blocked BOOLEAN NOT NULL DEFAULT FALSE",
-    "ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash VARCHAR(255)",
+    # password_hash hech qachon ishlatilmagan (mijoz Telegram yoki OTP bilan
+    # kiradi, parol yo'q) — o'chiriladi.
+    "ALTER TABLE users DROP COLUMN IF EXISTS password_hash",
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS fcm_token VARCHAR(512)",
     "ALTER TABLE users ALTER COLUMN fcm_token TYPE VARCHAR(512)",
 )

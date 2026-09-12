@@ -291,3 +291,40 @@ def notify_user(user_id: int, title: str, body: str, url: str = "/", tag: str | 
 
 def configured() -> bool:
     return _ensure_app()
+
+
+def notify_users_bulk(
+    user_ids: list[int], title: str, body: str, url: str = "/", tag: str | None = None
+) -> int:
+    """Ko'p mijozga push — tokenlar BITTA so'rov bilan olinadi.
+
+    `notify_user` har bir mijoz uchun alohida DB sessiya ochardi; ommaviy
+    xabarda bu minglab sessiya degani edi. Qaytaradi: yuborilgan soni.
+    """
+    if not user_ids:
+        return 0
+    app = _customer_app()
+    if app is None:
+        return 0
+    with SessionLocal() as db:
+        tokens = [
+            t for t in db.scalars(
+                select(User.fcm_token).where(
+                    User.id.in_(user_ids), User.fcm_token.is_not(None)
+                )
+            ).all()
+            if t
+        ]
+    if not tokens:
+        return 0
+    data = _payload_data(url, tag)
+    dead: list[str] = []
+    sent = 0
+    for token in tokens:
+        if _send_token(token, title, body, data, channel_id=CUSTOMER_CHANNEL, app=app):
+            sent += 1
+        else:
+            dead.append(token)
+    if dead:
+        _clear_user_tokens(dead)
+    return sent

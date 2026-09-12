@@ -78,11 +78,19 @@ def _send_all(
 
 def broadcast(announcement_id: int) -> None:
     """Runs as a BackgroundTasks job — opens its own DB session since the
-    request session that created the Announcement row is already closed."""
+    request session that created the Announcement row is already closed.
+
+    Yuborish minglab mijozda soatlab davom etishi mumkin, shuning uchun DB
+    ulanishi shu vaqt davomida USHLAB TURILMAYDI: avval qabul qiluvchilar
+    o'qiladi va sessiya yopiladi, yuborish sessiyasiz ketadi, oxirida natija
+    yozish uchun yangi sessiya ochiladi. Aks holda pool'dagi ulanish (jami
+    5+10) butun yuborish davomida band bo'lib turardi.
+    """
     with SessionLocal() as db:
         ann = db.get(Announcement, announcement_id)
         if not ann:
             return
+        text, image_url, button_text = ann.text, ann.image_url, ann.button_text
         telegram_ids = [
             t for t in db.scalars(select(User.telegram_id).where(User.is_blocked.is_(False))).all()
             if t is not None
@@ -91,8 +99,12 @@ def broadcast(announcement_id: int) -> None:
         ann.total_recipients = len(telegram_ids)
         db.commit()
 
-        sent, failed = _send_all(telegram_ids, ann.text, ann.image_url, ann.button_text)
+    sent, failed = _send_all(telegram_ids, text, image_url, button_text)
 
+    with SessionLocal() as db:
+        ann = db.get(Announcement, announcement_id)
+        if not ann:
+            return
         ann.sent_count = sent
         ann.failed_count = failed
         ann.status = AnnouncementStatus.sent

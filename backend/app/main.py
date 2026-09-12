@@ -55,6 +55,31 @@ if settings.environment == "production":
         leaked.append("secret_key(weak)")
     if not settings.bot_token or settings.bot_token in _WEAK_SECRETS or ":" not in settings.bot_token:
         leaked.append("bot_token(invalid)")
+    # OTP soxta rejimi — SMS shlyuzi ulanmaguncha ATAYLAB yoqiq turadi
+    # (usiz hech kim ilovaga kira olmaydi). Ishga tushishni to'xtatmaymiz,
+    # lekin har startda ko'rinadigan ogohlantirish yoziladi — bu holat
+    # unutilib qolmasin (qarang: services/otp.py va PLAN.md § B-1).
+    import logging as _logging
+
+    _startup_log = _logging.getLogger("app.startup")
+    if settings.otp_fake_mode:
+        _startup_log.warning(
+            "XAVFSIZLIK: OTP_FAKE_MODE yoqilgan — telefon raqamini bilgan har kim "
+            "'%s' kodi bilan o'sha hisobga kira oladi. SMS shlyuzi ulangach "
+            "SMS_PROVIDER=eskiz va OTP_FAKE_MODE=false qiling.",
+            settings.otp_fake_code,
+        )
+    elif not settings.sms_provider:
+        _startup_log.error(
+            "OTP: fake rejim o'chiq, lekin SMS_PROVIDER sozlanmagan — "
+            "hech kim telefon orqali kira olmaydi."
+        )
+    if settings.demo_login_enabled:
+        _startup_log.warning(
+            "DEMO_LOGIN_ENABLED yoqilgan (%s ta raqam) — store tekshiruvi "
+            "tugagach o'chirishni unutmang.",
+            len(settings.demo_phones_set),
+        )
     # Bootstrap parollar: bo'sh yoki juda qisqa bo'lsa seed xavfli — ogohlantirish.
     # Mavjud deploy'larda FIRST_* bo'sh bo'lishi mumkin (allaqachon yaratilgan).
     if settings.first_admin_password and len(settings.first_admin_password) < 6:

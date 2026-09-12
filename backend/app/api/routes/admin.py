@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from typing import Literal
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select, update
 from sqlalchemy.exc import IntegrityError
@@ -437,12 +437,20 @@ def delete_category(
 # ── Products ─────────────────────────────────────────────────────
 @router.get("/restaurants/{rid}/products", response_model=list[ProductAdminOut])
 def list_products(
-    rid: int, store: Restaurant = Depends(current_restaurant), db: Session = Depends(get_db)
+    rid: int,
+    store: Restaurant = Depends(current_restaurant),
+    db: Session = Depends(get_db),
+    limit: int = Query(default=1000, ge=1, le=2000),
+    offset: int = Query(default=0, ge=0),
 ):
     if rid != store.id:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Not your store")
     return db.scalars(
-        select(Product).where(Product.restaurant_id == rid).order_by(Product.sort_order)
+        select(Product)
+        .where(Product.restaurant_id == rid)
+        .order_by(Product.sort_order)
+        .limit(limit)
+        .offset(offset)
     ).all()
 
 
@@ -979,11 +987,12 @@ def list_admin_users(
     principal = Depends(require_store_admin_or_business),
     store: Restaurant = Depends(current_restaurant),
     db: Session = Depends(get_db),
+    limit: int = Query(default=200, ge=1, le=500),
 ):
     stmt = select(AdminUser).where(AdminUser.restaurant_id == store.id)
     if isinstance(principal, AdminUser):
         stmt = stmt.where(AdminUser.id != principal.id)
-    return db.scalars(stmt.order_by(AdminUser.created_at.desc())).all()
+    return db.scalars(stmt.order_by(AdminUser.created_at.desc()).limit(limit)).all()
 
 
 @router.post("/admin-users", response_model=AdminUserOut, status_code=201)

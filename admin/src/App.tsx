@@ -1,25 +1,29 @@
 import { ShieldX } from "lucide-react";
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { Navigate, Route, Routes, useNavigate } from "react-router-dom";
 import { Toaster } from "sonner";
 import { hasToken, setToken } from "./api";
 import { ConfirmHost } from "./components/Confirm";
 import Layout from "./components/Layout";
-import BannersPage from "./pages/BannersPage";
-import CouriersPage from "./pages/CouriersPage";
 import DashboardPage from "./pages/DashboardPage";
-import DeliveryZonePage from "./pages/DeliveryZonePage";
 import LoginPage from "./pages/LoginPage";
 import OrdersPage from "./pages/OrdersPage";
-import PostPage from "./pages/PostPage";
-import ProductsPage from "./pages/ProductsPage";
-import ReportsPage from "./pages/ReportsPage";
-import SettingsPage from "./pages/SettingsPage";
-import SuppliesPage from "./pages/SuppliesPage";
-import UsersPage from "./pages/UsersPage";
-import WarehousePage from "./pages/WarehousePage";
 import { enablePush } from "./push";
 import { useAuth } from "./store";
+
+// Og'ir sahifalar alohida chunk: recharts + xlsx-js-style (Hisobotlar) va
+// leaflet (Yetkazish hududi) boshlang'ich bundle'ni ~1.8 MB qilib
+// qo'yardi — panel mobil internetda sekin ochilardi.
+const BannersPage = lazy(() => import("./pages/BannersPage"));
+const CouriersPage = lazy(() => import("./pages/CouriersPage"));
+const DeliveryZonePage = lazy(() => import("./pages/DeliveryZonePage"));
+const PostPage = lazy(() => import("./pages/PostPage"));
+const ProductsPage = lazy(() => import("./pages/ProductsPage"));
+const ReportsPage = lazy(() => import("./pages/ReportsPage"));
+const SettingsPage = lazy(() => import("./pages/SettingsPage"));
+const SuppliesPage = lazy(() => import("./pages/SuppliesPage"));
+const UsersPage = lazy(() => import("./pages/UsersPage"));
+const WarehousePage = lazy(() => import("./pages/WarehousePage"));
 // Delete uchun shunchaki qo'shilgan comment
 function CourierBlocked() {
   const { logout } = useAuth();
@@ -99,6 +103,7 @@ export default function App() {
         toastOptions={{ style: { borderRadius: "12px" } }}
       />
       <ConfirmHost />
+      <Suspense fallback={<div className="p-10 text-center text-slate-400">Yuklanmoqda…</div>}>
       <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/" element={<Protected><DashboardPage /></Protected>} />
@@ -115,6 +120,7 @@ export default function App() {
       <Route path="/settings" element={<Protected roles={SUPERADMIN}><SettingsPage /></Protected>} />
       <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      </Suspense>
     </>
   );
 }

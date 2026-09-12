@@ -1,9 +1,12 @@
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, resolve_refresh_principal
+from app.core.config import settings
 from app.core.db import get_db
 from app.core.phone import normalize_phone
 from app.core.ratelimit import rate_limiter
@@ -25,7 +28,9 @@ from app.schemas.auth import (
     UserOut,
     UserUpdateIn,
 )
-from app.services.otp import send_otp, verify_otp
+from app.services.otp import OtpError, send_otp, verify_otp
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -98,8 +103,16 @@ def telegram_auth(data: TelegramAuthIn, db: Session = Depends(get_db)):
 
 @router.post("/otp/request", dependencies=[Depends(_otp_request_limit)])
 def otp_request(data: OtpRequestIn):
-    send_otp(data.phone)
-    return {"status": "ok"}
+    try:
+        send_otp(data.phone)
+    except OtpError as e:
+        # Shlyuz ishlamayapti — mijozga aniq xabar, sabab faqat jurnalda.
+        logger.error("OTP yuborilmadi: %s", e)
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            "SMS yuborib bo'lmadi. Birozdan so'ng qayta urinib ko'ring.",
+        ) from None
+    return {"status": "ok", "expires_in": settings.otp_ttl_seconds}
 
 
 @router.post("/otp/verify", response_model=AuthResult, dependencies=[Depends(_otp_verify_limit)])

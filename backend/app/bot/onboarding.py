@@ -15,7 +15,7 @@ from aiogram.types import (
     ReplyKeyboardMarkup, ReplyKeyboardRemove,
 )
 
-from app.bot import repo
+from app.bot import arepo, repo
 from app.bot.handlers import lang_kb, main_menu, start_shopping_kb
 from app.bot.i18n import t
 
@@ -56,7 +56,7 @@ async def _delete_id(bot, chat_id: int, message_id: int | None) -> None:
 @router.message(Command("start"))
 async def cmd_start(message: Message, state: FSMContext) -> None:
     if not message.from_user: return
-    user = repo.get_or_create_user(
+    user = await arepo.get_or_create_user(
         message.from_user.id, message.from_user.first_name, message.from_user.username
     )
     if getattr(user, "is_blocked", False):
@@ -80,7 +80,7 @@ async def onboard_lang(cb: CallbackQuery, state: FSMContext) -> None:
     if not cb.data or not cb.message or not cb.from_user: return
     if not isinstance(cb.message, Message): return
     lang = cb.data.split(":")[1]
-    repo.set_lang(cb.from_user.id, lang)
+    await arepo.set_lang(cb.from_user.id, lang)
     # the language prompt is the message this inline button is attached to
     await _delete(cb.message)
     await state.set_state(Onboarding.phone)
@@ -94,11 +94,11 @@ async def onboard_phone(message: Message, state: FSMContext) -> None:
     if not message.from_user or not message.contact: return
     contact = message.contact
     if contact.user_id != message.from_user.id:
-        user = repo.get_or_create_user(message.from_user.id, None, None)
+        user = await arepo.get_or_create_user(message.from_user.id, None, None)
         await message.answer(t(user.language, "phone_own"))
         return
-    ok = repo.set_phone(message.from_user.id, contact.phone_number)
-    user = repo.get_or_create_user(message.from_user.id, None, None)
+    ok = await arepo.set_phone(message.from_user.id, contact.phone_number)
+    user = await arepo.get_or_create_user(message.from_user.id, None, None)
     if not ok:
         await message.answer(t(user.language, "phone_taken"), reply_markup=_phone_kb(user.language))
         return
@@ -115,7 +115,7 @@ async def onboard_phone_hint(message: Message, state: FSMContext) -> None:
     """Matn yoki boshqa xabar — contact tugmasini qayta ko'rsat."""
     if not message.from_user:
         return
-    user = repo.get_or_create_user(message.from_user.id, None, None)
+    user = await arepo.get_or_create_user(message.from_user.id, None, None)
     await message.answer(t(user.language, "phone_ask"), reply_markup=_phone_kb(user.language))
 
 
@@ -124,15 +124,15 @@ async def onboard_name(message: Message, state: FSMContext) -> None:
     if not message.from_user or not message.text: return
     first, last = repo.split_full_name(message.text)
     if not first:
-        user = repo.get_or_create_user(message.from_user.id, None, None)
+        user = await arepo.get_or_create_user(message.from_user.id, None, None)
         await message.answer(t(user.language, "ask_name"))
         return
-    repo.set_name(message.from_user.id, first, last)
+    await arepo.set_name(message.from_user.id, first, last)
     data = await state.get_data()
     await _delete_id(message.bot, message.chat.id, data.get("prompt_id"))  # name prompt
     await _delete(message)  # user's name reply
     await state.clear()
-    user = repo.get_or_create_user(message.from_user.id, None, None)
+    user = await arepo.get_or_create_user(message.from_user.id, None, None)
     await message.answer(
         t(user.language, "onboard_done", name=first),
         reply_markup=main_menu(user.language),

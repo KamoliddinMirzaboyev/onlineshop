@@ -32,11 +32,29 @@ class Settings(BaseSettings):
 
     environment: str = "development"
 
-    # SMS OTP: shlyuz ulanmaguncha har qanday raqam uchun `otp_fake_code`
-    # o'tadi. Ishga tushirishda `.env`da OTP_FAKE_MODE=false qilinadi —
-    # boshqa hech narsa o'zgartirilmaydi (qarang: services/otp.py).
+    # ── SMS OTP ──────────────────────────────────────────────────
+    # Fake rejim FAQAT ishlab chiqish uchun: SMS yuborilmaydi, har qanday
+    # raqamga `otp_fake_code` o'tadi. Prod'da main.py ishga tushishni
+    # to'xtatadi (qarang: services/otp.py).
     otp_fake_mode: bool = True
     otp_fake_code: str = "11111"
+    # Kod Redis'da shuncha soniya yashaydi va shuncha marta urinib ko'riladi.
+    otp_ttl_seconds: int = 300
+    otp_max_attempts: int = 5
+    otp_message_template: str = "Barakali Bozor: tasdiqlash kodingiz {code}"
+
+    # SMS shlyuzi. Hozir qo'llab-quvvatlanadigan: "eskiz".
+    sms_provider: str = ""
+    eskiz_email: str = ""
+    eskiz_password: str = ""
+    eskiz_from: str = "4546"
+
+    # App Store / Play tekshiruvchisi uchun ajratilgan raqamlar: yoqiq ekan,
+    # ro'yxatdagi raqamlarga `otp_fake_code` bilan kirish mumkin. Hozircha
+    # yoqiq — real SMS shlyuzi ulanmaguncha kerak. Ulangandan va store
+    # tekshiruvi tugagandan keyin `.env` da `DEMO_LOGIN_ENABLED=false`.
+    demo_login_enabled: bool = True
+    demo_phones: str = "+998901234567,+998900000000,+998990000000"
     api_base_url: str = "https://api.barakali-bozor.uz"
 
     # Telegram chat that receives new-order notifications (group/channel id)
@@ -87,6 +105,12 @@ class Settings(BaseSettings):
     # Platform superadmin bootstrap
     first_platform_username: str = "platform"
     first_platform_password: str = ""
+
+    @property
+    def demo_phones_set(self) -> frozenset[str]:
+        return frozenset(
+            p.strip() for p in self.demo_phones.split(",") if p.strip()
+        )
 
     @property
     def database_url(self) -> str:

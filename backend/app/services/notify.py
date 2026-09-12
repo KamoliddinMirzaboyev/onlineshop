@@ -9,7 +9,9 @@ Har bir mijozga qaratilgan xabar ikki mustaqil yo'l bilan yetadi: Telegram
 kirgan, Telegramga ulanmagan mijozlarda ham ishlaydi)."""
 
 import html
+import logging
 import re
+import time
 
 import httpx
 
@@ -17,6 +19,8 @@ from app.core.config import settings
 from app.core.db import SessionLocal
 from app.models import Notification, Order
 from app.services import webpush
+
+log = logging.getLogger(__name__)
 
 
 def _e(s: str | None) -> str:
@@ -117,34 +121,52 @@ def _courier_block(
     return lines
 
 
-def _send(chat_id: int, text: str) -> None:
-    try:
-        httpx.post(_API, json={"chat_id": chat_id, "text": text, "parse_mode": "HTML"}, timeout=5)
-    except Exception:
-        pass
+def _ok(resp, chat_id: int, what: str) -> bool:
+    """Telegram javobini tekshiradi. Avval xatolar butunlay jim yutilardi —
+    xabar yetib bormaganini hech kim bilmasdi."""
+    if resp.status_code == 200:
+        return True
+    # 403 — foydalanuvchi botni bloklagan; bu kutilgan holat, WARNING emas.
+    level = log.info if resp.status_code == 403 else log.warning
+    level("Telegram %s yuborilmadi (chat=%s): %s %s",
+          what, chat_id, resp.status_code, resp.text[:200])
+    return False
 
 
-def _send_photo(chat_id: int, png: bytes, caption: str = "") -> None:
+def _send(chat_id: int, text: str) -> bool:
     try:
-        httpx.post(
+        r = httpx.post(_API, json={"chat_id": chat_id, "text": text, "parse_mode": "HTML"}, timeout=5)
+        return _ok(r, chat_id, "xabar")
+    except Exception as e:  # noqa: BLE001
+        log.warning("Telegram xabar tarmoq xatosi (chat=%s): %s", chat_id, e)
+        return False
+
+
+def _send_photo(chat_id: int, png: bytes, caption: str = "") -> bool:
+    try:
+        r = httpx.post(
             _PHOTO_API,
             data={"chat_id": chat_id, "caption": caption},
             files={"photo": ("receipt.png", png, "image/png")},
             timeout=10,
         )
-    except Exception:
-        pass
+        return _ok(r, chat_id, "chek rasmi")
+    except Exception as e:  # noqa: BLE001
+        log.warning("Telegram rasm tarmoq xatosi (chat=%s): %s", chat_id, e)
+        return False
 
 
-def _send_photo_url(chat_id: int, photo_url: str, caption: str = "") -> None:
+def _send_photo_url(chat_id: int, photo_url: str, caption: str = "") -> bool:
     try:
-        httpx.post(
+        r = httpx.post(
             _PHOTO_API,
             json={"chat_id": chat_id, "photo": photo_url, "caption": caption, "parse_mode": "HTML"},
             timeout=10,
         )
-    except Exception:
-        pass
+        return _ok(r, chat_id, "rasm")
+    except Exception as e:  # noqa: BLE001
+        log.warning("Telegram rasm tarmoq xatosi (chat=%s): %s", chat_id, e)
+        return False
 
 
 # Telegram caption limiti — 1024 belgi. Undan uzun bo'lsa, rasm keption'siz,
@@ -159,27 +181,74 @@ def _broadcast_title(text: str) -> str:
     return (first[:77] + "…") if len(first) > 80 else (first or "📣 Yangilik")
 
 
+# Telegram Bot API ommaviy yuborishda ~30 xabar/sekundga ruxsat beradi.
+# Undan oshsa 429 keladi va xabarlar yo'qoladi.
+_BROADCAST_PER_SECOND = 20
+_BROADCAST_DELAY = 1.0 / _BROADCAST_PER_SECOND
+
+
 def broadcast_post(recipients: list[tuple[int, int | None]], text: str, photo_url: str | None) -> None:
-    """Admin/tadbirkor panelidan mijozlarga bot orqali post yuborish (rasm/matn/ikkalasi).
+    """Admin/tadbirkor panelidan mijozlarga post yuborish (rasm/matn/ikkalasi).
 
     `recipients` — (user_id, telegram_id) juftliklari; telegram_id yo'q
-    (OTP bilan kirgan) mijozlar ham FCM push + ilova bildirishnomasini oladi."""
+    (OTP bilan kirgan) mijozlar ham FCM push + ilova bildirishnomasini oladi.
+
+    Avval har bir mijoz uchun alohida DB sessiya ochilib, alohida commit
+    qilinardi va FCM tokeni ham alohida so'rov bilan o'qilardi — 5 000
+    mijozda 10 000 sessiya. Endi: bitta bulk insert, bitta token so'rovi,
+    Telegram'ga esa tezlik chegarasi bilan yuboriladi.
+    """
+    if not recipients:
+        return
     title = _broadcast_title(text)
-    for user_id, tid in recipients:
-        if tid:
-            if photo_url and len(text) <= _CAPTION_LIMIT:
-                _send_photo_url(tid, photo_url, caption=text)
-            elif photo_url:
-                _send_photo_url(tid, photo_url)
-                _send(tid, text)
-            else:
-                _send(tid, text)
-        _record_and_push(user_id, "broadcast", title, text, image_url=photo_url)
+    body = _plain(text)
+    user_ids = [uid for uid, _ in recipients if uid]
+
+    # 1) Ilova ichidagi bildirishnomalar — bitta tranzaksiya.
+    if user_ids:
+        try:
+            with SessionLocal() as db:
+                db.bulk_insert_mappings(Notification, [
+                    {
+                        "user_id": uid, "kind": "broadcast", "title": title,
+                        "body": body, "order_id": None, "image_url": photo_url,
+                    }
+                    for uid in user_ids
+                ])
+                db.commit()
+        except Exception:  # noqa: BLE001
+            log.exception("Broadcast: bildirishnomalarni yozib bo'lmadi")
+
+    # 2) FCM push — tokenlar bitta so'rov bilan.
+    try:
+        from app.services import fcm
+        fcm.notify_users_bulk(user_ids, title, body, url="/")
+    except Exception:  # noqa: BLE001
+        log.exception("Broadcast: FCM yuborishda xato")
+
+    # 3) Telegram — tezlik chegarasi bilan.
+    sent = failed = 0
+    for _uid, tid in recipients:
+        if not tid:
+            continue
+        ok = False
+        if photo_url and len(text) <= _CAPTION_LIMIT:
+            ok = _send_photo_url(tid, photo_url, caption=text)
+        elif photo_url:
+            ok = _send_photo_url(tid, photo_url)
+            _send(tid, text)
+        else:
+            ok = _send(tid, text)
+        sent += 1 if ok else 0
+        failed += 0 if ok else 1
+        time.sleep(_BROADCAST_DELAY)
+    log.info("Broadcast tugadi: telegram %s yuborildi, %s yiqildi, jami %s mijoz",
+             sent, failed, len(recipients))
 
 
 def _ask_location(chat_id: int) -> None:
     try:
-        httpx.post(_API, json={
+        r = httpx.post(_API, json={
             "chat_id": chat_id,
             "text": "📍 Buyurtmangizni yetkazib berish uchun joylashuvingizni yuboring\n📍 Отправьте геолокацию для доставки",
             "reply_markup": {
@@ -188,8 +257,9 @@ def _ask_location(chat_id: int) -> None:
                 "one_time_keyboard": True,
             },
         }, timeout=5)
-    except Exception:
-        pass
+        _ok(r, chat_id, "joylashuv so'rovi")
+    except Exception as e:  # noqa: BLE001
+        log.warning("Telegram joylashuv so'rovi xatosi (chat=%s): %s", chat_id, e)
 
 
 def notify_new_order(

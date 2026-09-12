@@ -625,8 +625,11 @@ def edit_pending_order(db: Session, order: Order, new_items: list) -> Order:
         db.commit()
         db.refresh(order)
         return order
-    except HTTPException:
-        db.rollback()  # zaxira UPDATE'lari ham shu tranzaksiyada — bekor bo'ladi
+    except BaseException:
+        # Zaxira UPDATE'lari ham shu tranzaksiyada — rollback ularni bekor
+        # qiladi. `create_order` bilan bir xil: faqat HTTPException emas,
+        # har qanday xato (DB uzilishi, bekor qilinish) tozalanadi.
+        db.rollback()
         raise
 
 

@@ -149,11 +149,26 @@ def series(
     if end is not None:
         cond.append(Order.created_at <= end)
 
-    rows = db.execute(
+    # Aylanma Order.total dan olinadi (yetkazish haqi bilan) — `totals()` ham
+    # xuddi shunday hisoblaydi. Avval bu yerda OrderItem summasi ishlatilib,
+    # grafikdagi raqam yuqoridagi "Aylanma" kartochkasidan farq qilardi.
+    # OrderItem bilan join qilib Order.total ni yig'ib bo'lmaydi — item soniga
+    # ko'payib ketadi; shuning uchun ikkita so'rov, keyin davr bo'yicha birlashtiriladi.
+    order_rows = db.execute(
         select(
             period.label("p"),
-            func.count(func.distinct(Order.id)),
-            func.coalesce(func.sum(OrderItem.price * OrderItem.quantity), 0),
+            func.count(Order.id),
+            func.coalesce(func.sum(Order.total), 0),
+        )
+        .select_from(Order)
+        .where(*cond)
+        .group_by(period)
+        .order_by(period)
+    ).all()
+
+    profit_rows = db.execute(
+        select(
+            period.label("p"),
             func.coalesce(
                 func.sum((OrderItem.price - OrderItem.cost) * OrderItem.quantity), 0
             ),
@@ -162,15 +177,21 @@ def series(
         .join(OrderItem, OrderItem.order_id == Order.id)
         .where(*cond)
         .group_by(period)
-        .order_by(period)
     ).all()
+    profit_by_period = {p: pf for p, pf in profit_rows if p is not None}
+
     out: list[PeriodPoint] = []
-    for p, o, r, pf in rows:
+    for p, o, r in order_rows:
         if p is None:
             continue
         # date_trunc ba'zan date, ba'zan datetime qaytaradi
         period_str = p.isoformat() if hasattr(p, "isoformat") else str(p)
-        out.append(PeriodPoint(period=period_str, orders=int(o), revenue=int(r), profit=int(pf)))
+        out.append(PeriodPoint(
+            period=period_str,
+            orders=int(o),
+            revenue=int(r),
+            profit=int(profit_by_period.get(p, 0)),
+        ))
     return out
 
 

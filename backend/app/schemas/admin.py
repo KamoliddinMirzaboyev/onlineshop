@@ -6,9 +6,15 @@ from app.models.enums import AdminRole, AnnouncementStatus
 
 
 class DeliveryZoneIn(BaseModel):
+    """Yetkazish hududi — faqat doira (markaz + radius).
+
+    Avval bu yerda `fee` va `min_order` ham bor edi: admin ularni kiritardi,
+    baza ham saqlardi, lekin yetkazish haqi HAR DOIM do'kon darajasidagi
+    `delivery_fee` / `free_delivery_from` dan hisoblanardi. Ya'ni maydonlar
+    hech narsaga ta'sir qilmasdi — olib tashlandi.
+    """
+
     name: str = "Yetkazish hududi"
-    fee: int = 0
-    min_order: int = 0
     is_active: bool = True
     # Circle zona: markaz + radius (km). Poligon qo'llab-quvvatlanmaydi.
     center_lat: float | None = None

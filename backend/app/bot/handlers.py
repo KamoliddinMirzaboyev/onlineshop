@@ -1,3 +1,5 @@
+import asyncio
+
 from aiogram import F, Router
 from aiogram.filters import Command
 from aiogram.types import (
@@ -5,10 +7,11 @@ from aiogram.types import (
     KeyboardButton, Message, ReplyKeyboardMarkup, ReplyKeyboardRemove, WebAppInfo,
 )
 
-from app.bot import repo
+from app.bot import arepo, repo
 from app.bot.i18n import TEXTS, split_telegram_html, t
 from app.core.config import settings
 from app.services.notify import notify_location_update
+from app.services.orders import refine_order_address
 
 router = Router()
 
@@ -66,7 +69,7 @@ async def cb_setlang(cb: CallbackQuery) -> None:
     from aiogram.types import Message
     if not isinstance(cb.message, Message): return
     lang = cb.data.split(":")[1]
-    repo.set_lang(cb.from_user.id, lang)
+    await arepo.set_lang(cb.from_user.id, lang)
     await cb.message.answer(t(lang, "lang_set"), reply_markup=main_menu(lang))
     await cb.answer()
 
@@ -84,7 +87,7 @@ _OLD_PROFILE = {"👤 Profilim", "👤 Мой профиль"}
 @router.message(F.text.in_(_OLD_PROFILE))
 async def on_old_profile_btn(message: Message) -> None:
     if not message.from_user: return
-    user = repo.get_or_create_user(message.from_user.id, message.from_user.first_name, message.from_user.username)
+    user = await arepo.get_or_create_user(message.from_user.id, message.from_user.first_name, message.from_user.username)
     await message.answer(
         t(user.language, "start", name=user.first_name or ""),
         reply_markup=main_menu(user.language),
@@ -94,15 +97,15 @@ async def on_old_profile_btn(message: Message) -> None:
 @router.message(F.text.in_(_btn_texts("help")))
 async def on_help_btn(message: Message) -> None:
     if not message.from_user: return
-    user = repo.get_or_create_user(message.from_user.id, message.from_user.first_name, message.from_user.username)
+    user = await arepo.get_or_create_user(message.from_user.id, message.from_user.first_name, message.from_user.username)
     await message.answer(t(user.language, "help_text"), parse_mode="HTML")
 
 
 @router.message(F.text.in_(_btn_texts("contact_order")))
 async def on_contact_order_btn(message: Message) -> None:
     if not message.from_user: return
-    user = repo.get_or_create_user(message.from_user.id, message.from_user.first_name, message.from_user.username)
-    restaurant = repo.get_contact_restaurant()
+    user = await arepo.get_or_create_user(message.from_user.id, message.from_user.first_name, message.from_user.username)
+    restaurant = await arepo.get_contact_restaurant()
     if not restaurant:
         await message.answer(t(user.language, "contact_none_set"))
         return
@@ -121,7 +124,7 @@ async def on_contact_order_btn(message: Message) -> None:
 @router.message(F.text.in_(_btn_texts("offer")))
 async def on_offer_btn(message: Message) -> None:
     if not message.from_user: return
-    user = repo.get_or_create_user(message.from_user.id, message.from_user.first_name, message.from_user.username)
+    user = await arepo.get_or_create_user(message.from_user.id, message.from_user.first_name, message.from_user.username)
     chunks = split_telegram_html(t(user.language, "offer_text"))
     total = len(chunks)
     for i, chunk in enumerate(chunks, start=1):
@@ -132,14 +135,14 @@ async def on_offer_btn(message: Message) -> None:
 @router.message(F.text.in_(_btn_texts("open_app")))
 async def on_open_app_btn(message: Message) -> None:
     if not message.from_user: return
-    user = repo.get_or_create_user(message.from_user.id, message.from_user.first_name, message.from_user.username)
+    user = await arepo.get_or_create_user(message.from_user.id, message.from_user.first_name, message.from_user.username)
     await message.answer(t(user.language, "start_shopping_prompt"), reply_markup=start_shopping_kb(user.language))
 
 
 @router.message(F.text.in_(_btn_texts("orders")))
 async def on_orders_btn(message: Message) -> None:
     if not message.from_user: return
-    user = repo.get_or_create_user(message.from_user.id, message.from_user.first_name, message.from_user.username)
+    user = await arepo.get_or_create_user(message.from_user.id, message.from_user.first_name, message.from_user.username)
     # order history lives in the Mini App
     kb = InlineKeyboardMarkup(
         inline_keyboard=[[InlineKeyboardButton(
@@ -153,7 +156,7 @@ async def on_orders_btn(message: Message) -> None:
 @router.message(Command("phone"))
 async def cmd_phone(message: Message) -> None:
     if not message.from_user: return
-    user = repo.get_or_create_user(message.from_user.id, message.from_user.first_name, message.from_user.username)
+    user = await arepo.get_or_create_user(message.from_user.id, message.from_user.first_name, message.from_user.username)
     kb = ReplyKeyboardMarkup(
         keyboard=[[KeyboardButton(text=t(user.language, "send_phone"), request_contact=True)]],
         resize_keyboard=True, one_time_keyboard=True,
@@ -166,17 +169,17 @@ async def on_contact(message: Message) -> None:
     if not message.from_user: return
     if not message.contact: return
     contact = message.contact
-    user = repo.get_or_create_user(
+    user = await arepo.get_or_create_user(
         message.from_user.id, message.from_user.first_name, message.from_user.username
     )
     if contact.user_id != message.from_user.id:
         await message.answer(t(user.language, "phone_own"))
         return
-    ok = repo.set_phone(message.from_user.id, contact.phone_number)
+    ok = await arepo.set_phone(message.from_user.id, contact.phone_number)
     if not ok:
         await message.answer(t(user.language, "phone_taken"), reply_markup=main_menu(user.language))
         return
-    user = repo.get_or_create_user(
+    user = await arepo.get_or_create_user(
         message.from_user.id, message.from_user.first_name, message.from_user.username
     )
     await message.answer(t(user.language, "phone_saved"), reply_markup=main_menu(user.language))
@@ -185,15 +188,17 @@ async def on_contact(message: Message) -> None:
 @router.message(F.location)
 async def on_location(message: Message) -> None:
     if not message.from_user: return
-    user = repo.get_or_create_user(message.from_user.id, message.from_user.first_name, message.from_user.username)
-    order = repo.get_latest_pending_order(message.from_user.id)
+    user = await arepo.get_or_create_user(message.from_user.id, message.from_user.first_name, message.from_user.username)
+    order = await arepo.get_latest_pending_order(message.from_user.id)
     if not order:
         await message.answer(t(user.language, "no_pending_order"), reply_markup=ReplyKeyboardRemove())
         return
     if not message.location: return
     lat = message.location.latitude
     lng = message.location.longitude
-    ok, err = repo.set_order_location(order.id, lat, lng)
+    ok, err = await arepo.set_order_location(order.id, lat, lng)
+    # Aniq manzil (mahalla/ko'cha/uy) fonda yoziladi — javob kutib turmaydi.
+    asyncio.create_task(asyncio.to_thread(refine_order_address, order.id))
     if not ok:
         await message.answer(t(user.language, "no_pending_order"), reply_markup=ReplyKeyboardRemove())
         return

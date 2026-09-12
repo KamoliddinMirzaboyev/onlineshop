@@ -3,5 +3,11 @@
   "installCommand": "npm install --prefix tma",
   "buildCommand": "npm run build --prefix tma",
   "outputDirectory": "tma/dist",
-  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+  "rewrites": [
+    { "source": "/privacy", "destination": "/privacy.html" },
+    { "source": "/terms", "destination": "/terms.html" },
+    { "source": "/oferta", "destination": "/terms.html" },
+    { "source": "/account-deletion", "destination": "/account-deletion.html" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
 }

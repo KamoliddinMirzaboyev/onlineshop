@@ -33,8 +33,6 @@ export default function DeliveryZonePage() {
   const [name, setName] = useState("Yetkazish hududi");
   const [center, setCenter] = useState<[number, number]>(DEFAULT_CENTER);
   const [radiusKm, setRadiusKm] = useState(5);
-  const [fee, setFee] = useState(0);
-  const [minOrder, setMinOrder] = useState(0);
   const [active, setActive] = useState(true);
   const [hasCenter, setHasCenter] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -66,8 +64,6 @@ export default function DeliveryZonePage() {
       .then((z) => {
         if (z) {
           setName(z.name || "Yetkazish hududi");
-          setFee(z.fee ?? 0);
-          setMinOrder(z.min_order ?? 0);
           setActive(z.is_active);
           if (z.radius_km) setRadiusKm(z.radius_km);
           if (z.center_lat != null && z.center_lng != null) {
@@ -84,8 +80,6 @@ export default function DeliveryZonePage() {
     try {
       await put<DeliveryZone>("/admin/delivery-zone", {
         name,
-        fee,
-        min_order: minOrder,
         is_active: active,
         center_lat: center[0],
         center_lng: center[1],

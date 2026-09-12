@@ -34,8 +34,6 @@ class DeliveryZone(Base):
         ForeignKey("restaurants.id", ondelete="CASCADE"), index=True
     )
     name: Mapped[str] = mapped_column(String(128))
-    fee: Mapped[int] = mapped_column(Integer, default=0)
-    min_order: Mapped[int] = mapped_column(Integer, default=0)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     # Circle zone: markaz + radius (km). Order shu doira ichida bo'lsa qabul qilinadi.
     # (Poligon zona hech qachon amalga oshirilmagan — `polygon` ustuni olib tashlandi.)

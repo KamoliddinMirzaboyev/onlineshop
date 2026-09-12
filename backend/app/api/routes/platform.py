@@ -1,4 +1,4 @@
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -277,8 +277,13 @@ def platform_stats(period: str = "month", db: Session = Depends(get_db)):
 
 # ── Announcements (Elon) — barcha bot foydalanuvchilariga tarqatish ─
 @router.get("/announcements", response_model=list[AnnouncementOut])
-def list_announcements(db: Session = Depends(get_db)):
-    return db.scalars(select(Announcement).order_by(Announcement.created_at.desc())).all()
+def list_announcements(
+    db: Session = Depends(get_db),
+    limit: int = Query(default=100, ge=1, le=500),
+):
+    return db.scalars(
+        select(Announcement).order_by(Announcement.created_at.desc()).limit(limit)
+    ).all()
 
 
 @router.post("/announcements", response_model=AnnouncementOut, status_code=201)

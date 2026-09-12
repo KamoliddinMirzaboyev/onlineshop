@@ -6,7 +6,7 @@ from typing import Any
 from aiogram import BaseMiddleware
 from aiogram.types import CallbackQuery, Message, TelegramObject
 
-from app.bot import repo
+from app.bot import arepo, repo
 from app.bot.i18n import t
 
 
@@ -24,7 +24,7 @@ class BlockedUserMiddleware(BaseMiddleware):
             from_user = event.from_user
 
         if from_user is not None:
-            user = repo.get_user(from_user.id)
+            user = await arepo.get_user(from_user.id)
             if user is not None and getattr(user, "is_blocked", False):
                 lang = user.language if getattr(user, "language", None) else "uz"
                 text = t(lang, "blocked")
