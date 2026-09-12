@@ -1,6 +1,6 @@
 /// Server hisoblagan yakuniy summa (`POST /orders/quote`).
 ///
-/// Ilova yetkazish haqini O'ZI hisoblamaydi: avval `min_order` "minimal
+/// Ilova yetkazish haqini O'ZI hisoblamaydi: avval `free_delivery_from` "minimal
 /// buyurtma", `delivery_fee` esa qat'iy narx deb qabul qilinardi — aslida
 /// serverda ular "bepul yetkazish chegarasi" va "1 km narxi". Natijada
 /// ekrandagi summa haqiqiy yozilgan summadan farq qilardi.

@@ -226,7 +226,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
     final cart = context.read<CartProvider>();
     final store = context.read<StoreProvider>().store;
 
-    // `min_order` bo'yicha blok olib tashlandi: u serverda "bepul yetkazish
+    // `free_delivery_from` bo'yicha blok olib tashlandi: u "bepul yetkazish
     // chegarasi", minimal buyurtma emas — server bunday cheklov qo'ymaydi.
 
     final restaurantId = store?.id ??

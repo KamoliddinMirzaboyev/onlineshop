@@ -5,7 +5,13 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_admin
 from app.core.db import get_db
 from app.core.ratelimit import rate_limiter
-from app.core.security import create_access_token, hash_password, verify_password, verify_password_safe
+from app.core.security import (
+    create_access_token,
+    create_refresh_token,
+    hash_password,
+    verify_password,
+    verify_password_safe,
+)
 from app.models import AdminUser
 from app.schemas.admin import AdminUserOut
 from app.schemas.auth import AdminLoginIn, TokenOut
@@ -29,8 +35,10 @@ def admin_login(data: AdminLoginIn, db: Session = Depends(get_db)):
     pw_ok = verify_password_safe(data.password, admin.hashed_password if admin else None)
     if not admin or not admin.is_active or not pw_ok:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid credentials")
-    token = create_access_token(subject=str(admin.id), role=admin.role.value)
-    return TokenOut(access_token=token)
+    return TokenOut(
+        access_token=create_access_token(subject=str(admin.id), role=admin.role.value),
+        refresh_token=create_refresh_token(subject=str(admin.id), role=admin.role.value),
+    )
 
 
 @router.get("/me", response_model=AdminUserOut)

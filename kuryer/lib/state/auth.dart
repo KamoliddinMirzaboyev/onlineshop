@@ -42,7 +42,10 @@ class AuthState extends ChangeNotifier {
       'username': username,
       'password': password,
     }) as Map<String, dynamic>;
-    await api.setToken(res['access_token'] as String);
+    await api.setTokens(
+      access: res['access_token'] as String,
+      refresh: res['refresh_token'] as String?,
+    );
     try {
       final me = await api.get('/admin/auth/me') as Map<String, dynamic>;
       if (me['role'] != 'courier') {

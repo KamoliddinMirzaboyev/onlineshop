@@ -16,10 +16,11 @@ class CartPage extends StatelessWidget {
     final cart = context.watch<CartProvider>();
     final store = context.watch<StoreProvider>().store;
     final items = cart.items;
-    // `min_order` — serverda BEPUL YETKAZISH chegarasi (minimal buyurtma emas).
+    // `free_delivery_from` — bepul yetkazish chegarasi (minimal buyurtma emas).
     // Avval ilova uni minimal buyurtma deb bilib, undan kam savatni bloklardi
     // va bepul chegara sifatida qat'iy 50000 ni ishlatardi.
-    final freeFrom = (store?.minOrder ?? 0) > 0 ? store!.minOrder : 50000;
+    final freeFrom =
+        (store?.freeDeliveryFrom ?? 0) > 0 ? store!.freeDeliveryFrom : 50000;
     final freeDelivery = cart.totalPrice >= freeFrom;
 
     return Scaffold(

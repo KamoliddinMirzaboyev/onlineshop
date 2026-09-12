@@ -1,7 +1,7 @@
 import json
 from typing import Any
 
-from app.core.redis import redis_client
+from app.core.redis import async_redis_client, redis_client
 
 # Redis Pub/Sub channel name for courier events
 _COURIER_CHANNEL = "courier:events"
@@ -31,6 +31,21 @@ def unsubscribe(ps) -> None:
         pass
 
 
+async def subscribe_async() -> Any:
+    """SSE uchun async PubSub — ulanish thread band qilmaydi."""
+    ps = async_redis_client.pubsub()
+    await ps.subscribe(_COURIER_CHANNEL)
+    return ps
+
+
+async def unsubscribe_async(ps) -> None:
+    try:
+        await ps.unsubscribe(_COURIER_CHANNEL)
+        await ps.aclose()
+    except Exception:
+        pass
+
+
 # Backward-compatible wrapper so existing `courier_events.publish(...)` calls keep working
 class _CourierEvents:
     def publish(self, event: dict[str, Any]) -> None:
@@ -41,6 +56,12 @@ class _CourierEvents:
 
     def unsubscribe(self, ps) -> None:
         unsubscribe(ps)
+
+    async def subscribe_async(self) -> Any:
+        return await subscribe_async()
+
+    async def unsubscribe_async(self, ps) -> None:
+        await unsubscribe_async(ps)
 
 
 courier_events = _CourierEvents()

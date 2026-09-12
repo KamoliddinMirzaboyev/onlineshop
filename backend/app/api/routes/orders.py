@@ -9,7 +9,13 @@ from app.models import Order, User
 from app.models.enums import OrderStatus
 from app.schemas.order import OrderCreateIn, OrderEditIn, OrderOut, OrderQuoteIn, OrderQuoteOut
 from app.services.notify import notify_new_order
-from app.services.orders import cancel_order, create_order, edit_pending_order, quote_order
+from app.services.orders import (
+    cancel_order,
+    create_order,
+    edit_pending_order,
+    quote_order,
+    refine_order_address,
+)
 from app.services.receipt import render_receipt
 from app.services.events import courier_events
 
@@ -33,6 +39,9 @@ def place_order(
     except Exception:
         receipt_png = None
     needs_location = order.lat is None or order.lng is None
+    # Manzil koordinata ko'rinishida saqlangan bo'lsa — fonda aniqlashtiramiz
+    # (tashqi geocode so'rovi mijozni kutkazmasin).
+    background.add_task(refine_order_address, order.id)
     background.add_task(
         notify_new_order, order, user.id, user.telegram_id, receipt_png, needs_location
     )

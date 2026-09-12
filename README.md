@@ -10,6 +10,10 @@ Marketplace-style food delivery system (Uzbekistan).
 | **TMA** (Telegram Mini App) | React + TS + Tailwind + Vite | `tma/` |
 | **Admin panel** | React + TS + Tailwind + Vite | `admin/` |
 | **Courier app** (PWA) | React + TS + Tailwind + Vite | `courier/` |
+| **Businessman panel** | React + TS + Tailwind + Vite | `businessman/` |
+| **Superadmin panel** | React + TS + Tailwind + Vite | `superadmin/` |
+| **Mijoz ilovasi** | Flutter | `mijoz_app/` |
+| **Kuryer ilovasi** | Flutter | `kuryer/` |
 
 ## Features
 
@@ -43,6 +47,16 @@ credentials docker-compose interpolates into the `postgres` service.
 ## Local dev (without Docker)
 
 See `backend/README.md`, `tma/README.md`, `admin/README.md`.
+
+## CI / deploy
+
+- `.github/workflows/ci.yml` — har push/PR'da: backend testlari (Postgres +
+  Redis servislari bilan), `alembic check`, 5 ta React ilova uchun
+  `tsc --noEmit` + `build`, 2 ta Flutter ilova uchun `analyze` + `test`.
+- `main`ga push'da hammasi o'tgach SSH orqali serverdagi
+  `/opt/allfoods/deploy.sh` chaqiriladi — u repodagi `ops/deploy.sh` ni
+  bajaradi (api + bot konteynerlari). Batafsil: `ops/README.md`.
+- Web panellar va TMA Vercel'da — o'sha push'da o'zi quriladi.
 
 ## Architecture
 

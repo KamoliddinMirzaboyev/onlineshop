@@ -40,7 +40,7 @@ def test_initdb_retrofits_legacy_rows_missing_tenant_columns(engine):
         legacy_restaurant_id = conn.execute(
             text(
                 "INSERT INTO restaurants "
-                "(name, is_active, rating, delivery_fee, min_order, avg_delivery_minutes, is_open) "
+                "(name, is_active, rating, delivery_fee, free_delivery_from, avg_delivery_minutes, is_open) "
                 "VALUES ('Legacy Do''kon', TRUE, 0.0, 0, 0, 40, TRUE) RETURNING id"
             )
         ).scalar_one()
@@ -85,3 +85,46 @@ def test_initdb_retrofits_legacy_rows_missing_tenant_columns(engine):
         with engine.begin() as conn:
             conn.execute(text("DELETE FROM admin_users WHERE id = :id"), {"id": legacy_admin_id})
             conn.execute(text("DELETE FROM restaurants WHERE id = :id"), {"id": legacy_restaurant_id})
+
+
+def test_min_order_column_is_renamed_to_free_delivery_from(engine):
+    """Eski bazada ustun `min_order` deb nomlangan — initdb uni ko'chiradi.
+
+    Nom "minimal buyurtma" degan ma'noni berib, mijoz ilovasida savatni
+    bloklaydigan bug keltirib chiqargan edi; ustunning ma'nosi esa har doim
+    "bepul yetkazish chegarasi" bo'lgan.
+    """
+    from app.initdb import main as initdb_main
+
+    initdb_main(engine=engine)
+
+    with engine.begin() as conn:
+        # Bazani "eski" holatga qaytaramiz.
+        conn.execute(text(
+            "ALTER TABLE restaurants RENAME COLUMN free_delivery_from TO min_order"
+        ))
+        rid = conn.execute(text(
+            "INSERT INTO restaurants (name, business_id, is_active, rating, "
+            "delivery_fee, min_order, avg_delivery_minutes, is_open) "
+            "SELECT 'Eski do''kon', id, TRUE, 0.0, 2000, 30000, 40, TRUE "
+            "FROM businesses ORDER BY id LIMIT 1 RETURNING id"
+        )).scalar_one()
+
+    initdb_main(engine=engine)
+
+    with engine.connect() as conn:
+        cols = {
+            r[0] for r in conn.execute(text(
+                "SELECT column_name FROM information_schema.columns "
+                "WHERE table_name = 'restaurants'"
+            ))
+        }
+        assert "free_delivery_from" in cols
+        assert "min_order" not in cols
+        # Qiymat saqlanadi — ustun nomi o'zgardi, ma'lumot emas.
+        assert conn.execute(
+            text("SELECT free_delivery_from FROM restaurants WHERE id = :id"), {"id": rid}
+        ).scalar_one() == 30000
+
+    # Ikkinchi marta ishga tushirish hech narsani buzmaydi (idempotent).
+    initdb_main(engine=engine)

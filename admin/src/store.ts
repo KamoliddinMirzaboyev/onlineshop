@@ -13,8 +13,8 @@ interface AuthState {
 export const useAuth = create<AuthState>((set) => ({
   admin: null,
   login: async (username, password) => {
-    const res = await post<{ access_token: string }>("/admin/auth/login", { username, password });
-    setToken(res.access_token);
+    const res = await post<{ access_token: string; refresh_token?: string | null }>("/admin/auth/login", { username, password });
+    setToken(res.access_token, res.refresh_token ?? null);
     try {
       const me = await get<AdminUser>("/admin/auth/me");
       set({ admin: me });

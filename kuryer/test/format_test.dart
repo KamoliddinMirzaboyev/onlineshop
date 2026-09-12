@@ -31,7 +31,8 @@ void main() {
   group('statusLabel', () {
     test('returns label for known status', () {
       expect(statusLabel('pending'), 'Yangi');
-      expect(statusLabel('accepted'), 'Qabul qilindi');
+      // Kuryer ilovasida 'accepted' — buyurtma aynan shu kuryerga biriktirilgani.
+      expect(statusLabel('accepted'), 'Sizga biriktirildi');
       expect(statusLabel('delivering'), 'Yetkazilmoqda');
       expect(statusLabel('delivered'), 'Yetkazildi');
       expect(statusLabel('cancelled'), 'Bekor qilindi');

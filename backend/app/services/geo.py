@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+import logging
+from dataclasses import asdict, dataclass
 from math import asin, cos, radians, sin, sqrt
 
 import httpx
 
+from app.core.cache import cache_get_json, cache_set_json
 from app.models import DeliveryZone
+
+logger = logging.getLogger(__name__)
 
 EARTH_RADIUS_KM = 6371.0088
 _UA = "BarakaliBozor/1.0 (delivery; contact=admin@barakali-bozor.uz)"
@@ -370,8 +374,24 @@ def _merge_parts(*candidates: GeoParts | None) -> GeoParts | None:
     return base
 
 
+# Kesh kaliti ~1 m aniqlikda (5 kasr) — manzillar joyini o'zgartirmaydi,
+# shuning uchun uzoq TTL. Bu Nominatim'ning 1 so'rov/sekund siyosatiga
+# urilmaslikning asosiy vositasi: bir uyga takroriy buyurtma tashqi
+# so'rovsiz javob oladi.
+_GEO_CACHE_TTL_S = 30 * 24 * 3600
+
+
+def _geo_cache_key(lat: float, lng: float) -> str:
+    return f"geo:rev:{lat:.5f},{lng:.5f}"
+
+
 def reverse_geocode_parts(lat: float, lng: float) -> GeoParts | None:
-    """Bir necha manbadan mahalla/ko'cha/uy — eng to'liq natija."""
+    """Bir necha manbadan mahalla/ko'cha/uy — eng to'liq natija (keshlanadi)."""
+    key = _geo_cache_key(lat, lng)
+    cached = cache_get_json(key)
+    if isinstance(cached, dict):
+        return GeoParts(**cached) if cached else None
+
     # Parallel emas — rate limit; nominatim birinchi (UA bilan), keyin boshqalar.
     nom = _from_nominatim(lat, lng)
     bdc = _from_bigdatacloud(lat, lng)
@@ -379,7 +399,12 @@ def reverse_geocode_parts(lat: float, lng: float) -> GeoParts | None:
     ph = None
     if not (nom and nom.street and nom.mahalla):
         ph = _from_photon(lat, lng)
-    return _merge_parts(nom, bdc, ph)
+    parts = _merge_parts(nom, bdc, ph)
+    # Topilmagan natija ham keshlanadi (qisqaroq) — har safar 3 ta tashqi
+    # so'rovni qayta urinmaymiz.
+    cache_set_json(key, asdict(parts) if parts else {},
+                   _GEO_CACHE_TTL_S if parts else 3600)
+    return parts
 
 
 def reverse_geocode(lat: float, lng: float) -> str | None:
@@ -401,3 +426,11 @@ def is_weak_address_line(line: str | None) -> bool:
     if letters < 3 and digits >= 6:
         return True
     return False
+
+
+def cached_reverse_geocode(lat: float, lng: float) -> str | None:
+    """Faqat keshdagi natija — tashqi so'rov qilinmaydi (so'rov yo'lida ishlatiladi)."""
+    cached = cache_get_json(_geo_cache_key(lat, lng))
+    if isinstance(cached, dict) and cached:
+        return GeoParts(**cached).label or None
+    return None

@@ -72,6 +72,8 @@ _ZONE_COLUMNS = (
     "ALTER TABLE delivery_zones ADD COLUMN IF NOT EXISTS center_lat DOUBLE PRECISION",
     "ALTER TABLE delivery_zones ADD COLUMN IF NOT EXISTS center_lng DOUBLE PRECISION",
     "ALTER TABLE delivery_zones ADD COLUMN IF NOT EXISTS radius_km DOUBLE PRECISION",
+    # Poligon zona hech qachon yozilmagan — faqat doira ishlatiladi.
+    "ALTER TABLE delivery_zones DROP COLUMN IF EXISTS polygon",
 )
 _PUSH_COLUMNS = (
     "ALTER TABLE push_subscriptions ADD COLUMN IF NOT EXISTS admin_user_id INTEGER "
@@ -109,6 +111,23 @@ _STORE_COLUMNS = (
     # Do'kon joylashuvi (masofa/ETA origin).
     "ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS lat DOUBLE PRECISION",
     "ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS lng DOUBLE PRECISION",
+    # min_order → free_delivery_from: ustun har doim "bepul yetkazish chegarasi"
+    # bo'lgan, nomi esa "minimal buyurtma" deb o'qilib bug keltirib chiqargan.
+    # Postgres'da RENAME COLUMN IF EXISTS yo'q — DO blok bilan idempotent.
+    """
+    DO $$
+    BEGIN
+        IF EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_name = 'restaurants' AND column_name = 'min_order'
+        ) AND NOT EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_name = 'restaurants' AND column_name = 'free_delivery_from'
+        ) THEN
+            ALTER TABLE restaurants RENAME COLUMN min_order TO free_delivery_from;
+        END IF;
+    END $$;
+    """,
 )
 
 # Native PG enum'ga yangi qiymat qo'shish ('accepted'). create_all enum'ni

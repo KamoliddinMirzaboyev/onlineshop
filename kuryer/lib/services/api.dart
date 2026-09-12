@@ -51,14 +51,25 @@ class ApiService {
 
   static const _base = 'https://api.barakali-bozor.uz/api';
   static const _tokenKey = 'af_courier_token';
+  static const _refreshTokenKey = 'af_courier_refresh_token';
   static const _timeout = Duration(seconds: 15);
   static const _storage = FlutterSecureStorage();
 
   String? _token;
+  String? _refreshToken;
+
+  /// Parallel so'rovlar bitta refreshni kutadi — aks holda ular bir-birining
+  /// yangi tokenini eskirtirib, kuryerni login ekraniga tashlab yuborardi.
+  Future<bool>? _refreshFuture;
 
   /// Called once from main() before runApp.
   Future<void> init() async {
     _token = await _migrateAndRead();
+    try {
+      _refreshToken = await _storage.read(key: _refreshTokenKey);
+    } catch (e) {
+      debugPrint('Secure storage read failed: $e');
+    }
   }
 
   /// One-time move off the old plain-text SharedPreferences token (pre
@@ -94,16 +105,60 @@ class ApiService {
   /// In-memory `_token` is the source of truth for the running session even
   /// if the persist step below fails — a broken Keystore shouldn't block
   /// login, it just won't survive an app restart.
-  Future<void> setToken(String? t) async {
-    _token = t;
+  Future<void> setTokens({String? access, String? refresh}) async {
+    _token = access;
+    if (refresh != null) {
+      _refreshToken = refresh;
+    } else if (access == null) {
+      _refreshToken = null;
+    }
+
     try {
-      if (t != null && t.isNotEmpty) {
-        await _storage.write(key: _tokenKey, value: t);
+      if (access != null && access.isNotEmpty) {
+        await _storage.write(key: _tokenKey, value: access);
       } else {
         await _storage.delete(key: _tokenKey);
       }
+      if (_refreshToken != null && _refreshToken!.isNotEmpty) {
+        await _storage.write(key: _refreshTokenKey, value: _refreshToken!);
+      } else {
+        await _storage.delete(key: _refreshTokenKey);
+      }
     } catch (e) {
       debugPrint('Secure storage write failed: $e');
+    }
+  }
+
+  Future<void> setToken(String? t) => setTokens(access: t);
+
+  /// Access token qisqa muddatli (server: 1 soat). Muddati tugaganda kuryer
+  /// smena o'rtasida login ekraniga tushmasligi uchun fonda yangilanadi.
+  Future<bool> _tryRefreshToken() {
+    if (_refreshToken == null || _refreshToken!.isEmpty) {
+      return Future.value(false);
+    }
+    return _refreshFuture ??=
+        _doRefresh().whenComplete(() => _refreshFuture = null);
+  }
+
+  Future<bool> _doRefresh() async {
+    try {
+      final res = await http
+          .post(
+            Uri.parse('$_base/auth/refresh'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'refresh_token': _refreshToken}),
+          )
+          .timeout(_timeout);
+      if (res.statusCode != 200) return false;
+      final data = jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+      final access = data['access_token'] as String?;
+      if (access == null || access.isEmpty) return false;
+      await setTokens(access: access, refresh: data['refresh_token'] as String?);
+      return true;
+    } catch (e) {
+      debugPrint('Token refresh failed: $e');
+      return false;
     }
   }
 
@@ -119,6 +174,7 @@ class ApiService {
     String method,
     String path, {
     Object? body,
+    bool retryOnUnauthorized = true,
   }) async {
     final uri = Uri.parse('$_base$path');
     late http.Response res;
@@ -145,7 +201,11 @@ class ApiService {
     }
 
     if (res.statusCode == 401) {
-      await setToken(null);
+      // Muddati tugagan access tokenni bir marta yangilab ko'ramiz.
+      if (retryOnUnauthorized && await _tryRefreshToken()) {
+        return _request(method, path, body: body, retryOnUnauthorized: false);
+      }
+      await setTokens(access: null, refresh: null);
       onUnauthorized?.call();
       throw UnauthorizedException();
     }

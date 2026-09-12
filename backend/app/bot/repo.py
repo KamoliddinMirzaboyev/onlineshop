@@ -158,7 +158,7 @@ def set_order_location(order_id: int, lat: float, lng: float) -> tuple[bool, str
             order.delivery_fee = calc_delivery_fee(
                 order.items_total,
                 order.distance_km,
-                free_from=restaurant.min_order,
+                free_from=restaurant.free_delivery_from,
                 per_km=restaurant.delivery_fee,
             )
             order.total = order.items_total + order.delivery_fee

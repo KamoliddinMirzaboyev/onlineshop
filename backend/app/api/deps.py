@@ -186,3 +186,28 @@ def require_uploader(
             raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Platform admin not found")
         return admin
     return get_current_staff_or_business(authorization=authorization, db=db)
+
+
+# ── Refresh: rolga qarab principal'ni topish ─────────────────────
+# Access token qisqa muddatli (settings.access_token_expire_minutes), shuning
+# uchun barcha panellar ham refresh token bilan uzaytira olishi kerak — avval
+# bu faqat mijoz (`User`) uchun ishlagan.
+def resolve_refresh_principal(db: Session, role: str, sub_id: int):
+    """Refresh token egasini qaytaradi; topilmasa/nofaol bo'lsa None."""
+    if role == "user":
+        user = db.get(User, sub_id)
+        return None if not user or user.is_blocked else user
+    if role == "businessman":
+        business = db.get(Business, sub_id)
+        return None if not business or not business.is_active else business
+    if role == "platform_superadmin":
+        admin = db.get(PlatformAdmin, sub_id)
+        return None if not admin or not admin.is_active else admin
+    if role in {r.value for r in AdminRole}:
+        admin = db.get(AdminUser, sub_id)
+        if not admin or not admin.is_active:
+            return None
+        # Rol token berilgandan keyin o'zgargan bo'lishi mumkin (masalan
+        # kuryer manager qilindi) — refresh yangi rolni qaytarsin.
+        return admin
+    return None

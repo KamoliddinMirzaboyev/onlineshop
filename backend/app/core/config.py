@@ -20,7 +20,14 @@ class Settings(BaseSettings):
 
     # Auth
     secret_key: str = "change-me"
-    access_token_expire_minutes: int = 60 * 24 * 7
+    # Qisqa access token — o'g'irlangan token uzoq yashamasin (avval 7 kun edi).
+    # Barcha mijozlar (TMA, mijoz ilovasi, 4 ta panel, kuryer APK) muddati
+    # tugaganda refresh bilan yangilaydi; TMA initData bilan qaytadan kiradi.
+    #
+    # 12 soat — vaqtinchalik. Dala'dagi ESKI kuryer APK'sida (v1.2.3) refresh
+    # yo'q: 1 soat qo'ysak kuryer smena o'rtasida chiqib ketardi. Refreshli
+    # yangi APK tarqatilgach 60 ga tushiriladi (PLAN.md § P-4).
+    access_token_expire_minutes: int = 60 * 12
     algorithm: str = "HS256"
 
     environment: str = "development"

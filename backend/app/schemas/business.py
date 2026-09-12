@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
 from app.schemas.admin import PeriodPoint, TopProduct, ReportTotals
 
@@ -61,11 +61,15 @@ class StoreCreateIn(BaseModel):
     socials: dict[str, str] = {}
     lat: float | None = None
     lng: float | None = None
-    delivery_fee: int = 2000   # so'm/km (50k dan kam buyurtmada)
-    min_order: int = 50_000    # bepul yetkazish chegarasi (so'm)
+    delivery_fee: int = 2000   # so'm/km (bepul chegaradan kam buyurtmada)
+    free_delivery_from: int = Field(
+        50_000, validation_alias=AliasChoices("free_delivery_from", "min_order")
+    )
     avg_delivery_minutes: int = 40
     is_active: bool = True
     is_open: bool = True
+
+    model_config = ConfigDict(populate_by_name=True)
 
 
 # Do'kon yaratish — do'kon nomi + uni yurituvchi xodim (login/parol) birga.

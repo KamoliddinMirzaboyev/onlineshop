@@ -13,7 +13,7 @@ export interface Restaurant {
   is_open: boolean;
   rating: number;
   delivery_fee: number;
-  min_order: number;
+  free_delivery_from: number;
   avg_delivery_minutes: number;
 }
 
@@ -102,6 +102,8 @@ export interface DeliveryZone {
   id?: number;
   name: string;
   fee: number;
+  // Zona darajasidagi minimal buyurtma — do'kondagi `free_delivery_from`
+  // (bepul yetkazish chegarasi) bilan adashtirmaslik kerak.
   min_order: number;
   is_active: boolean;
   center_lat?: number | null;

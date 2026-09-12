@@ -1,16 +1,68 @@
 const BASE = import.meta.env.VITE_API_URL ?? "https://api.barakali-bozor.uz/api";
 
-let token: string | null = localStorage.getItem("af_courier_token");
+const TOKEN_KEY = "af_courier_token";
+const REFRESH_KEY = "af_courier_token_refresh";
+const LOGIN_PATH = "/admin/auth/login";
 
-export function setToken(t: string | null) {
+let token: string | null = localStorage.getItem(TOKEN_KEY);
+let refreshToken: string | null = localStorage.getItem(REFRESH_KEY);
+
+/** Login ikkala tokenni ham saqlaydi; `setToken(null)` — chiqish (ikkalasi o'chadi). */
+export function setToken(t: string | null, r: string | null = null) {
   token = t;
-  if (t) localStorage.setItem("af_courier_token", t);
-  else localStorage.removeItem("af_courier_token");
+  refreshToken = t ? r : null;
+  if (t) localStorage.setItem(TOKEN_KEY, t);
+  else localStorage.removeItem(TOKEN_KEY);
+  if (refreshToken) localStorage.setItem(REFRESH_KEY, refreshToken);
+  else localStorage.removeItem(REFRESH_KEY);
 }
 
-export function hasToken() { return !!token; }
+export function hasToken() {
+  return !!token;
+}
 
-export async function api<T>(path: string, opts: RequestInit = {}): Promise<T> {
+function logout() {
+  setToken(null);
+  if (location.pathname !== "/login") location.href = "/login";
+}
+
+// Access token qisqa muddatli. Bir vaqtda bir nechta so'rov 401 olsa —
+// hammasi bitta refreshni kutadi, aks holda parallel refreshlar bir-birining
+// tokenini eskirtiradi.
+let refreshing: Promise<boolean> | null = null;
+
+async function doRefresh(): Promise<boolean> {
+  if (!refreshToken) return false;
+  try {
+    const res = await fetch(`${BASE}/auth/refresh`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    });
+    if (!res.ok) return false;
+    const data = (await res.json()) as {
+      access_token: string;
+      refresh_token?: string | null;
+    };
+    setToken(data.access_token, data.refresh_token ?? null);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function tryRefresh(): Promise<boolean> {
+  refreshing ??= doRefresh().finally(() => {
+    refreshing = null;
+  });
+  return refreshing;
+}
+
+export async function api<T>(
+  path: string,
+  opts: RequestInit = {},
+  retry = true,
+): Promise<T> {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     ...(opts.headers as Record<string, string>),
@@ -19,8 +71,11 @@ export async function api<T>(path: string, opts: RequestInit = {}): Promise<T> {
 
   const res = await fetch(`${BASE}${path}`, { ...opts, headers });
   if (res.status === 401) {
-    setToken(null);
-    location.href = "/login";
+    // Login so'rovining o'zi 401 qaytarsa (xato login/parol) — chaqiruvchi
+    // (LoginPage) xatoni o'zi ko'rsatadi, sahifa qayta yuklanmaydi.
+    if (path === LOGIN_PATH) throw new Error("Unauthorized");
+    if (retry && (await tryRefresh())) return api<T>(path, opts, false);
+    logout();
     throw new Error("Unauthorized");
   }
   if (!res.ok) throw new Error(`${res.status}: ${await res.text()}`);

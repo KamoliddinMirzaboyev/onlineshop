@@ -26,6 +26,10 @@ class StoreProvider extends ChangeNotifier {
   RestaurantDetail? store;
   bool loading = true;
   bool error = false;
+  /// Joylashuv aniqlandi, lekin hech bir do'kon hududi qamramaydi. Katalog
+  /// ochiq qoladi (buyurtma berishda server rad etadi) — bu faqat mijozga
+  /// savatni to'ldirishdan oldin ogohlantirish ko'rsatish uchun.
+  bool outOfZone = false;
   bool needsLocation = false;
 
   StoreProvider() {
@@ -105,6 +109,7 @@ class StoreProvider extends ChangeNotifier {
       loading = true;
     }
     error = false;
+    outOfZone = false;
     needsLocation = false;
     notifyListeners();
 
@@ -131,9 +136,10 @@ class StoreProvider extends ChangeNotifier {
         final parsed = await compute(_parseRestaurant, res as Map<String, dynamic>);
         store = parsed;
         _saveCatalogToCache(parsed);
-      } catch (_) {
+      } catch (e) {
         // Hudud tashqarisi ham, tarmoq xatosi ham — katalog ochiq qoladi.
         // Zona tekshiruvi buyurtma berishda (POST /orders) bo'ladi.
+        outOfZone = e.toString().contains('OUT_OF_RANGE');
         try {
           final res = await api.get('/restaurants/default');
           final parsed = await compute(_parseRestaurant, res as Map<String, dynamic>);

@@ -59,7 +59,7 @@ export interface Restaurant {
   is_open: boolean;
   rating: number;
   delivery_fee: number;
-  min_order: number;
+  free_delivery_from: number;
   avg_delivery_minutes: number;
   lat?: number | null;
   lng?: number | null;

@@ -26,7 +26,7 @@ export interface Store {
   is_open: boolean;
   rating: number;
   delivery_fee: number;
-  min_order: number;
+  free_delivery_from: number;
   avg_delivery_minutes: number;
 }
 
@@ -44,7 +44,7 @@ export interface StoreInput {
   lat?: number | null;
   lng?: number | null;
   delivery_fee: number;
-  min_order: number;
+  free_delivery_from: number;
   avg_delivery_minutes: number;
   is_active: boolean;
   is_open: boolean;

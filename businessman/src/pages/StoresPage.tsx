@@ -21,7 +21,7 @@ const emptyEdit: StoreInput = {
   phones: [],
   socials: {},
   delivery_fee: 2000,
-  min_order: 50_000,
+  free_delivery_from: 50_000,
   avg_delivery_minutes: 30,
   is_active: true,
   is_open: true,
@@ -99,7 +99,7 @@ export default function StoresPage() {
       phones: s.phones,
       socials: s.socials,
       delivery_fee: s.delivery_fee,
-      min_order: s.min_order,
+      free_delivery_from: s.free_delivery_from,
       avg_delivery_minutes: s.avg_delivery_minutes,
       is_active: s.is_active,
       is_open: s.is_open,
@@ -263,7 +263,7 @@ export default function StoresPage() {
                       </div>
                       <div>
                         <div className="text-[11px] text-slate-400">Bepul dan</div>
-                        <div className="text-xs font-semibold text-slate-700 mt-0.5">{money(s.min_order)} so'm</div>
+                        <div className="text-xs font-semibold text-slate-700 mt-0.5">{money(s.free_delivery_from)} so'm</div>
                       </div>
                       <div>
                         <div className="flex items-center justify-center gap-1 text-[11px] text-slate-400"><Clock size={11} /> Vaqt</div>
@@ -413,8 +413,8 @@ export default function StoresPage() {
                     <input
                       className="input mt-1"
                       type="number"
-                      value={form.min_order}
-                      onChange={(e) => setForm({ ...form, min_order: Number(e.target.value) })}
+                      value={form.free_delivery_from}
+                      onChange={(e) => setForm({ ...form, free_delivery_from: Number(e.target.value) })}
                     />
                   </label>
                 </div>

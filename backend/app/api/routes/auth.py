@@ -3,7 +3,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user, resolve_refresh_principal
 from app.core.db import get_db
 from app.core.phone import normalize_phone
 from app.core.ratelimit import rate_limiter
@@ -149,23 +149,27 @@ def otp_verify(data: OtpVerifyIn, db: Session = Depends(get_db)):
 
 @router.post("/refresh", response_model=TokenOut)
 def refresh_token(data: RefreshTokenIn, db: Session = Depends(get_db)):
+    """Barcha rollar uchun: mijoz, do'kon xodimi, kuryer, tadbirkor, platforma."""
     payload = verify_refresh_token(data.refresh_token)
     if not payload or "sub" not in payload:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Yaroqsiz yoki muddati o'tgan refresh token")
 
     try:
-        user_id = int(payload["sub"])
+        sub_id = int(payload["sub"])
     except (ValueError, TypeError):
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Yaroqsiz token subyekti")
 
-    user = db.get(User, user_id)
-    if not user or user.is_blocked:
+    role = payload.get("role", "user")
+    principal = resolve_refresh_principal(db, role, sub_id)
+    if principal is None:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Foydalanuvchi topilmadi yoki bloklangan")
 
-    role = payload.get("role", "user")
-    new_access_token = create_access_token(subject=str(user.id), role=role)
-    new_refresh_token = create_refresh_token(subject=str(user.id), role=role)
-    return TokenOut(access_token=new_access_token, refresh_token=new_refresh_token)
+    # AdminUser roli o'zgargan bo'lishi mumkin — yangi token yangi rol bilan.
+    current_role = getattr(getattr(principal, "role", None), "value", role)
+    return TokenOut(
+        access_token=create_access_token(subject=str(sub_id), role=current_role),
+        refresh_token=create_refresh_token(subject=str(sub_id), role=current_role),
+    )
 
 
 @router.post("/fcm-token")

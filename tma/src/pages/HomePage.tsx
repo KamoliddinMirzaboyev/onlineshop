@@ -1,4 +1,4 @@
-import { Bell, ChevronRight } from "lucide-react";
+import { Bell, ChevronRight, MapPin } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import type { Category } from "../api/types";
 import CartPill from "../components/CartPill";
@@ -55,7 +55,8 @@ function CategoryImage({
 export default function HomePage() {
   const { t, lang } = useI18n();
   const nav = useNavigate();
-  const { store, loading, error, needsLocation, locationIssue, reload } = useStore();
+  const { store, loading, error, outOfZone, needsLocation, locationIssue, reload } =
+    useStore();
 
   const open = (c: Category) => {
     haptic("light");
@@ -96,6 +97,14 @@ export default function HomePage() {
       />
 
       <div className="px-3 pb-4 pt-4">
+        {/* Hudud tashqarisida katalog ochiq qoladi, lekin mijoz savatni
+            to'ldirishdan oldin bilsin — rad javobi checkout'da kutmasin. */}
+        {outOfZone && (
+          <div className="mb-4 flex items-start gap-2.5 rounded-2xl border border-amber-200 bg-amber-50 px-3.5 py-3">
+            <MapPin size={16} className="mt-0.5 shrink-0 text-amber-600" />
+            <p className="text-xs leading-relaxed text-amber-900">{t.out_of_zone_banner}</p>
+          </div>
+        )}
         {needsLocation ? (
           <LocationNeeded issue={locationIssue} onRetry={reload} />
         ) : error ? (

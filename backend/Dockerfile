@@ -11,6 +11,14 @@ RUN pip install -r requirements.txt
 
 COPY . .
 
+# Root'da ishlamaymiz: konteynerdan chiqib ketish xatosi bo'lsa ham host'da
+# root huquqi bo'lmasin. uploads/ — compose'dan mount qilinadi, shuning uchun
+# egalikni oldindan beramiz.
+RUN useradd --system --uid 10001 --create-home app \
+    && mkdir -p /app/uploads \
+    && chown -R app:app /app
+USER app
+
 EXPOSE 8000
 
 # WEB_CONCURRENCY: gunicorn worker (process) soni — har biri o'z DB pool'i va

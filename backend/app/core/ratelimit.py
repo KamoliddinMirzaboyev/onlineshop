@@ -1,12 +1,36 @@
 """Oddiy Redis asosidagi rate limiter (login brute-force'ga qarshi).
 
 Redis ishlamasa — fail-open (loginni bloklamaymiz), chunki to'xtab qolish
-xavfsizlikdan ko'ra ko'proq zarar keltiradi.
+xavfsizlikdan ko'ra ko'proq zarar keltiradi. LEKIN bu holat jim o'tmasligi
+kerak: Redis o'chgan paytda brute-force himoyasi umuman yo'q, shuning uchun
+har safar (bir daqiqada bir marta) ERROR darajasida yoziladi.
 """
+
+import logging
+import time
 
 from fastapi import HTTPException, Request, status
 
 from app.core.redis import redis_client
+
+logger = logging.getLogger(__name__)
+
+# Redis o'chganda har so'rovda log yozib jurnalni to'ldirmaymiz.
+_DEGRADED_LOG_INTERVAL_S = 60.0
+_last_degraded_log = 0.0
+
+
+def _log_degraded(prefix: str, exc: Exception) -> None:
+    global _last_degraded_log
+    now = time.monotonic()
+    if now - _last_degraded_log < _DEGRADED_LOG_INTERVAL_S:
+        return
+    _last_degraded_log = now
+    logger.error(
+        "RATE LIMIT O'CHIQ: Redis javob bermadi (%s) — '%s' uchun brute-force "
+        "himoyasi ishlamayapti: %s",
+        type(exc).__name__, prefix, exc,
+    )
 
 
 def _client_ip(request: Request) -> str:
@@ -39,8 +63,9 @@ def rate_limiter(prefix: str, limit: int, window_seconds: int):
             count = redis_client.incr(key)
             if count == 1:
                 redis_client.expire(key, window_seconds)
-        except Exception:
-            return  # Redis yo'q — fail-open
+        except Exception as exc:  # noqa: BLE001 — Redis yo'q, fail-open
+            _log_degraded(prefix, exc)
+            return
         from typing import cast
 
         if cast(int, count) > limit:

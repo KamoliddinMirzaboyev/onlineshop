@@ -36,7 +36,7 @@ export default function SettingsPage() {
     get<Restaurant>("/admin/store")
       .then((s) => {
         setName(s.name ?? "");
-        setMinOrder(s.min_order > 0 ? s.min_order : 50_000);
+        setMinOrder(s.free_delivery_from > 0 ? s.free_delivery_from : 50_000);
         setDeliveryPerKm(s.delivery_fee > 0 ? s.delivery_fee : 2_000);
         setPhone1(s.phones?.[0] ?? "");
         setPhone2(s.phones?.[1] ?? "");
@@ -61,10 +61,10 @@ export default function SettingsPage() {
     try {
       const updated = await put<Restaurant>("/admin/store", {
         name: name || "Do'kon",
-        min_order: freeFrom,
+        free_delivery_from: freeFrom,
         delivery_fee: perKm,
       });
-      setMinOrder(updated.min_order > 0 ? updated.min_order : 50_000);
+      setMinOrder(updated.free_delivery_from > 0 ? updated.free_delivery_from : 50_000);
       setDeliveryPerKm(updated.delivery_fee > 0 ? updated.delivery_fee : 2_000);
       toast.success("Sozlamalar saqlandi");
     } catch {

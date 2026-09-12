@@ -4,7 +4,8 @@ import json
 from datetime import datetime, timedelta, timezone
 from urllib.parse import parse_qsl
 
-from jose import JWTError, jwt
+import jwt
+from jwt import InvalidTokenError
 from passlib.context import CryptContext
 
 from app.core.config import settings
@@ -56,7 +57,7 @@ def create_access_token(
 def decode_token(token: str) -> dict | None:
     try:
         return jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
-    except JWTError:
+    except InvalidTokenError:
         return None
 
 

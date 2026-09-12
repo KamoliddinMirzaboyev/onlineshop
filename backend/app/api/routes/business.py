@@ -65,7 +65,7 @@ def create_store(
         name=data.name,
         business_id=business.id,
         delivery_fee=2000,
-        min_order=50_000,
+        free_delivery_from=50_000,
     )
     db.add(store)
     db.flush()  # store.id kerak
@@ -92,7 +92,7 @@ def update_store(
 ):
     store = _own_store(rid, business, db)
     # exclude_unset: frontend yubormagan maydonlar (masalan faqat {name}) schema
-    # default'lari (delivery_fee=2000, min_order=50000, is_active=True, ...) bilan
+    # default'lari (delivery_fee=2000, free_delivery_from=50000, is_active=True, ...) bilan
     # qayta yozilib ketmasin — admin.update_store bilan bir xil pattern.
     for k, v in data.model_dump(exclude_unset=True).items():
         setattr(store, k, v)

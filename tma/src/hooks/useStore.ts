@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   api,
   getLastLocationIssue,
+  isOutOfDeliveryZone,
   LocationIssue,
   retryCoordsIfPreviouslyFailed,
 } from "../api/client";
@@ -14,6 +15,8 @@ import type { RestaurantDetail } from "../api/types";
 type Snapshot = {
   store: RestaurantDetail | null;
   error: boolean;
+  /** Joylashuv aniqlandi, lekin hech bir do'kon hududi qamramaydi. */
+  outOfZone: boolean;
   needsLocation: boolean;
   locationIssue: LocationIssue | null;
 };
@@ -38,12 +41,14 @@ async function fetchStore(force = false, forceCoords = false): Promise<Snapshot>
     const next: Snapshot = {
       store: null,
       error: false,
+      outOfZone: false,
       needsLocation: false,
       locationIssue: null,
     };
     try {
       next.store = await api.store({ forceCoords });
       next.locationIssue = getLastLocationIssue();
+      next.outOfZone = isOutOfDeliveryZone();
     } catch (e) {
       next.error = true;
     }
@@ -67,6 +72,7 @@ export function useStore() {
       cache ?? {
         store: null,
         error: false,
+        outOfZone: false,
         needsLocation: false,
         locationIssue: null,
       },
@@ -182,6 +188,7 @@ export function useStore() {
     store: snap.store,
     loading,
     error: snap.error,
+    outOfZone: snap.outOfZone,
     // Katalog endi joylashuvsiz ham ochiladi — soft banner kerak emas.
     needsLocation: false as boolean,
     locationIssue: snap.locationIssue,

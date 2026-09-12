@@ -108,6 +108,14 @@ export function getLastLocationIssue(): LocationIssue | null {
   return lastLocationIssue;
 }
 
+// Katalog hudud tashqarisida ham ochiladi (buyurtma berishda tekshiriladi),
+// lekin mijoz buni savatni to'ldirishdan OLDIN bilishi kerak.
+let outOfDeliveryZone = false;
+
+export function isOutOfDeliveryZone(): boolean {
+  return outOfDeliveryZone;
+}
+
 export function hasLocationPermissionHint(): boolean {
   return isTelegramLocationGranted();
 }
@@ -610,6 +618,7 @@ export const api = {
     const loadDefault = () => req<RestaurantDetail>("/restaurants/default");
 
     const coords = await getCoords(!!opts?.forceCoords);
+    outOfDeliveryZone = false;
     if (coords) {
       try {
         return await req<RestaurantDetail>(
@@ -617,7 +626,10 @@ export const api = {
         );
       } catch (e) {
         // Hudud tashqarisi ham, tarmoq xatosi ham — katalog ochiq qoladi.
-        // Zona tekshiruvi buyurtma berishda (POST /orders) bo'ladi.
+        // Zona tekshiruvi buyurtma berishda (POST /orders) bo'ladi; bu yerda
+        // faqat mijozga ogohlantirish ko'rsatish uchun belgilab qo'yamiz.
+        outOfDeliveryZone =
+          e instanceof Error && e.message.includes("OUT_OF_RANGE");
         try {
           return await loadDefault();
         } catch {

@@ -54,9 +54,13 @@ def test_delivery_zone_requires_restaurant_id(db_session, tenant_a):
         db_session.commit()
 
 
-def test_courier_requires_restaurant_id(db_session, tenant_a):
-    from app.models import Courier
+def test_courier_account_requires_restaurant_id(db_session, tenant_a):
+    from app.core.security import hash_password
+    from app.models import AdminUser
+    from app.models.enums import AdminRole
 
-    db_session.add(Courier(name="Kuryer"))
+    db_session.add(AdminUser(
+        username="kuryer", hashed_password=hash_password("pw"), role=AdminRole.courier,
+    ))
     with pytest.raises(IntegrityError):
         db_session.commit()

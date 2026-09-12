@@ -29,9 +29,13 @@ class Restaurant(Base):
     lat: Mapped[float | None] = mapped_column(Float)
     lng: Mapped[float | None] = mapped_column(Float)
     rating: Mapped[float] = mapped_column(Float, default=0.0)
-    # delivery_fee — km uchun yetkazish (soʻm/km); min_order — bepul yetkazish chegarasi (soʻm).
+    # delivery_fee — km uchun yetkazish (soʻm/km).
     delivery_fee: Mapped[int] = mapped_column(Integer, default=2000)
-    min_order: Mapped[int] = mapped_column(Integer, default=50_000)
+    # Bepul yetkazish chegarasi (soʻm). Avval `min_order` deb nomlangan edi —
+    # nomi "minimal buyurtma" degan ma'noni berib, mijoz ilovasida shu summadan
+    # kam savatni bloklaydigan bug keltirib chiqargan. Wire nomi (JSON) hozircha
+    # `min_order` bo'lib ham qoladi (eski APK'lar uchun), sxemada ikkalasi ham bor.
+    free_delivery_from: Mapped[int] = mapped_column(Integer, default=50_000)
     avg_delivery_minutes: Mapped[int] = mapped_column(Integer, default=40)
     is_open: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

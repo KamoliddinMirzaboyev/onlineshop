@@ -206,7 +206,9 @@ class RestaurantDetail {
   final List<CategoryGroup> categoryGroups;
   final List<BannerItem> banners;
   final int deliveryFee;
-  final int minOrder;
+  /// Bepul yetkazish chegarasi (so'm). Server maydoni: `free_delivery_from`
+  /// (eski nomi `min_order` — chiqarilgan versiyalar uchun hali yuboriladi).
+  final int freeDeliveryFrom;
   final int avgDeliveryMinutes;
   final bool isOpen;
 
@@ -215,7 +217,7 @@ class RestaurantDetail {
     required this.phones, required this.socials, required this.categories,
     required this.categoryGroups, this.banners = const [],
     required this.deliveryFee,
-    required this.minOrder, required this.avgDeliveryMinutes,
+    required this.freeDeliveryFrom, required this.avgDeliveryMinutes,
     this.isOpen = true,
   });
 
@@ -228,7 +230,7 @@ class RestaurantDetail {
     banners: (json['banners'] as List?)?.map((e) => BannerItem.fromJson(e)).toList() ?? [],
     isOpen: json['is_open'] ?? true,
     deliveryFee: _toInt(json['delivery_fee']),
-    minOrder: _toInt(json['min_order']),
+    freeDeliveryFrom: _toInt(json['free_delivery_from'] ?? json['min_order']),
     avgDeliveryMinutes: _toInt(json['avg_delivery_minutes']),
   );
 
@@ -243,7 +245,7 @@ class RestaurantDetail {
     'banners': banners.map((e) => e.toJson()).toList(),
     'is_open': isOpen,
     'delivery_fee': deliveryFee,
-    'min_order': minOrder,
+    'free_delivery_from': freeDeliveryFrom,
     'avg_delivery_minutes': avgDeliveryMinutes,
   };
 }

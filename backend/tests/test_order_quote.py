@@ -1,6 +1,6 @@
 """POST /api/orders/quote — ilova ko'rsatadigan summa serverniki bilan bir xil.
 
-Mijoz ilovasi avval yetkazish haqini o'zi hisoblardi (min_order'ni "minimal
+Mijoz ilovasi avval yetkazish haqini o'zi hisoblardi (free_delivery_from'ni "minimal
 buyurtma", delivery_fee'ni qat'iy narx deb) — ekrandagi va yozilgan summa
 farq qilardi. Endi yagona manba shu endpoint.
 """
@@ -37,7 +37,7 @@ def _set_pricing(db_session, tenant, *, free_from: int, per_km: int, lat=41.3, l
     from app.models import Restaurant
 
     store = db_session.get(Restaurant, tenant.restaurant_id)
-    store.min_order = free_from      # bepul yetkazish chegarasi
+    store.free_delivery_from = free_from
     store.delivery_fee = per_km      # 1 km narxi
     store.lat, store.lng = lat, lng
     db_session.commit()

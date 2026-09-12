@@ -316,6 +316,37 @@ class _HomePageState extends State<HomePage> {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
         children: [
+          // Hudud tashqarisida katalog ochiq qoladi, lekin mijoz savatni
+          // to'ldirishdan oldin bilsin — rad javobi checkout'da kutmasin.
+          if (storeProvider.outOfZone) ...[
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFFBEB),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFFFDE68A)),
+              ),
+              child: const Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.location_off_rounded, size: 20, color: Color(0xFFB45309)),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Sizning hududingizga hozircha yetkazib bermaymiz — '
+                      'katalogni ko\'rishingiz mumkin, lekin buyurtma qabul qilinmaydi.',
+                      style: TextStyle(
+                        color: Color(0xFF92400E), fontSize: 12.5, height: 1.45,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+
           // Bannerlar slayderi
           _buildBanners(storeProvider),
           const SizedBox(height: 20),

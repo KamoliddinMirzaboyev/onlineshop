@@ -11,6 +11,8 @@ const dict = {
     categories: "Kategoriyalar",
     no_categories: "Kategoriyalar hali yo'q",
     out_of_range: "Uzr, biz hozircha sizning hududingizga mahsulotlarni yetkazib berolmaymiz",
+    out_of_zone_banner:
+      "Sizning hududingizga hozircha yetkazib bermaymiz — katalogni ko'rishingiz mumkin, lekin buyurtma qabul qilinmaydi.",
     location_needed: "Sizga yaqin do'konni topish uchun joylashuvingiz kerak",
     grant_location: "Ruxsat berish",
     location_off: "Telefoningizda joylashuv (GPS) o'chiq. Sozlamalardan yoqing — qaytib kelganingizda avtomatik aniqlanadi",
@@ -99,6 +101,8 @@ const dict = {
     categories: "Категории",
     no_categories: "Категорий пока нет",
     out_of_range: "Извините, пока мы не доставляем в ваш регион",
+    out_of_zone_banner:
+      "В ваш район мы пока не доставляем — каталог доступен, но заказ оформить нельзя.",
     location_needed: "Чтобы найти ближайший магазин, нужна ваша геолокация",
     grant_location: "Разрешить доступ",
     location_off: "На телефоне выключена геолокация (GPS). Включите в настройках — после возврата определится автоматически",

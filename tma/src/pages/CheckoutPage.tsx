@@ -233,7 +233,8 @@ export default function CheckoutPage() {
 
   const lines = Object.values(cart.lines);
   const itemsTotal = cart.total();
-  const freeFrom = store && store.min_order > 0 ? store.min_order : DEFAULT_FREE_FROM;
+  const freeFrom =
+    store && store.free_delivery_from > 0 ? store.free_delivery_from : DEFAULT_FREE_FROM;
   const perKm = store && store.delivery_fee > 0 ? store.delivery_fee : DEFAULT_PER_KM;
 
   const deliveryFee = useMemo(() => {

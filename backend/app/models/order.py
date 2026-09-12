@@ -37,9 +37,8 @@ class DeliveryZone(Base):
     fee: Mapped[int] = mapped_column(Integer, default=0)
     min_order: Mapped[int] = mapped_column(Integer, default=0)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-    # simplified polygon: JSON list of [lat,lng]; kept as text for portability
-    polygon: Mapped[str | None] = mapped_column(Text)
     # Circle zone: markaz + radius (km). Order shu doira ichida bo'lsa qabul qilinadi.
+    # (Poligon zona hech qachon amalga oshirilmagan — `polygon` ustuni olib tashlandi.)
     center_lat: Mapped[float | None] = mapped_column(Float)
     center_lng: Mapped[float | None] = mapped_column(Float)
     radius_km: Mapped[float | None] = mapped_column(Float)

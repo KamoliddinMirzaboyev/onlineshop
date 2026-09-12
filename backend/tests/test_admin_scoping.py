@@ -179,22 +179,31 @@ def test_businessman_blocked_from_delivery_zone(client, tenant_a):
     assert resp.status_code == 401
 
 
-def test_businessman_blocked_from_couriers(client, tenant_a):
+def test_businessman_blocked_from_courier_accounts(client, tenant_a):
+    """Kuryer akkauntlari ro'yxati — faqat do'kon xodimi (require_staff)."""
     resp = client.get(
-        f"/api/admin/couriers?restaurant_id={tenant_a.restaurant_id}",
+        f"/api/admin/courier-accounts?restaurant_id={tenant_a.restaurant_id}",
         headers=auth(tenant_a.business_token),
     )
     assert resp.status_code == 401
 
 
-def test_staff_courier_list_is_scoped(client, db_session, tenant_a, tenant_b):
-    from app.models import Courier
+def test_staff_courier_accounts_are_scoped(client, db_session, tenant_a, tenant_b):
+    from app.core.security import hash_password
+    from app.models import AdminUser
+    from app.models.enums import AdminRole
 
-    db_session.add(Courier(name="A kuryer", restaurant_id=tenant_a.restaurant_id))
-    db_session.add(Courier(name="B kuryer", restaurant_id=tenant_b.restaurant_id))
+    db_session.add(AdminUser(
+        username="kuryer_a", name="A kuryer", hashed_password=hash_password("pw"),
+        role=AdminRole.courier, restaurant_id=tenant_a.restaurant_id,
+    ))
+    db_session.add(AdminUser(
+        username="kuryer_b", name="B kuryer", hashed_password=hash_password("pw"),
+        role=AdminRole.courier, restaurant_id=tenant_b.restaurant_id,
+    ))
     db_session.commit()
 
-    resp = client.get("/api/admin/couriers", headers=auth(tenant_a.staff_token))
+    resp = client.get("/api/admin/courier-accounts", headers=auth(tenant_a.staff_token))
     assert resp.status_code == 200
     assert [c["name"] for c in resp.json()] == ["A kuryer"]
 

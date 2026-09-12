@@ -26,7 +26,7 @@ def seed() -> None:
             restaurant = Restaurant(
                 name=DEFAULT_STORE_NAME,
                 is_active=True, is_open=True,
-                delivery_fee=2000, min_order=50_000,
+                delivery_fee=2000, free_delivery_from=50_000,
                 business_id=business.id,
             )
             db.add(restaurant)

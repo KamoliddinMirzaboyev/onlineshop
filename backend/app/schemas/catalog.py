@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, computed_field
 
 
 class ProductOut(BaseModel):
@@ -78,10 +78,17 @@ class RestaurantOut(BaseModel):
     is_open: bool
     rating: float
     delivery_fee: int
-    min_order: int
+    free_delivery_from: int
     avg_delivery_minutes: int
 
     model_config = ConfigDict(from_attributes=True)
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def min_order(self) -> int:
+        """Eski nom — chiqarilgan APK'lar shu kalitni o'qiydi. Yangi mijozlar
+        `free_delivery_from`dan foydalanadi; bu maydon keyinroq olib tashlanadi."""
+        return self.free_delivery_from
 
 
 class StoreSettingsIn(BaseModel):
@@ -97,9 +104,14 @@ class StoreSettingsIn(BaseModel):
     socials: dict[str, str] = {}
     lat: float | None = None
     lng: float | None = None
-    # Yetkazish: min_order = bepul chegara (so'm); delivery_fee = so'm/km.
-    min_order: int = 50_000
+    # Yetkazish: free_delivery_from = bepul chegara (so'm); delivery_fee = so'm/km.
+    # Eski `min_order` nomi ham qabul qilinadi (chiqarilgan panel versiyalari).
+    free_delivery_from: int = Field(
+        50_000, validation_alias=AliasChoices("free_delivery_from", "min_order")
+    )
     delivery_fee: int = 2_000
+
+    model_config = ConfigDict(populate_by_name=True)
 
 
 from app.schemas.banner import BannerOut
@@ -123,8 +135,12 @@ class RestaurantIn(BaseModel):
     is_active: bool = True
     is_open: bool = True
     delivery_fee: int = 2000   # so'm/km
-    min_order: int = 50_000    # bepul yetkazish chegarasi
+    free_delivery_from: int = Field(
+        50_000, validation_alias=AliasChoices("free_delivery_from", "min_order")
+    )
     avg_delivery_minutes: int = 40
+
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class CategoryIn(BaseModel):

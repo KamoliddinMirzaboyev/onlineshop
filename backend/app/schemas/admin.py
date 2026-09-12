@@ -10,8 +10,7 @@ class DeliveryZoneIn(BaseModel):
     fee: int = 0
     min_order: int = 0
     is_active: bool = True
-    polygon: str | None = None
-    # Circle zona: markaz + radius (km).
+    # Circle zona: markaz + radius (km). Poligon qo'llab-quvvatlanmaydi.
     center_lat: float | None = None
     center_lng: float | None = None
     radius_km: float | None = None

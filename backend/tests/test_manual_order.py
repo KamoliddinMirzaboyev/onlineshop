@@ -18,7 +18,7 @@ def _product(db_session, tenant, *, price=12_000, stock=10.0, available=True):
     return p
 
 
-def test_manual_order_creates_pending_courier_visible(client, db_session, tenant_a):
+def test_manual_order_pending_and_visible_after_assign(client, db_session, tenant_a):
     from app.models import Order, User
 
     p = _product(db_session, tenant_a, price=10_000, stock=5)
@@ -64,6 +64,24 @@ def test_manual_order_creates_pending_courier_visible(client, db_session, tenant
     db_session.add(courier)
     db_session.commit()
     ctok = create_access_token(subject=str(courier.id), role=AdminRole.courier.value)
+
+    # Biriktirilmagan buyurtma hech bir kuryerga ko'rinmaydi.
+    seen = client.get("/api/courier/orders", headers=auth(ctok)).json()
+    assert body["id"] not in [o["id"] for o in seen]
+
+    # Admin qabul qilib kuryer biriktirgach — o'sha kuryerga ko'rinadi.
+    confirmed = client.patch(
+        f"/api/admin/orders/{body['id']}",
+        json={"status": "confirmed"},
+        headers=auth(tenant_a.staff_token),
+    )
+    assert confirmed.status_code == 200, confirmed.text
+    assigned = client.post(
+        f"/api/admin/orders/{body['id']}/assign",
+        json={"assigned_courier_id": courier.id},
+        headers=auth(tenant_a.staff_token),
+    )
+    assert assigned.status_code == 200, assigned.text
     seen = client.get("/api/courier/orders", headers=auth(ctok)).json()
     assert body["id"] in [o["id"] for o in seen]
 

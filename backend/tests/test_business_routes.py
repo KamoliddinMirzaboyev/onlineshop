@@ -71,16 +71,28 @@ def test_business_cannot_update_other_store(client, tenant_a, tenant_b):
     assert resp.status_code == 404
 
 
-def test_store_with_orders_cannot_be_deleted(client, db_session, tenant_a):
+def test_store_with_orders_is_archived_not_deleted(client, db_session, tenant_a):
+    """Buyurtma tarixi bor do'kon o'chirilmaydi — nofaol qilinadi (tarix saqlanadi)."""
+    from app.models import Restaurant
+
     make_order(db_session, tenant_a, total=5_000)
     resp = client.delete(
         f"/api/business/stores/{tenant_a.restaurant_id}",
         headers=auth(tenant_a.business_token),
     )
-    assert resp.status_code == 409
+    assert resp.status_code == 200
+    assert resp.json() == {"archived": True}
+
+    store = db_session.get(Restaurant, tenant_a.restaurant_id)
+    db_session.refresh(store)
+    assert store is not None
+    assert store.is_active is False
+    assert store.is_open is False
 
 
-def test_empty_store_can_be_deleted(client, tenant_a):
+def test_empty_store_can_be_deleted(client, db_session, tenant_a):
+    from app.models import Restaurant
+
     created = client.post(
         "/api/business/stores",
         json=_store_payload("Bo'sh do'kon", "empty_store_admin"),
@@ -89,7 +101,9 @@ def test_empty_store_can_be_deleted(client, tenant_a):
     resp = client.delete(
         f"/api/business/stores/{created['id']}", headers=auth(tenant_a.business_token)
     )
-    assert resp.status_code == 204
+    assert resp.status_code == 200
+    assert resp.json() == {"archived": False}
+    assert db_session.get(Restaurant, created["id"]) is None
 
 
 def test_business_stats_breaks_down_by_store(client, db_session, tenant_a, tenant_b):

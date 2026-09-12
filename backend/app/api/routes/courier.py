@@ -133,14 +133,14 @@ async def courier_stream(
     Kuryer faqat o'z restoraniga tegishli eventlarni oladi.
     """
     async def event_generator():
-        ps = courier_events.subscribe()
-        loop = asyncio.get_event_loop()
+        # Async Pub/Sub: avval sinxron klient thread pool'da kutilardi va har
+        # ochiq oqim bitta thread band qilardi (standart executor ~32 ta) —
+        # kuryerlar soni oshganda yangi oqimlar ochilmay qolardi.
+        ps = await courier_events.subscribe_async()
         try:
             while True:
-                # Redis PubSub — blocking, thread pool'da o'qiymiz.
-                # run_in_executor kwarg qabul qilmaydi — lambda bilan o'raymiz.
-                msg = await loop.run_in_executor(
-                    None, lambda: ps.get_message(timeout=30.0)
+                msg = await ps.get_message(
+                    ignore_subscribe_messages=True, timeout=30.0
                 )
                 if msg and msg["type"] == "message":
                     data = json.loads(msg["data"])
@@ -154,7 +154,7 @@ async def courier_stream(
         except asyncio.CancelledError:
             pass
         finally:
-            courier_events.unsubscribe(ps)
+            await courier_events.unsubscribe_async(ps)
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
@@ -291,7 +291,7 @@ def courier_adjust_order(
         order.delivery_fee = calc_delivery_fee(
             order.items_total,
             order.distance_km,
-            free_from=restaurant.min_order,
+            free_from=restaurant.free_delivery_from,
             per_km=restaurant.delivery_fee,
         )
     order.total = order.items_total + order.delivery_fee

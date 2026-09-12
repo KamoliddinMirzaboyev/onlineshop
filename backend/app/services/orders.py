@@ -1,3 +1,4 @@
+import logging
 import secrets
 from collections import defaultdict
 from math import ceil
@@ -9,17 +10,21 @@ from sqlalchemy.orm import Session, selectinload
 
 from sqlalchemy import select
 
+from app.core.db import SessionLocal
 from app.core.phone import normalize_phone
 from app.models import Address, DeliveryZone, Order, OrderItem, Product, Restaurant, User
 from app.models.enums import OrderStatus, PaymentMethod, PaymentStatus
 from app.schemas.order import OrderCreateIn
 from app.services.geo import (
+    cached_reverse_geocode,
     distance_to_user,
     is_weak_address_line,
     is_within_zone,
     reverse_geocode,
     zone_is_configured,
 )
+
+logger = logging.getLogger(__name__)
 
 # Default: 50 000 so'mdan bepul yetkazish; undan kam — har km ga 2 000 so'm.
 DEFAULT_FREE_DELIVERY_FROM = 50_000
@@ -196,10 +201,10 @@ def quote_order(
     delivery_fee = calc_delivery_fee(
         items_total,
         distance_km,
-        free_from=restaurant.min_order,
+        free_from=restaurant.free_delivery_from,
         per_km=restaurant.delivery_fee,
     )
-    free_from = restaurant.min_order if restaurant.min_order > 0 else DEFAULT_FREE_DELIVERY_FROM
+    free_from = restaurant.free_delivery_from if restaurant.free_delivery_from > 0 else DEFAULT_FREE_DELIVERY_FROM
     # Bepul chegaradan o'tgan bo'lsa haq 0 — koordinatasiz ham aniq.
     # Aks holda masofa kerak: koordinata yo'q bo'lsa summa taxminiy.
     fee_known = items_total >= free_from or distance_km is not None
@@ -241,16 +246,18 @@ def create_order(db: Session, user: User, data: OrderCreateIn) -> Order:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "Address not found")
         address_line, lat, lng = addr.address_line, addr.lat, addr.lng
         address_line = (address_line or "").strip() or None
-    if lat is not None and lng is not None:
-        # Zaif/koordinata-only matn yoki bo'sh — server multi-source geocode
-        if is_weak_address_line(address_line):
-            geo_line = reverse_geocode(lat, lng)
-            if geo_line:
-                address_line = geo_line
-            elif not address_line:
-                address_line = f"📍 {lat:.5f}, {lng:.5f}"
-        # Foydalanuvchi matn yozgan, lekin geocode yaxshiroq mahalla/ko'cha bersa —
-        # faqat zaif bo'lsa almashtiramiz (yuqorida). Aniq matn saqlanadi.
+    if lat is not None and lng is not None and is_weak_address_line(address_line):
+        # Zaif/koordinata-only matn — serverda aniqlashtiramiz. TASHQI SO'ROV
+        # BU YERDA QILINMAYDI: 3 ta geocode manbasi eng yomon holatda ~16 soniya
+        # oladi va mijoz shuncha kutardi. Keshda tayyor javob bo'lsa darhol
+        # olamiz, bo'lmasa koordinata yoziladi va `refine_order_address()`
+        # fonda (BackgroundTasks) aniq manzilga almashtiradi.
+        cached_line = cached_reverse_geocode(lat, lng)
+        if cached_line:
+            address_line = cached_line
+        elif not address_line:
+            address_line = f"📍 {lat:.5f}, {lng:.5f}"
+    # Foydalanuvchi matn yozgan bo'lsa (zaif emas) — aniq matn saqlanadi.
     if not address_line:
         if lat is None or lng is None:
             raise HTTPException(
@@ -294,7 +301,6 @@ def create_order(db: Session, user: User, data: OrderCreateIn) -> Order:
 
     items_total = 0
     order_items: list[OrderItem] = []
-    reserved: list[tuple[int, float]] = []
 
     try:
         for product_id, qty in qty_by_product.items():
@@ -308,7 +314,6 @@ def create_order(db: Session, user: User, data: OrderCreateIn) -> Order:
                     f"'{name}' hozir sotuvda yo'q — savatdan olib tashlang",
                 )
             reserve_stock_atomic(db, product_id, qty, product_name=product.name_uz)
-            reserved.append((product_id, qty))
 
             line = product.price * qty
             items_total += int(round(line))
@@ -330,7 +335,7 @@ def create_order(db: Session, user: User, data: OrderCreateIn) -> Order:
         delivery_fee = calc_delivery_fee(
             items_total,
             distance_km,
-            free_from=restaurant.min_order,
+            free_from=restaurant.free_delivery_from,
             per_km=restaurant.delivery_fee,
         )
 
@@ -371,13 +376,11 @@ def create_order(db: Session, user: User, data: OrderCreateIn) -> Order:
                 db.commit()
             except IntegrityError:
                 db.rollback()
-                # Stock reserved before commit was rolled back — re-reserve.
-                reserved.clear()
+                # Rollback zaxirani ham bekor qildi — qaytadan band qilamiz.
                 for product_id, qty in qty_by_product.items():
                     product = db.get(Product, product_id)
                     name = product.name_uz if product else str(product_id)
                     reserve_stock_atomic(db, product_id, qty, product_name=name)
-                    reserved.append((product_id, qty))
                 continue
             db.refresh(order)
             return order
@@ -385,14 +388,15 @@ def create_order(db: Session, user: User, data: OrderCreateIn) -> Order:
         raise HTTPException(
             status.HTTP_503_SERVICE_UNAVAILABLE, "Could not generate order number"
         )
-    except HTTPException:
-        # Zaxirani qaytarish (xato yoki raqam generatsiyasi muvaffaqiyatsiz).
-        for product_id, qty in reserved:
-            restore_stock_atomic(db, product_id, qty)
+    except BaseException:
+        # Zaxira hali commit qilinmagan (yagona commit — buyurtma yaratilganda),
+        # shuning uchun rollback uni to'liq bekor qiladi. Avval bu yerda faqat
+        # HTTPException ushlanardi: DB uzilishi yoki boshqa kutilmagan xatoda
+        # sessiya ochiq qolib ketardi. Endi har qanday xatoda tozalanadi.
         try:
-            db.commit()
-        except Exception:  # noqa: BLE001
             db.rollback()
+        except Exception:  # noqa: BLE001 — asl xato muhimroq
+            logger.exception("Buyurtma xatosidan keyin rollback ishlamadi")
         raise
 
 
@@ -439,7 +443,6 @@ def create_manual_order(
 
     items_total = 0
     order_items: list[OrderItem] = []
-    reserved: list[tuple[int, float]] = []
     try:
         for product_id, qty in qty_by_product.items():
             product = db.get(Product, product_id)
@@ -453,7 +456,6 @@ def create_manual_order(
                     status.HTTP_400_BAD_REQUEST, f"'{name}' hozir sotuvda yo'q"
                 )
             reserve_stock_atomic(db, product_id, qty, product_name=product.name_uz)
-            reserved.append((product_id, qty))
             items_total += int(round(product.price * qty))
             order_items.append(
                 OrderItem(
@@ -509,14 +511,12 @@ def create_manual_order(
                 db.commit()
             except IntegrityError:
                 db.rollback()
-                reserved.clear()
                 for product_id, qty in qty_by_product.items():
                     p = db.get(Product, product_id)
                     reserve_stock_atomic(
                         db, product_id, qty,
                         product_name=p.name_uz if p else str(product_id),
                     )
-                    reserved.append((product_id, qty))
                 continue
             db.refresh(order)
             return order
@@ -524,13 +524,12 @@ def create_manual_order(
         raise HTTPException(
             status.HTTP_503_SERVICE_UNAVAILABLE, "Could not generate order number"
         )
-    except HTTPException:
-        for product_id, qty in reserved:
-            restore_stock_atomic(db, product_id, qty)
+    except BaseException:
+        # Zaxira commit qilinmagan — rollback uni bekor qiladi (create_order bilan bir xil).
         try:
-            db.commit()
-        except Exception:  # noqa: BLE001
             db.rollback()
+        except Exception:  # noqa: BLE001 — asl xato muhimroq
+            logger.exception("Qo'lda buyurtma xatosidan keyin rollback ishlamadi")
         raise
 
 
@@ -619,7 +618,7 @@ def edit_pending_order(db: Session, order: Order, new_items: list) -> Order:
         order.delivery_fee = calc_delivery_fee(
             items_total,
             order.distance_km,
-            free_from=restaurant.min_order,
+            free_from=restaurant.free_delivery_from,
             per_km=restaurant.delivery_fee,
         )
         order.total = items_total + order.delivery_fee
@@ -678,3 +677,31 @@ def decrement_stock_atomic(db: Session, order: Order) -> None:
     Mavjud chaqiruvlar buzilmasin deb no-op qoldirilgan.
     """
     del db, order
+
+
+def refine_order_address(order_id: int) -> None:
+    """Buyurtma manzilini fonda aniqlashtiradi (BackgroundTasks).
+
+    `create_order` mijozni kutkazmaslik uchun tashqi geocode'ni chaqirmaydi —
+    manzil koordinata ko'rinishida yozilishi mumkin. Bu yerda (javob mijozga
+    ketgandan keyin) haqiqiy mahalla/ko'cha topiladi va yozuv yangilanadi.
+    Kuryer buyurtmani ko'rgunga qadar ulguradi.
+    """
+    with SessionLocal() as db:
+        order = db.get(Order, order_id)
+        if order is None or order.lat is None or order.lng is None:
+            return
+        if not is_weak_address_line(order.address_line):
+            return
+        try:
+            line = reverse_geocode(order.lat, order.lng)
+        except Exception:  # noqa: BLE001 — manzil aniqlanmasa buyurtma buzilmaydi
+            logger.exception("Manzilni aniqlashtirib bo'lmadi: order=%s", order_id)
+            return
+        if not line:
+            return
+        # Oraliqda kuryer/admin manzilni qo'lda yozgan bo'lishi mumkin.
+        db.refresh(order)
+        if is_weak_address_line(order.address_line):
+            order.address_line = line
+            db.commit()

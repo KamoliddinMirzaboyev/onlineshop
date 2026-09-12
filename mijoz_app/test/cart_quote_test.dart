@@ -9,6 +9,7 @@ Product _p({
   double stock = 5,
   bool available = true,
   String name = 'Olma',
+  String unit = 'dona',
 }) =>
     Product(
       id: id,
@@ -17,7 +18,7 @@ Product _p({
       nameUz: name,
       nameRu: name,
       price: price,
-      unit: 'kg',
+      unit: unit,
       isAvailable: available,
       stock: stock,
     );
@@ -35,7 +36,7 @@ void main() {
 
     test('qoldiqdan oshirib qo\'shib bo\'lmaydi', () {
       final cart = CartProvider();
-      final p = _p(stock: 2);
+      final p = _p(stock: 2);  // dona — qadam 1
       cart.add(p);
       cart.add(p);
       cart.add(p); // uchinchisi — qoldiqdan tashqari
@@ -153,6 +154,28 @@ void main() {
     });
     expect(p.stock, 2.5);
     expect(p.inStock, isTrue);
-    expect(p.maxQuantity, 2);
+    // kg — bo'linadigan birlik, shuning uchun 2.5 kg to'liq buyurtma qilinadi.
+    expect(p.maxQuantity, 2.5);
+  });
+
+  group('bo\'linadigan birlik (kg)', () {
+    test('qadam 0.5 kg', () {
+      final cart = CartProvider();
+      final p = _p(unit: 'kg', stock: 5);
+      cart.add(p);
+      expect(cart.quantityOf(p.id), 0.5);
+      cart.add(p);
+      expect(cart.quantityOf(p.id), 1.0);
+    });
+
+    test('kg qoldig\'i butunlanmaydi', () {
+      final cart = CartProvider();
+      final p = _p(unit: 'kg', stock: 1.5, price: 10000);
+      for (var i = 0; i < 10; i++) {
+        cart.add(p);
+      }
+      expect(cart.quantityOf(p.id), 1.5, reason: 'qoldiqdan oshmaydi');
+      expect(cart.totalPrice, 15000);
+    });
   });
 }
