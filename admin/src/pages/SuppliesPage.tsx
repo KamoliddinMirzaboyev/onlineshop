@@ -525,15 +525,20 @@ function PhoneOrderModal({
 
         {/* Footer */}
         {step === "catalog" ? (
-          <div className="shrink-0 border-t border-slate-100 p-4 flex items-center gap-3">
-            <div className="flex-1 text-sm">
+          <div className="shrink-0 border-t border-slate-100 p-4 flex flex-wrap items-center justify-between gap-3">
+            <div className="text-sm">
               <span className="font-extrabold">{count}</span>{" "}
               <span className="text-slate-500">mahsulot</span>
               {itemsTotal > 0 && <span className="text-slate-400"> · {money(itemsTotal)} so'm</span>}
             </div>
-            <button className="btn" disabled={!lines.length} onClick={() => setStep("customer")}>
-              Davom etish
-            </button>
+            <div className="flex gap-2">
+              <button className="btn-ghost" onClick={() => { setOpenCat(null); setQ(""); }}>
+                Xaridni davom ettirish
+              </button>
+              <button className="btn" disabled={!lines.length} onClick={() => setStep("customer")}>
+                Rasmiylashtirish
+              </button>
+            </div>
           </div>
         ) : (
           <div className="shrink-0 border-t border-slate-100 p-4 flex gap-2 justify-end">
