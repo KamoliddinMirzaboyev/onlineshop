@@ -104,6 +104,13 @@ jobs:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
         with:
+          # Versiya QAT'IY belgilangan: `stable` bilan Flutter yangi
+          # deprecation chiqargan kuni CI qizil bo'lardi, kod esa
+          # o'zgarmagan bo'lardi. Relizlar ham aynan shu SDK bilan
+          # quriladi — CI va dasturchi mashinasi bir xil natija beradi.
+          # Yangilash: shu raqamni o'zgartiring, keyin `flutter analyze`
+          # ni lokal ishga tushirib chiqqan deprecation'larni tuzating.
+          flutter-version: "3.35.5"
           channel: stable
           cache: true
       - run: flutter pub get
