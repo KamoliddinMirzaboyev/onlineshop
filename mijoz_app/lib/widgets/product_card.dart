@@ -14,7 +14,7 @@ class ProductCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final qty = context.select<CartProvider, int>((c) => c.quantityOf(product.id));
+    final qty = context.select<CartProvider, double>((c) => c.quantityOf(product.id));
 
     return Container(
       decoration: BoxDecoration(
@@ -158,7 +158,7 @@ class ProductCard extends StatelessWidget {
                   // buyurtma checkout'da server tomonidan rad etilardi.
                   if (!product.inStock)
                     Container(
-                      height: 30,
+                      height: 34,
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
                         color: const Color(0xFFF1F5F9),
@@ -206,7 +206,7 @@ class _CartPillButtonState extends State<_CartPillButton> {
         scale: _scale,
         duration: const Duration(milliseconds: 100),
         child: Container(
-          height: 30,
+          height: 34,
           alignment: Alignment.center,
           decoration: BoxDecoration(
             color: Colors.white,
@@ -234,60 +234,72 @@ class _CartPillButtonState extends State<_CartPillButton> {
   }
 }
 
-/// Savatga qo'shilganda paydo bo'ladigan ixcham stepper
+/// Savatga qo'shilganda paydo bo'ladigan stepper — +/- butunlay
+/// bosiladigan zona balandligi 34px (avval ~22px edi, barmoq uchun kichik).
 class _MiniStepper extends StatelessWidget {
   const _MiniStepper({required this.product, required this.qty});
   final Product product;
-  final int qty;
+  final double qty;
+
+  static const double _height = 34;
 
   @override
   Widget build(BuildContext context) {
     final cart = context.read<CartProvider>();
+    final atMax = qty >= product.maxQuantity;
 
     return Container(
-      height: 30,
+      height: _height,
       decoration: BoxDecoration(
         color: const Color(0xFFF0FDF4),
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: AppColors.brand.withValues(alpha: 0.35), width: 1),
       ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // Ayirish
-          GestureDetector(
+          _StepperButton(
+            icon: Icons.remove_rounded,
             onTap: () => cart.remove(product.id),
-            behavior: HitTestBehavior.opaque,
-            child: const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 7, vertical: 4),
-              child: Icon(Icons.remove_rounded, size: 14, color: AppColors.brand),
-            ),
           ),
-          // Soni
-          Text(
-            '$qty',
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              color: AppColors.brand,
-            ),
-          ),
-          // Qo'shish — qoldiqdan oshmaydi (server ham shu chegarani qo'yadi).
-          GestureDetector(
-            onTap: qty >= product.maxQuantity
-                ? null
-                : () => cart.add(product),
-            behavior: HitTestBehavior.opaque,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
-              child: Icon(
-                Icons.add_rounded,
-                size: 14,
-                color: qty >= product.maxQuantity ? AppColors.slate300 : AppColors.brand,
+          Expanded(
+            child: Center(
+              child: Text(
+                formatQty(qty),
+                style: const TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.brand,
+                ),
               ),
             ),
           ),
+          // Qo'shish — qoldiqdan oshmaydi (server ham shu chegarani qo'yadi).
+          _StepperButton(
+            icon: Icons.add_rounded,
+            onTap: atMax ? null : () => cart.add(product),
+            disabled: atMax,
+          ),
         ],
+      ),
+    );
+  }
+}
+
+class _StepperButton extends StatelessWidget {
+  const _StepperButton({required this.icon, required this.onTap, this.disabled = false});
+  final IconData icon;
+  final VoidCallback? onTap;
+  final bool disabled;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: SizedBox(
+        width: 36,
+        height: _MiniStepper._height,
+        child: Icon(icon, size: 18, color: disabled ? AppColors.slate300 : AppColors.brand),
       ),
     );
   }

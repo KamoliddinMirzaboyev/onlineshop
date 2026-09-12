@@ -141,13 +141,14 @@ String? mapsUrl(double? lat, double? lng) => (lat != null && lng != null)
     ? 'https://yandex.com/maps/?rtext=~$lat,$lng&rtt=auto'
     : null;
 
+/// "1", "1.5" — butun sonda "1", kasrda bitta kasr xona.
+String formatQty(num quantity) => quantity == quantity.roundToDouble()
+    ? quantity.round().toString()
+    : quantity.toStringAsFixed(1);
+
 /// "1 kg", "3 dona"
-String qtyUnit(num quantity, String? unit) {
-  final q = quantity == quantity.roundToDouble()
-      ? quantity.round().toString()
-      : quantity.toString();
-  return '$q ${(unit == null || unit.isEmpty) ? 'dona' : unit}';
-}
+String qtyUnit(num quantity, String? unit) =>
+    '${formatQty(quantity)} ${(unit == null || unit.isEmpty) ? 'dona' : unit}';
 
 /// "4.2 km" / "850 m"
 String? distanceLabel(double? km) {

@@ -5,11 +5,12 @@ import '../models/catalog.dart';
 
 class CartItem {
   final Product product;
-  int quantity;
+  double quantity;
 
   CartItem({required this.product, required this.quantity});
 
-  /// Backend POST /orders payload formati
+  /// Backend POST /orders payload formati — server `quantity`ni float
+  /// sifatida qabul qiladi (0.5 kg kabi kasr miqdorlar uchun).
   Map<String, dynamic> toOrderPayload() => {
     'product_id': product.id,
     'quantity': quantity,
@@ -23,7 +24,7 @@ class CartItem {
 
   factory CartItem.fromStorageJson(Map<String, dynamic> json) => CartItem(
     product: Product.fromJson(json['product'] as Map<String, dynamic>),
-    quantity: (json['quantity'] as num?)?.toInt() ?? 1,
+    quantity: (json['quantity'] as num?)?.toDouble() ?? 1,
   );
 }
 
@@ -37,12 +38,17 @@ class CartProvider extends ChangeNotifier {
   }
 
   List<CartItem> get items => _items.values.toList();
-  
-  int get totalItems => _items.values.fold(0, (sum, item) => sum + item.quantity);
-  
-  int get totalPrice => _items.values.fold(0, (sum, item) => sum + (item.product.price * item.quantity));
 
-  int quantityOf(int productId) => _items[productId]?.quantity ?? 0;
+  /// Savatdagi turli mahsulot soni. Miqdorlarning yig'indisi emas — kg va
+  /// dona aralash bo'lsa (1.5 kg un + 3 dona non) bitta songa qo'shib
+  /// bo'lmaydi, shuning uchun "3 ta mahsulot" — 3 xil mahsulot degani.
+  int get totalItems => _items.length;
+
+  int get totalPrice => _items.values
+      .fold<double>(0, (sum, item) => sum + item.product.price * item.quantity)
+      .round();
+
+  double quantityOf(int productId) => _items[productId]?.quantity ?? 0;
 
   Future<void> _loadFromStorage() async {
     try {
@@ -76,26 +82,31 @@ class CartProvider extends ChangeNotifier {
     }
   }
 
-  /// Savatga qo'shadi. Ombor qoldig'idan oshmaydi — server ham aynan shu
+  /// Savatga qo'shadi. Kg/litr kabi og'irlik birligida 0.5 qadam bilan
+  /// (1.5 kg un ham buyurtma qilish mumkin), dona/quti kabi sanoqda 1 qadam
+  /// bilan oshadi. Ombor qoldig'idan oshmaydi — server ham aynan shu
   /// chegarani qo'yadi (`reserve_stock_atomic`), shuning uchun oshirib
   /// qo'yilsa buyurtma checkout'da rad etilardi.
   void add(Product product) {
     final current = _items[product.id]?.quantity ?? 0;
     final max = product.maxQuantity;
     if (max <= 0 || current >= max) return;
+    final next = (current + product.qtyStep).clamp(0, max);
     if (_items.containsKey(product.id)) {
-      _items[product.id]!.quantity = current + 1;
+      _items[product.id]!.quantity = next.toDouble();
     } else {
-      _items[product.id] = CartItem(product: product, quantity: 1);
+      _items[product.id] = CartItem(product: product, quantity: next.toDouble());
     }
     _saveToStorage();
     notifyListeners();
   }
 
   void remove(int productId) {
-    if (!_items.containsKey(productId)) return;
-    if (_items[productId]!.quantity > 1) {
-      _items[productId]!.quantity--;
+    final item = _items[productId];
+    if (item == null) return;
+    final step = item.product.qtyStep;
+    if (item.quantity > step) {
+      item.quantity -= step;
     } else {
       _items.remove(productId);
     }
@@ -103,16 +114,12 @@ class CartProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void setQty(int productId, int quantity) {
+  void setQty(int productId, double quantity) {
     if (quantity <= 0) {
       _items.remove(productId);
     } else if (_items.containsKey(productId)) {
       final max = _items[productId]!.product.maxQuantity;
-      if (max > 0 && quantity > max) {
-        _items[productId]!.quantity = max;
-      } else {
-        _items[productId]!.quantity = quantity;
-      }
+      _items[productId]!.quantity = (max > 0 && quantity > max) ? max : quantity;
     } else {
       return;
     }

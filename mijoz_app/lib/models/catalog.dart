@@ -26,10 +26,20 @@ class Product {
   /// Sotib olish mumkinmi — sotuvda va qoldig'i bor.
   bool get inStock => isAvailable && stock > 0;
 
-  /// Savatga qo'shish mumkin bo'lgan eng ko'p miqdor (butun dona).
-  /// Sotuvdan olingan mahsulot uchun 0 — barcha chaqiruvchilar shu yagona
-  /// chegaradan o'tadi (savat, stepper).
-  int get maxQuantity => inStock ? stock.floor() : 0;
+  /// Og'irlik/hajm bo'yicha sotiladigan birlik — 0.5 qadam bilan kasr
+  /// miqdorda buyurtma qilish mumkin (1.5 kg un). "dona"/"quti" kabi sanoq
+  /// birliklarda esa faqat butun son ma'noli.
+  static const _fractionalUnits = {'kg', 'litr'};
+  bool get isFractional => _fractionalUnits.contains(unit);
+
+  /// Stepperdagi +/- bosilganda miqdor necha birlikka o'zgarishi.
+  double get qtyStep => isFractional ? 0.5 : 1.0;
+
+  /// Savatga qo'shish mumkin bo'lgan eng ko'p miqdor. Sotuvdan olingan
+  /// mahsulot uchun 0 — barcha chaqiruvchilar shu yagona chegaradan o'tadi
+  /// (savat, stepper). Sanoq birliklarda qoldiq butunlashtiriladi (12.4 dona
+  /// bo'lishi mumkin emas), kg/litrda esa qoldiqning o'zi ishlatiladi.
+  double get maxQuantity => inStock ? (isFractional ? stock : stock.floorToDouble()) : 0;
 
   factory Product.fromJson(Map<String, dynamic> json) => Product(
     id: json['id'] as int,

@@ -205,12 +205,12 @@ class CartPage extends StatelessWidget {
                                                 icon: const Icon(Icons.remove_rounded, size: 16),
                                                 visualDensity: VisualDensity.compact,
                                                 padding: EdgeInsets.zero,
-                                                onPressed: () => cart.setQty(p.id, item.quantity - 1),
+                                                onPressed: () => cart.setQty(p.id, item.quantity - p.qtyStep),
                                               ),
                                               SizedBox(
-                                                width: 24,
+                                                width: 28,
                                                 child: Text(
-                                                  '${item.quantity}',
+                                                  formatQty(item.quantity),
                                                   textAlign: TextAlign.center,
                                                   style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
                                                 ),
@@ -226,7 +226,7 @@ class CartPage extends StatelessWidget {
                                                 visualDensity: VisualDensity.compact,
                                                 padding: EdgeInsets.zero,
                                                 onPressed: item.quantity < p.maxQuantity
-                                                    ? () => cart.setQty(p.id, item.quantity + 1)
+                                                    ? () => cart.setQty(p.id, item.quantity + p.qtyStep)
                                                     : null,
                                               ),
                                             ],

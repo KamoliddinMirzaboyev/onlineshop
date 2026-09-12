@@ -287,8 +287,8 @@ class ProductDetailSheet extends StatelessWidget {
   Widget _buildBottomActionBar(
     BuildContext context,
     CartProvider cart,
-    int qty,
-    int maxQty,
+    double qty,
+    double maxQty,
   ) {
     if (!product.inStock) {
       return Container(
@@ -360,7 +360,7 @@ class ProductDetailSheet extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 child: Text(
-                  '$qty',
+                  formatQty(qty),
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w800,
