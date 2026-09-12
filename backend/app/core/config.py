@@ -33,9 +33,10 @@ class Settings(BaseSettings):
     environment: str = "development"
 
     # ── SMS OTP ──────────────────────────────────────────────────
-    # Fake rejim FAQAT ishlab chiqish uchun: SMS yuborilmaydi, har qanday
-    # raqamga `otp_fake_code` o'tadi. Prod'da main.py ishga tushishni
-    # to'xtatadi (qarang: services/otp.py).
+    # Fake rejim: SMS yuborilmaydi, har qanday raqamga `otp_fake_code` o'tadi.
+    # SMS shlyuzi ulanmaguncha ATAYLAB yoqiq — usiz hech kim ilovaga kira
+    # olmaydi. `main.py` ishga tushishni to'xtatmaydi, lekin har startda
+    # ko'rinadigan ogohlantirish yozadi (qarang: services/otp.py, PLAN.md B-1).
     otp_fake_mode: bool = True
     otp_fake_code: str = "11111"
     # Kod Redis'da shuncha soniya yashaydi va shuncha marta urinib ko'riladi.

@@ -18,11 +18,15 @@ from app.services.geo import haversine_km, is_within_zone, shop_origin, zone_is_
 
 router = APIRouter(prefix="/restaurants", tags=["catalog"])
 
-# ponytail: TTL-only kesh — yozishda invalidatsiya yo'q, shuning uchun admin
-# o'zgartirgan mahsulot/kategoriya mijozga ~CACHE_TTL soniyagacha eski holda
-# ko'rinishi mumkin. Kengaytirish kerak bo'lsa: admin/business yozish
-# route'larida shu kalitlarga `redis_client.delete(...)` qo'shing.
-# 2 daqiqa — katalog kam o'zgaradi; har nearest so'rovida DB/join yuki kamayadi.
+# Katalog keshi. Admin/tadbirkor yozish route'lari
+# `cache.invalidate_restaurant_catalog()` chaqiradi, shuning uchun tahrirlar
+# darhol ko'rinadi. TTL — zaxira chora (invalidatsiya o'tkazib yuborilsa).
+#
+# DIQQAT: `stock` ham shu keshda. Buyurtma berilganda kesh tozalanmaydi —
+# demak qoldiq ~CACHE_TTL soniyagacha eski ko'rinishi mumkin. Bu ataylab:
+# har buyurtmada butun katalog keshini tashlash uni foydasiz qilardi.
+# Mijoz eskirgan qoldiqni ko'rsa ham zarar yo'q — `/orders/quote` va
+# buyurtma yaratish haqiqiy qoldiqni tekshiradi va `issues` da qaytaradi.
 CACHE_TTL = 120
 
 
