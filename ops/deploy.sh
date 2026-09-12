@@ -9,6 +9,16 @@
 # GitHub push'ida o'zi quriladi. Bu deploy faqat api + bot konteynerlari.
 set -euo pipefail
 
+# Bir vaqtda ikkita deploy ketmasin: CI avtomatik chaqiradi, odam ham qo'lda
+# ishga tushirishi mumkin. Ikkalasi baravar `docker compose build` qilsa
+# imij va konteynerlar buziladi. Ikkinchisi birinchisini 10 daqiqagacha
+# kutadi, keyin taslim bo'ladi.
+exec 9>/var/lock/allfoods-deploy.lock
+if ! flock -w 600 9; then
+  echo "!! Boshqa deploy 10 daqiqadan beri ketyapti — to'xtatildi" >&2
+  exit 1
+fi
+
 REPO=${REPO:-/opt/allfoods/repo}
 ROOT=${ROOT:-/opt/allfoods}
 COMPOSE="docker compose -f $ROOT/docker-compose.prod.yml"

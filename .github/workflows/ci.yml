@@ -123,16 +123,22 @@ jobs:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
-      # Secrets hali qo'yilmagan bo'lsa CI qizil bo'lib turmasin — deploy
-      # shunchaki o'tkazib yuboriladi (qo'lda deploy hamon ishlaydi).
+      # Secrets to'liq bo'lmasa CI qizil bo'lib turmasin — deploy o'tkazib
+      # yuboriladi (qo'lda deploy hamon ishlaydi). Autentifikatsiya SSH kaliti
+      # bilan ham, parol bilan ham bo'lishi mumkin; kalit afzal.
       - name: Deploy secrets bormi
         id: gate
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          USER_NAME: ${{ secrets.DEPLOY_USER }}
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          PASSWORD: ${{ secrets.DEPLOY_PASSWORD }}
         run: |
-          if [ -z "${{ secrets.DEPLOY_HOST }}" ]; then
-            echo "ready=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::DEPLOY_HOST/USER/SSH_KEY qo'yilmagan — deploy o'tkazib yuborildi"
-          else
+          if [ -n "$HOST" ] && [ -n "$USER_NAME" ] && { [ -n "$SSH_KEY" ] || [ -n "$PASSWORD" ]; }; then
             echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::DEPLOY_HOST / DEPLOY_USER va (DEPLOY_SSH_KEY yoki DEPLOY_PASSWORD) kerak — deploy o'tkazib yuborildi"
           fi
 
       - name: Serverda deploy.sh
@@ -142,4 +148,6 @@ jobs:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
+          password: ${{ secrets.DEPLOY_PASSWORD }}
+          command_timeout: 20m
           script: bash /opt/allfoods/deploy.sh
