@@ -1,8 +1,9 @@
-import { Bike, MapPin, Navigation, Phone, Printer, Trash2, User, X } from "lucide-react";
+import { Bike, MapPin, Navigation, Phone, Plus, Printer, Trash2, User, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { del, get, getAll, patch, withStore } from "../api";
 import { confirm } from "../components/Confirm";
+import ManualOrderModal from "../components/ManualOrderModal";
 import { ErrorRetry, OrderListSkeleton } from "../components/Skeleton";
 import { useInfiniteList } from "../hooks/useInfiniteList";
 import { useStore } from "../store";
@@ -158,6 +159,7 @@ export default function OrdersPage() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState(false);
   const [busy, setBusy] = useState<number | null>(null);
+  const [adding, setAdding] = useState(false);
   // Poll tick and manual refresh must not clobber each other's newer state.
   const inFlight = useRef(false);
 
@@ -421,6 +423,29 @@ export default function OrdersPage() {
         )}
         {hasMoreOrders && <div ref={ordersEndRef} className="py-4 text-center text-xs text-slate-400">Yuklanmoqda...</div>}
       </div>
+      )}
+
+      {selectedStoreId != null && selectedStoreId !== "all" && (
+        <>
+          <button
+            className="btn fixed bottom-6 right-6 z-40 shadow-lg shadow-brand/30"
+            onClick={() => setAdding(true)}
+          >
+            <Plus size={18} /> Buyurtma qo'shish
+          </button>
+
+          {adding && (
+            <ManualOrderModal
+              storeId={selectedStoreId}
+              onClose={() => setAdding(false)}
+              onDone={() => {
+                setAdding(false);
+                toast.success("Buyurtma qo'shildi — kuryerga yuborildi");
+                load();
+              }}
+            />
+          )}
+        </>
       )}
     </div>
   );
