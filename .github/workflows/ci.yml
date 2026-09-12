@@ -1,0 +1,138 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  # Bir vaqtda ikkita deploy ketmasin; yangi push eskisini bekor qiladi.
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: allfoods
+          POSTGRES_PASSWORD: allfoods
+          POSTGRES_DB: allfoods_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U allfoods"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+
+    env:
+      TEST_DATABASE_URL: postgresql+psycopg://allfoods:allfoods@localhost:5432/allfoods_test
+      POSTGRES_HOST: localhost
+      POSTGRES_USER: allfoods
+      POSTGRES_PASSWORD: allfoods
+      POSTGRES_DB: allfoods_test
+      REDIS_URL: redis://localhost:6379/0
+      SECRET_KEY: ci-secret-key-not-used-in-production-0123456789
+
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements-dev.txt
+
+      - run: pip install -r requirements-dev.txt
+
+      - name: Testlar
+        run: pytest -q
+
+      - name: Migratsiya modellarga mos (alembic check)
+        # Sxema qo'lda ALTER bilan o'zgarib, migratsiyasiz qolib ketmasin.
+        run: |
+          psql "postgresql://allfoods:allfoods@localhost:5432/postgres" \
+            -c "DROP DATABASE IF EXISTS allfoods_alembic" \
+            -c "CREATE DATABASE allfoods_alembic OWNER allfoods"
+          POSTGRES_DB=allfoods_alembic alembic upgrade head
+          POSTGRES_DB=allfoods_alembic alembic check
+        env:
+          PGPASSWORD: allfoods
+
+  web:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [tma, admin, businessman, courier, superadmin]
+    defaults:
+      run:
+        working-directory: ${{ matrix.app }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: ${{ matrix.app }}/package-lock.json
+      - run: npm ci
+      - name: Tiplar (tsc)
+        run: npx tsc --noEmit
+      - name: Build
+        run: npm run build
+
+  flutter:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [mijoz_app, kuryer]
+    defaults:
+      run:
+        working-directory: ${{ matrix.app }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter analyze
+      - run: flutter test
+
+  deploy:
+    # Backend serverga faqat main'ga push bo'lganda va hamma tekshiruv o'tgach.
+    needs: [backend, web, flutter]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      # Secrets hali qo'yilmagan bo'lsa CI qizil bo'lib turmasin — deploy
+      # shunchaki o'tkazib yuboriladi (qo'lda deploy hamon ishlaydi).
+      - name: Deploy secrets bormi
+        id: gate
+        run: |
+          if [ -z "${{ secrets.DEPLOY_HOST }}" ]; then
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::DEPLOY_HOST/USER/SSH_KEY qo'yilmagan — deploy o'tkazib yuborildi"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Serverda deploy.sh
+        if: steps.gate.outputs.ready == 'true'
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: bash /opt/allfoods/deploy.sh
