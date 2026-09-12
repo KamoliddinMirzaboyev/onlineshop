@@ -3,6 +3,7 @@ import '../core/format.dart';
 import '../core/theme.dart';
 import '../models/notification.dart';
 import '../services/api.dart';
+import '../services/notification_center.dart';
 import '../widgets/common.dart';
 import '../widgets/skeleton.dart';
 import 'order_detail_page.dart';
@@ -36,6 +37,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
         _loading = false;
       });
       if (_items.any((n) => !n.isRead)) {
+        notificationCenter.markAllRead();
         api.post('/notifications/read-all', {}).catchError((_) => null);
       }
     } catch (_) {

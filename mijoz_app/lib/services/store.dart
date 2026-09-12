@@ -26,7 +26,6 @@ class StoreProvider extends ChangeNotifier {
   RestaurantDetail? store;
   bool loading = true;
   bool error = false;
-  bool outOfRange = false;
   bool needsLocation = false;
 
   StoreProvider() {
@@ -106,7 +105,6 @@ class StoreProvider extends ChangeNotifier {
       loading = true;
     }
     error = false;
-    outOfRange = false;
     needsLocation = false;
     notifyListeners();
 
@@ -133,28 +131,22 @@ class StoreProvider extends ChangeNotifier {
         final parsed = await compute(_parseRestaurant, res as Map<String, dynamic>);
         store = parsed;
         _saveCatalogToCache(parsed);
-      } catch (e) {
-        if (e.toString().contains('OUT_OF_RANGE')) {
-          outOfRange = true;
-          store = null;
-        } else {
-          // Tarmoq xatosi — default fallback (hudud emas).
-          try {
-            final res = await api.get('/restaurants/default');
-            final parsed = await compute(_parseRestaurant, res as Map<String, dynamic>);
-            store = parsed;
-            _saveCatalogToCache(parsed);
-          } catch (_) {
-            if (store == null) {
-              error = true;
-            }
+      } catch (_) {
+        // Hudud tashqarisi ham, tarmoq xatosi ham — katalog ochiq qoladi.
+        // Zona tekshiruvi buyurtma berishda (POST /orders) bo'ladi.
+        try {
+          final res = await api.get('/restaurants/default');
+          final parsed = await compute(_parseRestaurant, res as Map<String, dynamic>);
+          store = parsed;
+          _saveCatalogToCache(parsed);
+        } catch (_) {
+          if (store == null) {
+            error = true;
           }
         }
       }
-    } catch (e) {
-      if (e.toString().contains('OUT_OF_RANGE')) {
-        outOfRange = true;
-      } else if (store == null) {
+    } catch (_) {
+      if (store == null) {
         error = true;
       }
     } finally {

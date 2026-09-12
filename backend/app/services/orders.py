@@ -281,7 +281,7 @@ def create_order(db: Session, user: User, data: OrderCreateIn) -> Order:
         if not is_within_zone(zone, lat, lng):
             raise HTTPException(
                 status.HTTP_400_BAD_REQUEST,
-                "Manzil yetkazib berish hududidan tashqarida",
+                "Kechirasiz, hozircha sizning hududingizga xizmat ko'rsata olmaymiz",
             )
 
     # Bir xil product_id bir necha marta kelsa — yig'ib tekshiramiz/zaxiralaymiz.

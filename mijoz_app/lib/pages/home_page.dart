@@ -3,6 +3,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/store.dart';
+import '../services/notification_center.dart';
 import '../models/catalog.dart';
 import '../core/theme.dart';
 import '../widgets/cart_pill.dart';
@@ -204,14 +205,43 @@ class _HomePageState extends State<HomePage> {
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const NotificationsPage()),
                 ),
-                child: Container(
-                  width: 38,
-                  height: 38,
-                  decoration: BoxDecoration(
-                    color: AppColors.slate100,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(Icons.notifications_none_rounded, color: AppColors.slate700, size: 20),
+                child: AnimatedBuilder(
+                  animation: notificationCenter,
+                  builder: (context, _) {
+                    final count = notificationCenter.unreadCount;
+                    return Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        Container(
+                          width: 38,
+                          height: 38,
+                          decoration: BoxDecoration(
+                            color: AppColors.slate100,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(Icons.notifications_none_rounded, color: AppColors.slate700, size: 20),
+                        ),
+                        if (count > 0)
+                          Positioned(
+                            top: -4,
+                            right: -4,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 4),
+                              constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                color: AppColors.red500,
+                                borderRadius: BorderRadius.circular(9),
+                              ),
+                              child: Text(
+                                count > 9 ? '9+' : '$count',
+                                style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700),
+                              ),
+                            ),
+                          ),
+                      ],
+                    );
+                  },
                 ),
               ),
             ],
@@ -265,14 +295,6 @@ class _HomePageState extends State<HomePage> {
               AppButton(label: 'Qayta urinish', onPressed: storeProvider.load),
             ],
           ),
-        ),
-      );
-    }
-    if (storeProvider.outOfRange) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(24),
-          child: Text('Kechirasiz, hududingizga yetkazib berolmaymiz', style: TextStyle(color: AppColors.slate400)),
         ),
       );
     }

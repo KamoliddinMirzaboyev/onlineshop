@@ -7,7 +7,6 @@ import type { Address, AppNotification, Order, Restaurant, RestaurantDetail, Use
 
 const BASE = import.meta.env.VITE_API_URL ?? "https://api.barakali-bozor.uz/api";
 
-export class OutOfRangeError extends Error {}
 export class LocationDeniedError extends Error {}
 
 let token: string | null = localStorage.getItem("af_token");
@@ -605,8 +604,8 @@ export const api = {
   nearest: (lat: number, lng: number) =>
     req<RestaurantDetail>(`/restaurants/nearest?lat=${lat}&lng=${lng}`),
 
-  // faol do'kon — joylashuv bo'lsa eng yaqin; OUT_OF_RANGE yutilmaydi.
-  // GPS yo'q — default do'kon (katalog ochiq qoladi).
+  // faol do'kon — joylashuv bo'lsa eng yaqin; aks holda default.
+  // Katalog har doim ochiladi (hudud tashqarisida ham).
   store: async (opts?: { forceCoords?: boolean }): Promise<RestaurantDetail | null> => {
     const loadDefault = () => req<RestaurantDetail>("/restaurants/default");
 
@@ -617,10 +616,8 @@ export const api = {
           `/restaurants/nearest?lat=${coords.lat}&lng=${coords.lng}`,
         );
       } catch (e) {
-        if (e instanceof Error && e.message.includes("OUT_OF_RANGE")) {
-          throw new OutOfRangeError();
-        }
-        // Tarmoq/server xatosi — default fallback (hudud emas).
+        // Hudud tashqarisi ham, tarmoq xatosi ham — katalog ochiq qoladi.
+        // Zona tekshiruvi buyurtma berishda (POST /orders) bo'ladi.
         try {
           return await loadDefault();
         } catch {

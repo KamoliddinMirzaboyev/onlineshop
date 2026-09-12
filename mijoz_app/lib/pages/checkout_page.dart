@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 import '../models/quote.dart';
 import '../services/cart.dart';
@@ -9,6 +10,7 @@ import '../core/format.dart';
 import '../core/theme.dart';
 import '../widgets/common.dart';
 import 'app_shell.dart';
+import 'map_picker_page.dart';
 import 'order_detail_page.dart';
 
 class CheckoutPage extends StatefulWidget {
@@ -28,6 +30,13 @@ class _CheckoutPageState extends State<CheckoutPage> {
   double? _lat;
   double? _lng;
   String? _locError;
+  /// GPS aniqligi (m). Xaritadan tanlanganda `null` — nuqta mijoz tasdiqlagan.
+  double? _accuracyM;
+  /// Manzil satrini GPS to'ldirganmi — mijoz qo'lda tahrirlagan matn ustiga yozilmaydi.
+  bool _addressAuto = false;
+
+  /// Bundan yomon GPS bilan buyurtma bermaymiz — xaritadan tanlash kerak.
+  static const _maxSubmitAccuracyM = 200.0;
 
   String _paymentMethod = 'cash';
   List<Map<String, dynamic>> _savedAddresses = [];
@@ -97,6 +106,50 @@ class _CheckoutPageState extends State<CheckoutPage> {
     } catch (_) {}
   }
 
+  /// Koordinatadan o'qiladigan manzil (mahalla, ko'cha, uy) — serverdagi
+  /// multi-manba reverse-geocode. Mijoz qo'lda tahrirlagan matn saqlanadi.
+  Future<void> _fillAddressFromCoords(double lat, double lng) async {
+    // Mijoz qo'lda yozgan matn ustiga yozmaymiz.
+    if (_addressController.text.trim().isNotEmpty && !_addressAuto) return;
+    String? label;
+    try {
+      final res = await api.get('/geo/reverse?lat=$lat&lng=$lng');
+      final v = (res is Map ? res['label'] : null)?.toString().trim();
+      if (v != null && v.isNotEmpty) label = v;
+    } catch (_) {
+      // Manzil aniqlanmadi — koordinata baribir yuboriladi, mijoz qo'lda yozadi.
+    }
+    if (!mounted) return;
+    setState(() {
+      _addressController.text =
+          label ?? '📍 ${lat.toStringAsFixed(5)}, ${lng.toStringAsFixed(5)}';
+      _addressAuto = true;
+    });
+  }
+
+  Future<void> _applyCoords(double lat, double lng, {double? accuracyM}) async {
+    if (!mounted) return;
+    setState(() {
+      _lat = lat;
+      _lng = lng;
+      _accuracyM = accuracyM;
+    });
+    // Masofa ma'lum bo'ldi — yetkazish haqi endi aniq hisoblanadi.
+    _refreshQuote();
+    await _fillAddressFromCoords(lat, lng);
+  }
+
+  Future<void> _pickOnMap() async {
+    final picked = await Navigator.of(context).push<LatLng>(
+      MaterialPageRoute(builder: (_) => MapPickerPage(initialLat: _lat, initialLng: _lng)),
+    );
+    if (picked == null) return;
+    // Xaritadan tanlangan nuqta — mijoz tasdiqlagan, aniqlik cheklovi yo'q.
+    _addressAuto = true;
+    setState(() => _locError = null);
+    await _applyCoords(picked.latitude, picked.longitude);
+  }
+
   Future<void> _resolveLocation() async {
     setState(() {
       _locating = true;
@@ -105,7 +158,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
     try {
       final serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
-        setState(() => _locError = 'GPS o‘chiq. Sozlamalardan yoqing.');
+        setState(() => _locError = 'GPS o\u2018chiq. Sozlamalardan yoqing yoki xaritadan tanlang.');
         return;
       }
       var permission = await Geolocator.checkPermission();
@@ -114,45 +167,39 @@ class _CheckoutPageState extends State<CheckoutPage> {
       }
       if (permission == LocationPermission.denied ||
           permission == LocationPermission.deniedForever) {
-        setState(() => _locError = 'Joylashuvga ruxsat berilmagan.');
+        setState(() => _locError = 'Joylashuvga ruxsat berilmagan. Xaritadan tanlashingiz mumkin.');
         return;
       }
 
-      // Avval xotiradagi oxirgi koordinatani olamiz
-      try {
-        final lastPos = await Geolocator.getLastKnownPosition();
-        if (lastPos != null && mounted) {
+      // Oxirgi ma'lum nuqta — yetkazish haqi darhol hisoblansin (manzil
+      // matni faqat aniq GPS/xaritadan keyin yoziladi).
+      if (_lat == null) {
+        final last = await Geolocator.getLastKnownPosition();
+        if (last != null && mounted) {
           setState(() {
-            _lat = lastPos.latitude;
-            _lng = lastPos.longitude;
-            if (_addressController.text.trim().isEmpty) {
-              _addressController.text =
-                  'Joriy joylashuv (${lastPos.latitude.toStringAsFixed(4)}, ${lastPos.longitude.toStringAsFixed(4)})';
-            }
+            _lat = last.latitude;
+            _lng = last.longitude;
           });
+          _refreshQuote();
         }
-      } catch (_) {}
+      }
 
+      // Uy raqamigacha aniqlik kerak — eng yuqori aniqlik, uzunroq kutish.
       final pos = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.medium,
-          timeLimit: Duration(seconds: 4),
+          accuracy: LocationAccuracy.bestForNavigation,
+          timeLimit: Duration(seconds: 12),
         ),
       );
-      if (!mounted) return;
-      setState(() {
-        _lat = pos.latitude;
-        _lng = pos.longitude;
-        if (_addressController.text.trim().isEmpty) {
-          _addressController.text =
-              'Joriy joylashuv (${pos.latitude.toStringAsFixed(4)}, ${pos.longitude.toStringAsFixed(4)})';
-        }
-      });
-      // Masofa ma'lum bo'ldi — yetkazish haqi endi aniq hisoblanadi.
-      _refreshQuote();
+      await _applyCoords(pos.latitude, pos.longitude, accuracyM: pos.accuracy);
     } catch (e) {
-      if (mounted && _lat == null) {
-        setState(() => _locError = 'Joylashuv olinmadi. Qayta urinib ko‘ring.');
+      if (!mounted) return;
+      // Aniq GPS ulgurmadi — mijoz xaritadan aniqlashtiradi.
+      if (_lat != null) {
+        await _fillAddressFromCoords(_lat!, _lng!);
+        setState(() => _locError = 'Aniq joylashuv olinmadi — xaritadan tekshiring.');
+      } else {
+        setState(() => _locError = 'Joylashuv olinmadi. Xaritadan tanlang.');
       }
     } finally {
       if (mounted) setState(() => _locating = false);
@@ -164,6 +211,14 @@ class _CheckoutPageState extends State<CheckoutPage> {
     if (address.length < 3) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Iltimos, yetkazib berish manzilini kiriting')),
+      );
+      return;
+    }
+
+    if (_accuracyM != null && _accuracyM! > _maxSubmitAccuracyM) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(
+            'Joylashuv aniqligi past. Iltimos, xaritadan aniq joyni belgilang')),
       );
       return;
     }
@@ -312,6 +367,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                           TextField(
                             controller: _addressController,
                             maxLines: 2,
+                            onChanged: (_) => _addressAuto = false,
                             decoration: InputDecoration(
                               hintText: 'Ko\'cha, uy, xonadon, mo\'ljal...',
                               hintStyle: const TextStyle(fontSize: 13, color: AppColors.slate400),
@@ -332,6 +388,37 @@ class _CheckoutPageState extends State<CheckoutPage> {
                             Padding(
                               padding: const EdgeInsets.only(top: 6),
                               child: Text(_locError!, style: const TextStyle(fontSize: 12, color: AppColors.red600)),
+                            ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: OutlinedButton.icon(
+                                  onPressed: _pickOnMap,
+                                  icon: const Icon(Icons.map_rounded, size: 18, color: AppColors.brand),
+                                  label: const Text('Xaritadan tanlash',
+                                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.brand)),
+                                  style: OutlinedButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                    side: const BorderSide(color: Color(0xFFE2E8F0)),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          if (_accuracyM != null)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 6),
+                              child: Text(
+                                _accuracyM! > _maxSubmitAccuracyM
+                                    ? 'GPS aniqligi past (~${_accuracyM!.round()} m) — xaritadan belgilang'
+                                    : 'GPS aniqligi ~${_accuracyM!.round()} m · manzilni qo\'lda tahrirlashingiz mumkin',
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  color: _accuracyM! > _maxSubmitAccuracyM ? AppColors.red600 : AppColors.slate400,
+                                ),
+                              ),
                             ),
                         ],
                       ),
@@ -365,10 +452,11 @@ class _CheckoutPageState extends State<CheckoutPage> {
                       child: Column(
                         children: [
                           _buildPaymentTile('cash', 'Naqd pul orqali', 'Yetkazilganda kuryerga', Icons.money_rounded),
-                          const Divider(height: 1, color: Color(0xFFF1F5F9)),
-                          _buildPaymentTile('click', 'Click orqali', 'Onlayn to\'lov', Icons.credit_card_rounded, enabled: false),
-                          const Divider(height: 1, color: Color(0xFFF1F5F9)),
-                          _buildPaymentTile('payme', 'Payme orqali', 'Onlayn to\'lov', Icons.credit_card_rounded, enabled: false),
+                          // Onlayn to'lov hali ulanmagan — integratsiya tayyor bo'lganda ochiladi.
+                          // const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                          // _buildPaymentTile('click', 'Click orqali', 'Onlayn to\'lov', Icons.credit_card_rounded, enabled: false),
+                          // const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                          // _buildPaymentTile('payme', 'Payme orqali', 'Onlayn to\'lov', Icons.credit_card_rounded, enabled: false),
                         ],
                       ),
                     ),

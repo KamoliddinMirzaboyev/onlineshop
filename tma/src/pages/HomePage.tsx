@@ -55,7 +55,7 @@ function CategoryImage({
 export default function HomePage() {
   const { t, lang } = useI18n();
   const nav = useNavigate();
-  const { store, loading, error, outOfRange, needsLocation, locationIssue, reload } = useStore();
+  const { store, loading, error, needsLocation, locationIssue, reload } = useStore();
 
   const open = (c: Category) => {
     haptic("light");
@@ -98,8 +98,6 @@ export default function HomePage() {
       <div className="px-3 pb-4 pt-4">
         {needsLocation ? (
           <LocationNeeded issue={locationIssue} onRetry={reload} />
-        ) : outOfRange ? (
-          <p className="text-center text-tg-hint py-16 px-4">{t.out_of_range}</p>
         ) : error ? (
           <ErrorState onRetry={reload} />
         ) : loading ? (

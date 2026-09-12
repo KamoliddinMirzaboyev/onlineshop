@@ -10,6 +10,7 @@ import 'pages/notifications_page.dart';
 import 'pages/order_detail_page.dart';
 import 'services/store.dart';
 import 'services/cart.dart';
+import 'services/notification_center.dart';
 import 'services/push.dart';
 import 'widgets/splash.dart';
 import 'widgets/toast.dart';
@@ -74,6 +75,7 @@ class _MijozAppState extends State<MijozApp> {
     _setupPushHandlers();
     if (api.hasToken) {
       _setupFCM();
+      notificationCenter.refresh();
     }
   }
 
@@ -85,6 +87,7 @@ class _MijozAppState extends State<MijozApp> {
         final n = message.notification;
         if (n == null) return;
         toast.push(n.body ?? '', title: n.title);
+        notificationCenter.increment();
       });
       FirebaseMessaging.onMessageOpenedApp.listen((m) => _handleMessageTap(_navKey, m));
       FirebaseMessaging.instance.getInitialMessage().then((m) {

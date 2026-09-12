@@ -3,7 +3,6 @@ import {
   api,
   getLastLocationIssue,
   LocationIssue,
-  OutOfRangeError,
   retryCoordsIfPreviouslyFailed,
 } from "../api/client";
 import type { RestaurantDetail } from "../api/types";
@@ -15,7 +14,6 @@ import type { RestaurantDetail } from "../api/types";
 type Snapshot = {
   store: RestaurantDetail | null;
   error: boolean;
-  outOfRange: boolean;
   needsLocation: boolean;
   locationIssue: LocationIssue | null;
 };
@@ -40,7 +38,6 @@ async function fetchStore(force = false, forceCoords = false): Promise<Snapshot>
     const next: Snapshot = {
       store: null,
       error: false,
-      outOfRange: false,
       needsLocation: false,
       locationIssue: null,
     };
@@ -48,8 +45,7 @@ async function fetchStore(force = false, forceCoords = false): Promise<Snapshot>
       next.store = await api.store({ forceCoords });
       next.locationIssue = getLastLocationIssue();
     } catch (e) {
-      if (e instanceof OutOfRangeError) next.outOfRange = true;
-      else next.error = true;
+      next.error = true;
     }
     // Faqat eng so'nggi so'rov keshga yoziladi.
     if (gen === fetchGen) {
@@ -71,7 +67,6 @@ export function useStore() {
       cache ?? {
         store: null,
         error: false,
-        outOfRange: false,
         needsLocation: false,
         locationIssue: null,
       },
@@ -187,7 +182,6 @@ export function useStore() {
     store: snap.store,
     loading,
     error: snap.error,
-    outOfRange: snap.outOfRange,
     // Katalog endi joylashuvsiz ham ochiladi — soft banner kerak emas.
     needsLocation: false as boolean,
     locationIssue: snap.locationIssue,

@@ -1,7 +1,11 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
+
+import '../widgets/toast.dart';
 
 /// HTTP client mirroring `src/api.ts`. Holds the client bearer token in memory
 /// and persists it to Keychain/Keystore (secure — unlike SharedPreferences,
@@ -100,6 +104,19 @@ class ApiService {
   /// Fired on a permanent 401 so the app can bounce back to the login screen.
   void Function()? onUnauthorized;
 
+  /// Ekranda bir vaqtda ko'plab so'rov muvofiqlashtirilsa (masalan, Home
+  /// bir necha endpoint'ni parallel chaqiradi) — bir xil toast bir nechta
+  /// marta chiqmasin.
+  DateTime? _lastNetworkToast;
+  void _notifyNetworkError(String msg) {
+    final now = DateTime.now();
+    if (_lastNetworkToast != null && now.difference(_lastNetworkToast!) < const Duration(seconds: 5)) {
+      return;
+    }
+    _lastNetworkToast = now;
+    toast.error(msg, title: 'Aloqa yo\'q');
+  }
+
   /// Fondagi avtomatik Refresh Token almashinuvi.
   /// Bir vaqtda bir nechta so'rov 401 olsa — hammasi shu bitta Future'ni kutadi.
   Future<bool> _tryRefreshToken() {
@@ -146,18 +163,29 @@ class ApiService {
     final uri = Uri.parse('$_base$path');
     const timeout = Duration(seconds: 15);
     late http.Response res;
-    switch (method) {
-      case 'POST':
-        res = await http.post(uri, headers: _headers, body: jsonEncode(body)).timeout(timeout);
-        break;
-      case 'PATCH':
-        res = await http.patch(uri, headers: _headers, body: jsonEncode(body)).timeout(timeout);
-        break;
-      case 'DELETE':
-        res = await http.delete(uri, headers: _headers).timeout(timeout);
-        break;
-      default:
-        res = await http.get(uri, headers: _headers).timeout(timeout);
+    try {
+      switch (method) {
+        case 'POST':
+          res = await http.post(uri, headers: _headers, body: jsonEncode(body)).timeout(timeout);
+          break;
+        case 'PATCH':
+          res = await http.patch(uri, headers: _headers, body: jsonEncode(body)).timeout(timeout);
+          break;
+        case 'DELETE':
+          res = await http.delete(uri, headers: _headers).timeout(timeout);
+          break;
+        default:
+          res = await http.get(uri, headers: _headers).timeout(timeout);
+      }
+    } on TimeoutException {
+      _notifyNetworkError('Internet sekin ishlayapti. Mobil tarmoqni tekshiring.');
+      rethrow;
+    } on SocketException {
+      _notifyNetworkError('Internet aloqasi yo\'q. Mobil tarmoqni yoqib ko\'ring.');
+      rethrow;
+    } on http.ClientException {
+      _notifyNetworkError('Internet aloqasi yo\'q. Mobil tarmoqni yoqib ko\'ring.');
+      rethrow;
     }
 
     if (res.statusCode == 401) {
