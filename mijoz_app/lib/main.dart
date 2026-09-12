@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -38,6 +39,8 @@ void _handleMessageTap(GlobalKey<NavigatorState> navKey, RemoteMessage message) 
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Interfeys faqat portret uchun chizilgan (iOS Info.plist bilan bir xil).
+  await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   // Xotira va keshni tejash: mahsulotlar rasmlari xotiradan oshib ketmasligi uchun chegara
   PaintingBinding.instance.imageCache.maximumSize = 120;
   PaintingBinding.instance.imageCache.maximumSizeBytes = 60 * 1024 * 1024; // 60MB

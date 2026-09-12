@@ -67,6 +67,7 @@ class Resource<T> extends ChangeNotifier with WidgetsBindingObserver {
     required this.fetchRaw,
     required this.parse,
     this.pollMs,
+    this.backgroundPollMs,
     this.errorText = "Yuklab bo'lmadi. Internetni tekshiring.",
   }) {
     final cached = _CacheStore.instance.read(cacheKey);
@@ -82,17 +83,18 @@ class Resource<T> extends ChangeNotifier with WidgetsBindingObserver {
     }
     WidgetsBinding.instance.addObserver(this);
     _load(silent: false);
-    if (pollMs != null) {
-      _timer = Timer.periodic(Duration(milliseconds: pollMs!), (_) {
-        _load(silent: true);
-      });
-    }
+    _startPolling();
   }
 
   final String cacheKey;
   final Future<dynamic> Function() fetchRaw;
   final T Function(dynamic json) parse;
   final int? pollMs;
+
+  /// Ilova fonda ekan poll oralig'i. `null` — fonda umuman so'ralmaydi
+  /// (aksariyat ekranlar uchun shu to'g'ri). Faqat yangi buyurtma signali
+  /// FCM'siz ham kelishi kerak bo'lgan joyda sekin interval beriladi.
+  final int? backgroundPollMs;
   final String errorText;
 
   T? _data;
@@ -138,9 +140,28 @@ class Resource<T> extends ChangeNotifier with WidgetsBindingObserver {
   /// Manual reload (pull-to-refresh / header button).
   void refresh() => _load(silent: true);
 
+  void _startPolling({bool background = false}) {
+    _timer?.cancel();
+    _timer = null;
+    if (_disposed) return;
+    final ms = background ? backgroundPollMs : pollMs;
+    if (ms == null) return;
+    _timer = Timer.periodic(Duration(milliseconds: ms), (_) {
+      _load(silent: true);
+    });
+  }
+
+  /// Fonda poll to'xtaydi yoki (`backgroundPollMs` berilgan bo'lsa) sekinlashadi
+  /// — avval telefon cho'ntakda yotganda ham har pollMs'da so'rov ketardi
+  /// (batareya, trafik, server yuki). Qaytganda darhol bitta yangilash bo'ladi.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) _load(silent: true);
+    if (state == AppLifecycleState.resumed) {
+      _load(silent: true);
+      _startPolling();
+    } else {
+      _startPolling(background: true);
+    }
   }
 
   void _safeNotify() {

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -22,15 +23,24 @@ import 'widgets/toast.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   final prefs = await SharedPreferences.getInstance();
   attachCachePrefs(prefs);
+  // Faqat token birinchi kadrga kerak (login/nav qaysi ekran ochilishini
+  // hal qiladi) — qolgan servislar kadrni kutib turmasin.
   await api.init();
+  runApp(const BarakaliCourierApp());
+  unawaited(_initServices());
+}
+
+/// Birinchi kadrdan keyin ishga tushadi — sovuq start ~300-500ms tezlashadi.
+/// Tartib saqlanadi: notifications kanali → FCM → widget → rate prompt.
+Future<void> _initServices() async {
   await notifications.init();
   // google-services.json bo'lmasa ham app ishlaydi (local poll).
   await fcm.init();
   await orderWidget.init();
   await ratePrompt.init();
-  runApp(const BarakaliCourierApp());
 }
 
 class BarakaliCourierApp extends StatefulWidget {

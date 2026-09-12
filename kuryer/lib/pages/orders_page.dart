@@ -148,6 +148,8 @@ class _OrdersPageState extends State<OrdersPage> {
         )) {
       return;
     }
+    // Tasdiq dialogi ochiq ekan sahifa yopilgan bo'lishi mumkin.
+    if (!mounted) return;
 
     setState(() => _updating = id);
     try {

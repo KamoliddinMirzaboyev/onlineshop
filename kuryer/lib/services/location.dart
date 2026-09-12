@@ -26,6 +26,12 @@ class LocationService {
   bool _starting = false;
   bool _warnedNoGps = false;
 
+  /// Oqim fix'lari serverga shu oraliqdan tez-tez yuborilmaydi. distanceFilter
+  /// 15 m — mashinada bu sekundiga bitta so'rov degani edi (batareya, trafik,
+  /// server yuki). Kuzatuv uchun 10 soniyalik aniqlik yetarli.
+  static const _minPostGap = Duration(seconds: 10);
+  DateTime? _lastPostAt;
+
   bool get isRunning => _sub != null;
 
   void _applyPerm(LocationPermission perm) {
@@ -82,7 +88,7 @@ class LocationService {
           distanceFilter: 15, // 15 m harakatdan keyin
         ),
       ).listen(
-        (pos) => unawaited(_post(pos)),
+        (pos) => unawaited(_post(pos, throttled: true)),
         // Ruxsat o'chdi / GPS xato / OS oqimni to'xtatdi — obunani tashlaymiz.
         onError: (_) => _dropStream(),
         onDone: _dropStream,
@@ -221,10 +227,19 @@ class LocationService {
     return body;
   }
 
-  Future<void> _post(Position pos) async {
+  /// [throttled] — oqimdan kelgan fix (tez-tez). Tugma bosilganda yuboriladigan
+  /// fix (`getOnce`) esa hech qachon o'tkazib yuborilmaydi.
+  Future<void> _post(Position pos, {bool throttled = false}) async {
     if (!api.hasToken) return;
     // Noaniq fix jonli manzil / depot fallback'ini buzadi — o'tkazib yuboramiz.
     if (pos.accuracy > 0 && pos.accuracy > _maxStreamAccuracyM) return;
+    final now = DateTime.now();
+    if (throttled &&
+        _lastPostAt != null &&
+        now.difference(_lastPostAt!) < _minPostGap) {
+      return;
+    }
+    _lastPostAt = now;
     try {
       await api.post('/courier/location', {
         'lat': pos.latitude,

@@ -20,15 +20,17 @@ class OrdersPage extends StatefulWidget {
   State<OrdersPage> createState() => _OrdersPageState();
 }
 
-class _OrdersPageState extends State<OrdersPage> {
+class _OrdersPageState extends State<OrdersPage> with WidgetsBindingObserver {
   List<Order> _orders = [];
   bool _loading = true;
   bool _error = false;
   Timer? _timer;
+  bool _foreground = true;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _load();
     if (widget.isActive) _startPolling();
   }
@@ -45,13 +47,32 @@ class _OrdersPageState extends State<OrdersPage> {
     }
   }
 
+  /// Ilova fonda ekan poll to'xtaydi — avval ekran o'chgan holatda ham har
+  /// 15 soniyada so'rov ketardi (batareya va trafik behuda sarflanardi).
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final resumed = state == AppLifecycleState.resumed;
+    if (resumed == _foreground) return;
+    _foreground = resumed;
+    if (resumed) {
+      if (widget.isActive) {
+        _load(silent: true);
+        _startPolling();
+      }
+    } else {
+      _timer?.cancel();
+    }
+  }
+
   void _startPolling() {
     _timer?.cancel();
+    if (!_foreground) return;
     _timer = Timer.periodic(_pollInterval, (_) => _load(silent: true));
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _timer?.cancel();
     super.dispose();
   }

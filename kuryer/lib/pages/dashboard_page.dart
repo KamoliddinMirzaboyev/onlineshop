@@ -105,6 +105,8 @@ class _DashboardPageState extends State<DashboardPage> {
     if (!await RouteFlow.confirmOutOfOrder(context, o, deliveringPool: pool)) {
       return;
     }
+    // Tasdiq dialogi ochiq ekan sahifa yopilgan bo'lishi mumkin.
+    if (!mounted) return;
     final remainingBefore =
         pool.where((x) => x.status == 'delivering' && x.id != o.id).length;
     setState(() => _updatingId = o.id);

@@ -5,10 +5,21 @@
     <!-- Android 13+ (API 33) — shusiz FirebaseMessaging.requestPermission() hech qanday
          tizim oynasi ko'rsatmaydi va push bildirishnomalar chiqmaydi. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <!-- Joylashuv ixtiyoriy: Play Store GPS'siz qurilmalarda ham ilovani
+         ko'rsatsin (aks holda "mos emas" deb filtrlanadi). -->
+    <uses-feature android:name="android.hardware.location" android:required="false"/>
+    <uses-feature android:name="android.hardware.location.gps" android:required="false"/>
+
     <application
         android:label="Barakali Bozor"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:usesCleartextTraffic="false"
+        android:networkSecurityConfig="@xml/network_security_config"
+        android:allowBackup="false"
+        android:fullBackupContent="@xml/backup_rules"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:enableOnBackInvokedCallback="true">
         <activity
             android:name=".MainActivity"
             android:exported="true"

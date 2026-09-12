@@ -36,7 +36,7 @@ class OrderDetailPage extends StatefulWidget {
   State<OrderDetailPage> createState() => _OrderDetailPageState();
 }
 
-class _OrderDetailPageState extends State<OrderDetailPage> {
+class _OrderDetailPageState extends State<OrderDetailPage> with WidgetsBindingObserver {
   Order? _order;
   RestaurantDetail? _store;
   bool _error = false;
@@ -45,12 +45,32 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _load();
+    _startPolling();
+  }
+
+  void _startPolling() {
+    _timer?.cancel();
+    // Yakunlangan buyurtmani qayta so'rashning hojati yo'q.
+    if (_order != null && _terminal.contains(_order!.status)) return;
     _timer = Timer.periodic(const Duration(seconds: 10), (_) => _load());
+  }
+
+  /// Fonda poll to'xtaydi, qaytganda darhol bir marta yangilanadi.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _load();
+      _startPolling();
+    } else {
+      _timer?.cancel();
+    }
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _timer?.cancel();
     super.dispose();
   }

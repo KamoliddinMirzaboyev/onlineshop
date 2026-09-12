@@ -1,3 +1,5 @@
+import 'dart:io' show Platform;
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -16,6 +18,8 @@ class RatePrompt {
   static final RatePrompt instance = RatePrompt._();
 
   static const packageId = 'uz.barakalibozor.kuryer';
+  /// App Store Connect'dagi raqamli ID (iOS relizidan oldin to'ldiriladi).
+  static const appStoreId = '0000000000';
   static const _kOpens = 'af_rate_opens';
   static const _kDeliveries = 'af_rate_deliveries';
   static const _kDone = 'af_rate_done';
@@ -116,12 +120,19 @@ class RatePrompt {
   }
 
   Future<void> openPlayStore() async {
-    final market = Uri.parse('market://details?id=$packageId');
-    final web = Uri.parse(
-      'https://play.google.com/store/apps/details?id=$packageId',
-    );
+    // iOS'da `market://` va Play Store havolasi ishlamaydi — App Store ochiladi.
+    // `appStoreId` App Store Connect'da ilova yaratilgach to'ldiriladi.
+    final (deep, web) = Platform.isIOS
+        ? (
+            Uri.parse('itms-apps://itunes.apple.com/app/id$appStoreId?action=write-review'),
+            Uri.parse('https://apps.apple.com/app/id$appStoreId?action=write-review'),
+          )
+        : (
+            Uri.parse('market://details?id=$packageId'),
+            Uri.parse('https://play.google.com/store/apps/details?id=$packageId'),
+          );
     try {
-      final ok = await launchUrl(market, mode: LaunchMode.externalApplication);
+      final ok = await launchUrl(deep, mode: LaunchMode.externalApplication);
       if (ok) return;
     } catch (_) {}
     try {

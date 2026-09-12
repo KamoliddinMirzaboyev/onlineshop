@@ -63,6 +63,21 @@ android {
             } else {
                 signingConfigs.getByName("debug")
             }
+            // R8: ishlatilmagan kod/resurslar olib tashlanadi — AAB kichrayadi,
+            // sovuq ishga tushish tezlashadi (kuryer ilovasida allaqachon yoqilgan).
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
+        }
+    }
+
+    // Play talabi (2025-11-01 dan): Android 15+ qurilmalarda 16 KB page size.
+    packaging {
+        jniLibs {
+            useLegacyPackaging = false
         }
     }
 }

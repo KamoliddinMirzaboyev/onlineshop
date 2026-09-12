@@ -22,8 +22,10 @@ class ProductDetailSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cart = context.watch<CartProvider>();
-    final qty = cart.quantityOf(product.id);
+    final cart = context.read<CartProvider>();
+    // `watch` o'rniga `select`: +/- bosilganda butun varaq (rasm, tavsif,
+    // gradientlar) emas, faqat miqdorga bog'liq qism qayta quriladi.
+    final qty = context.select<CartProvider, double>((c) => c.quantityOf(product.id));
     final maxQty = product.maxQuantity;
 
     return Container(

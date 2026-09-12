@@ -37,6 +37,7 @@ class _LoginPageState extends State<LoginPage> {
       // Ruxsatlar AuthGate._ensureRuntimeServices da so'raladi (notif + GPS).
       // Navigation — AuthGate token/identity ni kuzatadi.
     } catch (err) {
+      if (!mounted) return;
       final raw = err.toString();
       setState(() {
         _error = raw.contains('Faqat kuryer')

@@ -115,6 +115,7 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
     setState(() => _pwSaving = true);
     try {
       await context.read<AuthState>().changePassword(_oldPw.text, _newPw.text);
+      if (!mounted) return;
       setState(() {
         _pwMsg = (ok: true, text: "Parol o'zgartirildi ✓");
         _oldPw.clear();

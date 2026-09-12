@@ -143,7 +143,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
     final picked = await Navigator.of(context).push<LatLng>(
       MaterialPageRoute(builder: (_) => MapPickerPage(initialLat: _lat, initialLng: _lng)),
     );
-    if (picked == null) return;
+    if (picked == null || !mounted) return;
     // Xaritadan tanlangan nuqta — mijoz tasdiqlagan, aniqlik cheklovi yo'q.
     _addressAuto = true;
     setState(() => _locError = null);
@@ -156,7 +156,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
       _locError = null;
     });
     try {
+      // Ruxsat dialogi bir necha soniya turadi \u2014 mijoz shu orada sahifadan
+      // chiqib ketsa `setState` dispose'dan keyin chaqirilib, exception berardi.
       final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!mounted) return;
       if (!serviceEnabled) {
         setState(() => _locError = 'GPS o\u2018chiq. Sozlamalardan yoqing yoki xaritadan tanlang.');
         return;
@@ -165,6 +168,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
       }
+      if (!mounted) return;
       if (permission == LocationPermission.denied ||
           permission == LocationPermission.deniedForever) {
         setState(() => _locError = 'Joylashuvga ruxsat berilmagan. Xaritadan tanlashingiz mumkin.');

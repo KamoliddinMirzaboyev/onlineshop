@@ -47,8 +47,11 @@ class _NavShellState extends State<NavShell> with WidgetsBindingObserver {
       cacheKey: 'courier_orders',
       fetchRaw: () => api.get('/courier/orders'),
       parse: Order.listFrom,
-      // Tezroq poll — app ochiq/fon rejimida yangi buyurtmani erta ushlash
+      // Ilova ochiq ekan tez poll — yangi buyurtmani erta ushlash.
       pollMs: 8000,
+      // Fonda sekin poll: asosiy signal FCM push, bu esa google-services.json
+      // yo'q/push kelmagan holat uchun zaxira (8s o'rniga 60s — batareya).
+      backgroundPollMs: 60000,
     );
     _orders.addListener(_onOrders);
     _onOrders();

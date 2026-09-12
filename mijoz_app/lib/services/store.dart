@@ -17,13 +17,24 @@ class StoreProvider extends ChangeNotifier {
 
   /// Katalogdagi barcha mahsulot — id bo'yicha. Savatni yangi narx/qoldiq
   /// bilan solishtirish uchun (`CartProvider.syncWithCatalog`).
-  Map<int, Product> get productsById => {
+  ///
+  /// Natija keshlanadi: avval har chaqiruvda yuzlab mahsulot bo'yicha uch
+  /// qavatli sikl aylanib, yangi Map yig'ilardi — Provider `update` har
+  /// bildirishnomada buni qayta hisoblardi.
+  Map<int, Product>? _productsByIdCache;
+  Map<int, Product> get productsById => _productsByIdCache ??= {
         for (final c in store?.categories ?? const <Category>[])
           for (final sc in c.subcategories)
             for (final p in sc.products) p.id: p,
       };
 
-  RestaurantDetail? store;
+  RestaurantDetail? _store;
+  RestaurantDetail? get store => _store;
+  set store(RestaurantDetail? value) {
+    _store = value;
+    _productsByIdCache = null; // katalog o'zgardi — indeks qayta quriladi
+  }
+
   bool loading = true;
   bool error = false;
   /// Joylashuv aniqlandi, lekin hech bir do'kon hududi qamramaydi. Katalog

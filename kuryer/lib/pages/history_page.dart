@@ -147,26 +147,41 @@ class _HistoryPageState extends State<HistoryPage> {
             Expanded(
               child: res.loading
                   ? const HistorySkeleton()
+                  // ListView.builder: tarixda yuzlab buyurtma bo'lsa ham faqat
+                  // ekrandagilari quriladi. Avval hammasi bir vaqtda qurilardi —
+                  // ochilishda sezilarli "qotish" va ortiqcha xotira.
                   : RefreshIndicator(
                       color: AppColors.brand,
                       onRefresh: () async => res.refresh(),
-                      child: ListView(
-                        padding: const EdgeInsets.all(16),
-                        children: [
-                          if (res.error != null) ...[
-                            ErrorBanner(res.error!),
-                            const SizedBox(height: 12),
-                          ],
-                          if (orders.isEmpty)
-                            const EmptyState(
-                              icon: Icons.access_time,
-                              message: "Tarix bo'sh",
-                            ),
-                          ...orders.map((o) => Padding(
+                      child: Builder(
+                        builder: (context) {
+                          final header = res.error != null ? 1 : 0;
+                          return ListView.builder(
+                            padding: const EdgeInsets.all(16),
+                            // Bo'sh ro'yxatda ham tortib-yangilash ishlasin.
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            itemCount: header + (orders.isEmpty ? 1 : orders.length),
+                            itemBuilder: (context, i) {
+                              if (header == 1 && i == 0) {
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 12),
+                                  child: ErrorBanner(res.error!),
+                                );
+                              }
+                              if (orders.isEmpty) {
+                                return const EmptyState(
+                                  icon: Icons.access_time,
+                                  message: "Tarix bo'sh",
+                                );
+                              }
+                              final o = orders[i - header];
+                              return Padding(
                                 padding: const EdgeInsets.only(bottom: 12),
                                 child: _HistoryCard(order: o, onTap: () => _open(o.id)),
-                              )),
-                        ],
+                              );
+                            },
+                          );
+                        },
                       ),
                     ),
             ),
