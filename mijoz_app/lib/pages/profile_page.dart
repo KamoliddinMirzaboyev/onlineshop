@@ -89,6 +89,9 @@ class _ProfilePageState extends State<ProfilePage> {
         ],
       ),
     );
+    // Dialog yopilgach controller bo'shatiladi — har ochilishda yangisi
+    // yaratilib, eskisi xotirada qolib ketardi.
+    controller.dispose();
 
     if (result == null || !mounted) return;
 
@@ -140,6 +143,7 @@ class _ProfilePageState extends State<ProfilePage> {
         ],
       ),
     );
+    controller.dispose();
 
     if (result == null || result.isEmpty || !mounted) return;
 
