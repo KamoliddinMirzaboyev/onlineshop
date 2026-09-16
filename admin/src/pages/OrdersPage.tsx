@@ -7,6 +7,7 @@ import { ErrorRetry, OrderListSkeleton } from "../components/Skeleton";
 import { useInfiniteList } from "../hooks/useInfiniteList";
 import { useAuth } from "../store";
 import type { AdminUser, Order, OrderStatus } from "../types";
+import { poll } from "../lib/poll";
 
 const FILTER_TABS = [
   { value: "pending", label: "Yangi" },
@@ -199,8 +200,7 @@ export default function OrdersPage() {
 
   useEffect(() => {
     load();
-    const iv = setInterval(load, 15000);
-    return () => clearInterval(iv);
+    return poll(load, 15000);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filter, day]);
 

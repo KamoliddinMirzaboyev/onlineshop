@@ -77,9 +77,11 @@ class Settings(BaseSettings):
     # worker pool'i tugab, "QueuePool limit reached" xatosi chiqardi.
     db_pool_size: int = 8
     db_max_overflow: int = 12
-    # Pool tugaganda cheksiz kutib turmaydi — 30s dan keyin aniq xato qaytadi
-    # (so'rov osilib qolgandan ko'ra tez xato yaxshi).
-    db_pool_timeout: int = 30
+    # Pool tugaganda cheksiz kutib turmaydi — tez aniq xato qaytadi.
+    # 30s edi: sekinlashuvda so'rovlar threadpool'da yarim daqiqa yig'ilib,
+    # gunicorn worker'ni o'ldirishiga (timeout) va qayta ishga tushish
+    # bo'roniga olib keldi (2026-09-16 hodisasi).
+    db_pool_timeout: int = 10
     db_pool_recycle: int = 1800
 
     redis_url: str = "redis://redis:6379/0"

@@ -173,6 +173,8 @@ class _CachedStaticFiles(StaticFiles):
 app.mount("/uploads", _CachedStaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
 
 
+# async — threadpool'da navbat kutmaydi: DB pool band bo'lsa ham monitoring
+# "API tirik"ni to'g'ri ko'radi, deploy/health tekshiruvi osilib qolmaydi.
 @app.get("/health")
-def health():
+async def health():
     return {"status": "ok"}

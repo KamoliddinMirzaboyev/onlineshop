@@ -2,6 +2,7 @@ import { Bell, CheckCircle2, PackageCheck, Pencil, Sparkles, X } from "lucide-re
 import { useEffect, useState } from "react";
 import { get } from "../api";
 import type { NotificationEvent } from "../types";
+import { poll } from "../lib/poll";
 
 const SEEN_KEY = "af_admin_notif_last_seen";
 
@@ -61,8 +62,7 @@ export default function NotificationBell() {
 
   useEffect(() => {
     load();
-    const id = setInterval(load, 30_000);
-    return () => clearInterval(id);
+    return poll(load, 30_000);
   }, []);
 
   const unseen = events.filter((e) => e.at > lastSeen).length;

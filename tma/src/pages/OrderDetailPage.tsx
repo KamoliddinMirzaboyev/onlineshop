@@ -50,7 +50,9 @@ export default function OrderDetailPage() {
         })
         .catch(() => setError(true));
     load();
-    iv = setInterval(load, 10000);
+    iv = setInterval(() => {
+      if (!document.hidden) load();
+    }, 10000);
     return () => clearInterval(iv);
   }, [id]);
 

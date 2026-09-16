@@ -37,7 +37,9 @@ export default function OrdersPage() {
   useEffect(() => {
     load();
     // Kuryer statusni o'zgartirsa, ro'yxat jonli yangilanib tursin.
-    const iv = setInterval(() => load(true), POLL_INTERVAL_MS);
+    const iv = setInterval(() => {
+      if (!document.hidden) load(true);
+    }, POLL_INTERVAL_MS);
     return () => clearInterval(iv);
   }, []);
 

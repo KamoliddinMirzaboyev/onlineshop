@@ -5,6 +5,7 @@ import { get, post } from "../api";
 import { ErrorRetry, OrderListSkeleton } from "../components/Skeleton";
 import { useInfiniteList } from "../hooks/useInfiniteList";
 import type { Category, CategoryGroup, Order, OrderStatus, Product, Restaurant } from "../types";
+import { poll } from "../lib/poll";
 
 type Catalog = { cats: Category[]; groups: CategoryGroup[]; products: Product[] };
 
@@ -99,8 +100,7 @@ export default function SuppliesPage() {
 
   useEffect(() => {
     load();
-    const iv = setInterval(load, 20000);
-    return () => clearInterval(iv);
+    return poll(load, 20000);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, day]);
 

@@ -185,7 +185,9 @@ export default function OrdersPage() {
     if (selectedStoreId == null) return;
     setLoading(true);
     load();
-    const iv = setInterval(load, 15000);
+    const iv = setInterval(() => {
+      if (!document.hidden) load();
+    }, 15000);
     return () => clearInterval(iv);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filter, selectedStoreId, stores.length]);

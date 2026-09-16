@@ -11,6 +11,7 @@ import secrets
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from starlette.concurrency import run_in_threadpool
 
 from app.api.deps import require_uploader
 from app.core.config import settings
@@ -77,12 +78,14 @@ async def upload_image(file: UploadFile = File(...)):
     if not _sniff(data):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Fayl haqiqiy rasm emas")
 
+    # Pillow siqish CPU'ni bir necha soniya band qiladi — event loop'da
+    # ishlasa worker'ning boshqa so'rovlari va gunicorn heartbeat'i to'xtaydi.
     try:
-        optimized, ext = process_upload(data)
+        optimized, ext = await run_in_threadpool(process_upload, data)
     except Exception:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Rasm o'qib bo'lmadi") from None
 
     name = f"{secrets.token_hex(16)}{ext}"
-    (UPLOAD_DIR / name).write_bytes(optimized)
+    await run_in_threadpool((UPLOAD_DIR / name).write_bytes, optimized)
 
     return {"url": f"{settings.api_base_url}/uploads/{name}"}
