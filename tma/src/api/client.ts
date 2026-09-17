@@ -616,29 +616,44 @@ export const api = {
   // Katalog har doim ochiladi (hudud tashqarisida ham).
   store: async (opts?: { forceCoords?: boolean }): Promise<RestaurantDetail | null> => {
     const loadDefault = () => req<RestaurantDetail>("/restaurants/default");
-
-    const coords = await getCoords(!!opts?.forceCoords);
     outOfDeliveryZone = false;
-    if (coords) {
+
+    // 1. Agar xotirada/localStorage'da koordinata allaqachon bo'lsa — darhol nearest so'raymiz
+    const cachedCoords = !opts?.forceCoords ? peekCoords() : null;
+    if (cachedCoords) {
       try {
         return await req<RestaurantDetail>(
-          `/restaurants/nearest?lat=${coords.lat}&lng=${coords.lng}`,
+          `/restaurants/nearest?lat=${cachedCoords.lat}&lng=${cachedCoords.lng}`,
         );
       } catch (e) {
-        // Hudud tashqarisi ham, tarmoq xatosi ham — katalog ochiq qoladi.
-        // Zona tekshiruvi buyurtma berishda (POST /orders) bo'ladi; bu yerda
-        // faqat mijozga ogohlantirish ko'rsatish uchun belgilab qo'yamiz.
-        outOfDeliveryZone =
-          e instanceof Error && e.message.includes("OUT_OF_RANGE");
-        try {
-          return await loadDefault();
-        } catch {
-          throw e;
-        }
+        outOfDeliveryZone = e instanceof Error && e.message.includes("OUT_OF_RANGE");
+        return await loadDefault();
       }
     }
 
-    return await loadDefault();
+    // 2. Keshda koordinata yo'q bo'lsa: default do'konni darhol so'raymiz, GPS'ni kutib o'tirmaymiz
+    const defaultPromise = loadDefault();
+    const coordsPromise = getCoords(!!opts?.forceCoords);
+
+    // Agar GPS 300ms ichida tez javob bersa — nearest qilamiz
+    const fastCoords = await Promise.race([
+      coordsPromise,
+      new Promise<null>((r) => setTimeout(() => r(null), 300)),
+    ]);
+
+    if (fastCoords) {
+      try {
+        return await req<RestaurantDetail>(
+          `/restaurants/nearest?lat=${fastCoords.lat}&lng=${fastCoords.lng}`,
+        );
+      } catch (e) {
+        outOfDeliveryZone = e instanceof Error && e.message.includes("OUT_OF_RANGE");
+        return await defaultPromise;
+      }
+    }
+
+    // GPS 300ms dan kechiksa — darhol default do'kon ochiladi, sahifa qotmaydi
+    return await defaultPromise;
   },
 
   // addresses

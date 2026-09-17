@@ -9,6 +9,23 @@ from typing import Any
 from app.core.redis import redis_client
 
 
+def cache_get_str(key: str) -> str | None:
+    """Xom matn (JSON) keshdan o'qish — ortiqcha parse va validatsiyasiz."""
+    try:
+        raw = redis_client.get(key)
+        return str(raw) if raw else None
+    except Exception:
+        return None
+
+
+def cache_set_str(key: str, value: str, ttl: int) -> None:
+    """Xom matn (JSON) keshga yozish."""
+    try:
+        redis_client.set(key, value, ex=ttl)
+    except Exception:
+        pass
+
+
 def cache_get_json(key: str) -> Any | None:
     try:
         raw = redis_client.get(key)

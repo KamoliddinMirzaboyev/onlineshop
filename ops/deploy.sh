@@ -42,8 +42,15 @@ cp "$REPO/backend/.dockerignore" "$ROOT/backend/.dockerignore"
 echo "==> mount qilingan papkalar egaligi (uid 10001)"
 mkdir -p "$ROOT/backend/uploads" "$ROOT/backend/secrets"
 chown -R 10001:10001 "$ROOT/backend/uploads" "$ROOT/backend/secrets"
+chmod 755 "$ROOT/backend/uploads"
+find "$ROOT/backend/uploads" -type f -exec chmod 644 {} + 2>/dev/null || true
 chmod 700 "$ROOT/backend/secrets"
 find "$ROOT/backend/secrets" -type f -exec chmod 600 {} +
+
+# Caddy statik rasmlar optimizatsiyasi (agar Caddy o'rnatilgan bo'lsa)
+if command -v caddy >/dev/null 2>&1 && [ -f "$REPO/ops/setup-caddy-fast-uploads.sh" ]; then
+  bash "$REPO/ops/setup-caddy-fast-uploads.sh" || true
+fi
 
 echo "==> build va restart"
 cd "$ROOT"

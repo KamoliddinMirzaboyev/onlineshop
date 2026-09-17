@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from typing import Literal
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Response, status
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select, update
 from sqlalchemy.exc import IntegrityError
@@ -12,7 +12,7 @@ from app.api.deps import (
     require_store_admin_or_business,
 )
 from app.core.config import settings
-from app.core.cache import invalidate_restaurant_catalog
+from app.core.cache import cache_get_str, cache_set_str, invalidate_restaurant_catalog
 from app.core.db import get_db
 from app.core.tz import tashkent_today_start_utc
 from app.core.security import hash_password
@@ -181,6 +181,10 @@ _top_products = analytics.top_products
 @router.get("/stats", response_model=DashboardStats)
 def stats(store: Restaurant = Depends(current_restaurant), db: Session = Depends(get_db)):
     rid = store.id
+    cache_key = f"admin:stats:{rid}"
+    if (cached_str := cache_get_str(cache_key)) is not None:
+        return Response(content=cached_str, media_type="application/json")
+
     today = tashkent_today_start_utc()
     week = today - timedelta(days=7)
     month = today - timedelta(days=30)
@@ -210,7 +214,7 @@ def stats(store: Restaurant = Depends(current_restaurant), db: Session = Depends
         )
     ) or 0
 
-    return DashboardStats(
+    result = DashboardStats(
         orders_today=o_today, revenue_today=r_today, profit_today=p_today,
         orders_week=o_week, revenue_week=r_week, profit_week=p_week,
         orders_month=o_month, revenue_month=r_month, profit_month=p_month,
@@ -221,6 +225,9 @@ def stats(store: Restaurant = Depends(current_restaurant), db: Session = Depends
         low_stock_count=low_stock_count,
         top_products=_top_products(db, [rid], limit=5),
     )
+    json_str = result.model_dump_json()
+    cache_set_str(cache_key, json_str, 60)
+    return Response(content=json_str, media_type="application/json")
 
 
 # ── Reports (hisobot) ────────────────────────────────────────────

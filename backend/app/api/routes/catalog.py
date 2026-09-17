@@ -1,8 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
-from app.core.cache import cache_get_json, cache_set_json
+from app.core.cache import cache_get_str, cache_set_str
 from app.core.db import get_db
 from app.models import Banner, Category, CategoryGroup, DeliveryZone, Product, Restaurant
 from app.schemas.banner import BannerOut
@@ -21,35 +21,34 @@ router = APIRouter(prefix="/restaurants", tags=["catalog"])
 # Katalog keshi. Admin/tadbirkor yozish route'lari
 # `cache.invalidate_restaurant_catalog()` chaqiradi, shuning uchun tahrirlar
 # darhol ko'rinadi. TTL — zaxira chora (invalidatsiya o'tkazib yuborilsa).
-#
-# DIQQAT: `stock` ham shu keshda. Buyurtma berilganda kesh tozalanmaydi —
-# demak qoldiq ~CACHE_TTL soniyagacha eski ko'rinishi mumkin. Bu ataylab:
-# har buyurtmada butun katalog keshini tashlash uni foydasiz qilardi.
-# Mijoz eskirgan qoldiqni ko'rsa ham zarar yo'q — `/orders/quote` va
-# buyurtma yaratish haqiqiy qoldiqni tekshiradi va `issues` da qaytaradi.
-CACHE_TTL = 120
+# 1 soat (3600s) — har 2 daqiqada og'ir DB so'rovlari bilan qotishni oldini oladi.
+CACHE_TTL = 3600
 
 
 @router.get("", response_model=list[RestaurantOut])
 def list_restaurants(db: Session = Depends(get_db), q: str | None = None):
     cache_key = "catalog:restaurants:all"
     if not q:
-        if (cached := cache_get_json(cache_key)) is not None:
-            return cached
+        if (cached_str := cache_get_str(cache_key)) is not None:
+            return Response(content=cached_str, media_type="application/json")
     stmt = select(Restaurant).where(Restaurant.is_active.is_(True)).order_by(Restaurant.rating.desc())
     if q:
         stmt = stmt.where(Restaurant.name.ilike(f"%{q}%"))
     restaurants = db.scalars(stmt).all()
     if not q:
+        import json
         payload = [RestaurantOut.model_validate(r).model_dump(mode="json") for r in restaurants]
-        cache_set_json(cache_key, payload, CACHE_TTL)
+        json_str = json.dumps(payload)
+        cache_set_str(cache_key, json_str, CACHE_TTL)
+        return Response(content=json_str, media_type="application/json")
     return restaurants
 
 
-def _build_detail(restaurant: Restaurant, db: Session) -> RestaurantDetail:
+def _build_detail(restaurant: Restaurant, db: Session):
     cache_key = f"catalog:restaurant:{restaurant.id}"
-    if (cached := cache_get_json(cache_key)) is not None:
-        return RestaurantDetail.model_validate(cached)
+    if (cached_str := cache_get_str(cache_key)) is not None:
+        # Zero-copy fast-path: Pydantic re-validatsiya va parse qilinmasdan to'g'ridan-to'g'ri qaytadi
+        return Response(content=cached_str, media_type="application/json")
 
     top_categories = db.scalars(
         select(Category)
@@ -103,8 +102,9 @@ def _build_detail(restaurant: Restaurant, db: Session) -> RestaurantDetail:
     detail.categories = cat_out
     detail.category_groups = groups_out
     detail.banners = banners_out
-    cache_set_json(cache_key, detail.model_dump(mode="json"), CACHE_TTL)
-    return detail
+    json_str = detail.model_dump_json()
+    cache_set_str(cache_key, json_str, CACHE_TTL)
+    return Response(content=json_str, media_type="application/json")
 
 
 @router.get("/banners", response_model=list[BannerOut])
