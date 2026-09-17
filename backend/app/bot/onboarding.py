@@ -7,7 +7,7 @@ out-of-state messages fall through to app/bot/handlers.py.
 
 from aiogram import F, Router
 from aiogram.exceptions import TelegramBadRequest
-from aiogram.filters import Command, StateFilter
+from aiogram.filters import Command, CommandObject, StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import (
@@ -18,6 +18,7 @@ from aiogram.types import (
 from app.bot import arepo, repo
 from app.bot.handlers import hide_shop_button, lang_kb, main_menu, show_shop_button, start_shopping_kb
 from app.bot.i18n import t
+from app.services import otp as otp_service
 
 router = Router()
 
@@ -26,6 +27,7 @@ class Onboarding(StatesGroup):
     language = State()
     phone = State()
     name = State()
+    login_phone = State()
 
 
 def _phone_kb(lang: str) -> ReplyKeyboardMarkup:
@@ -54,7 +56,7 @@ async def _delete_id(bot, chat_id: int, message_id: int | None) -> None:
 
 
 @router.message(Command("start"))
-async def cmd_start(message: Message, state: FSMContext) -> None:
+async def cmd_start(message: Message, command: CommandObject, state: FSMContext) -> None:
     if not message.from_user: return
     user = await arepo.get_or_create_user(
         message.from_user.id, message.from_user.first_name, message.from_user.username
@@ -63,6 +65,35 @@ async def cmd_start(message: Message, state: FSMContext) -> None:
         await state.clear()
         await message.answer(t(user.language if getattr(user, "language", None) else "uz", "blocked"))
         return
+
+    # Mobil ilovadan kod olish uchun kelgan bo'lsa (/start login yoki /start code)
+    arg = (command.args or "").strip().lower()
+    if arg in ("login", "code"):
+        if user.phone:
+            code = otp_service.create_telegram_login_code(
+                user.phone,
+                message.from_user.id,
+                user.first_name,
+                user.last_name,
+            )
+            await state.clear()
+            await message.answer(
+                f"🔐 <b>Barakali Bozor ilovasi uchun kirish kodingiz:</b>\n\n"
+                f"<code>{code}</code>\n\n"
+                f"<i>Ushbu 6 xonali kodni mobil ilovaga kiriting. Kod 5 daqiqa davomida amal qiladi.</i>\n\n"
+                f"Yangi kod olish uchun /login bosing.",
+                reply_markup=ReplyKeyboardRemove(),
+            )
+            return
+        await hide_shop_button(message.bot, message.chat.id)
+        await state.set_state(Onboarding.login_phone)
+        await message.answer(
+            "📱 <b>Barakali Bozor ilovasiga kirish uchun kodingizni olish</b>\n\n"
+            "Iltimos, pastdagi «📱 Raqamni yuborish» tugmasini bosing 👇",
+            reply_markup=_phone_kb(user.language or "uz"),
+        )
+        return
+
     if repo.is_onboarded(user):
         await state.clear()
         await show_shop_button(message.bot, message.chat.id)
@@ -78,6 +109,45 @@ async def cmd_start(message: Message, state: FSMContext) -> None:
     await message.answer("Barakali Bozor'ga xush kelibsiz!", reply_markup=ReplyKeyboardRemove())
     msg = await message.answer(t("uz", "lang_choose"), reply_markup=lang_kb())
     await state.update_data(prompt_id=msg.message_id)
+
+
+@router.message(StateFilter(Onboarding.login_phone), F.contact)
+async def onboard_login_phone(message: Message, state: FSMContext) -> None:
+    if not message.from_user or not message.contact: return
+    contact = message.contact
+    if contact.user_id != message.from_user.id:
+        user = await arepo.get_or_create_user(message.from_user.id, None, None)
+        await message.answer(t(user.language or "uz", "phone_own"))
+        return
+    ok = await arepo.set_phone(message.from_user.id, contact.phone_number)
+    user = await arepo.get_or_create_user(message.from_user.id, None, None)
+    if not ok:
+        await message.answer(t(user.language or "uz", "phone_taken"), reply_markup=_phone_kb(user.language or "uz"))
+        return
+    await state.clear()
+    code = otp_service.create_telegram_login_code(
+        contact.phone_number,
+        message.from_user.id,
+        user.first_name or message.from_user.first_name,
+        user.last_name or message.from_user.last_name,
+    )
+    await message.answer(
+        f"🔐 <b>Barakali Bozor ilovasi uchun kirish kodingiz:</b>\n\n"
+        f"<code>{code}</code>\n\n"
+        f"<i>Ushbu 6 xonali kodni mobil ilovaga kiriting. Kod 5 daqiqa davomida amal qiladi.</i>\n\n"
+        f"Yangi kod olish uchun /login bosing.",
+        reply_markup=ReplyKeyboardRemove(),
+    )
+
+
+@router.message(StateFilter(Onboarding.login_phone))
+async def onboard_login_phone_hint(message: Message) -> None:
+    if not message.from_user: return
+    user = await arepo.get_or_create_user(message.from_user.id, None, None)
+    await message.answer(
+        "📱 Kod olish uchun pastdagi «📱 Raqamni yuborish» tugmasini bosing 👇",
+        reply_markup=_phone_kb(user.language or "uz"),
+    )
 
 
 @router.callback_query(StateFilter(Onboarding.language), F.data.startswith("setlang:"))

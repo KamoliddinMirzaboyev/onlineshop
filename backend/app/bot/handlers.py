@@ -15,6 +15,7 @@ from app.bot import arepo, repo
 from app.bot.i18n import TEXTS, split_telegram_html, t
 from app.core.config import settings
 from app.models import User
+from app.services import otp as otp_service
 from app.services.notify import notify_location_update
 from app.services.orders import refine_order_address
 
@@ -102,6 +103,34 @@ def lang_kb() -> InlineKeyboardMarkup:
 async def cmd_language(message: Message) -> None:
     if not message.from_user: return
     await message.answer(t("uz", "lang_choose"), reply_markup=lang_kb())
+
+
+@router.message(Command("login", "code"))
+async def cmd_login(message: Message) -> None:
+    if not message.from_user: return
+    user = await arepo.get_or_create_user(message.from_user.id, message.from_user.first_name, message.from_user.username)
+    if getattr(user, "is_blocked", False):
+        await message.answer(t(user.language or "uz", "blocked"))
+        return
+    if not user.phone:
+        await message.answer(
+            "📱 <b>Barakali Bozor ilovasi uchun kod olish</b>\n\n"
+            "Iltimos, avval botda ro'yxatdan o'ting: /start bosing.",
+            reply_markup=ReplyKeyboardRemove(),
+        )
+        return
+    code = otp_service.create_telegram_login_code(
+        user.phone,
+        message.from_user.id,
+        user.first_name,
+        user.last_name,
+    )
+    await message.answer(
+        f"🔐 <b>Barakali Bozor ilovasi uchun kirish kodingiz:</b>\n\n"
+        f"<code>{code}</code>\n\n"
+        f"<i>Ushbu 6 xonali kodni mobil ilovaga kiriting. Kod 5 daqiqa davomida amal qiladi.</i>\n\n"
+        f"Yangi kod olish uchun /login bosing.",
+    )
 
 
 @router.callback_query(F.data.startswith("setlang:"))

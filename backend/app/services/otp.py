@@ -27,6 +27,7 @@ loglarga yoziladi. Prod'da `main.py` uni ishga tushishda taqiqlaydi.
 
 from __future__ import annotations
 
+import json
 import logging
 import secrets
 import threading
@@ -41,6 +42,7 @@ logger = logging.getLogger(__name__)
 
 _CODE_KEY = "otp:code:{phone}"
 _ATTEMPTS_KEY = "otp:tries:{phone}"
+_LOGIN_CODE_KEY = "otp:login_code:{code}"
 
 
 class OtpError(Exception):
@@ -223,3 +225,51 @@ def verify_otp(phone: str, code: str) -> bool:
     except Exception:  # noqa: BLE001
         pass
     return True
+
+
+def _generate_6digit_code() -> str:
+    """Kriptografik tasodifiy 6 xonali kod (100000–999999)."""
+    return str(secrets.randbelow(900_000) + 100_000)
+
+
+def create_telegram_login_code(
+    phone: str,
+    telegram_id: int | None = None,
+    first_name: str | None = None,
+    last_name: str | None = None,
+) -> str:
+    """Telegram bot orqali kirish uchun 6 xonali bir martalik kod generatsiya qiladi."""
+    phone = phone.strip()
+    data = json.dumps({
+        "phone": phone,
+        "telegram_id": telegram_id,
+        "first_name": first_name,
+        "last_name": last_name,
+    })
+    for _ in range(5):
+        code = _generate_6digit_code()
+        key = _LOGIN_CODE_KEY.format(code=code)
+        if redis_client.set(key, data, ex=settings.otp_ttl_seconds, nx=True):
+            return code
+    code = _generate_6digit_code()
+    redis_client.set(_LOGIN_CODE_KEY.format(code=code), data, ex=settings.otp_ttl_seconds)
+    return code
+
+
+def verify_telegram_login_code(code: str) -> dict | None:
+    """6 xonali kirish kodini tekshiradi va bir martalik qilib o'chiradi."""
+    code = code.strip()
+    if not code:
+        return None
+    key = _LOGIN_CODE_KEY.format(code=code)
+    try:
+        raw = redis_client.get(key)
+        if not raw:
+            return None
+        redis_client.delete(key)
+        if isinstance(raw, bytes):
+            raw = raw.decode("utf-8")
+        return json.loads(raw)
+    except Exception:
+        logger.exception("verify_telegram_login_code Redis xatosi")
+        return None

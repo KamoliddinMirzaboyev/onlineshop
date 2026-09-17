@@ -20,6 +20,7 @@ from app.core.security import (
 from app.models import User
 from app.schemas.auth import (
     AuthResult,
+    CodeVerifyIn,
     FCMTokenIn,
     LogoutIn,
     OtpRequestIn,
@@ -30,7 +31,12 @@ from app.schemas.auth import (
     UserOut,
     UserUpdateIn,
 )
-from app.services.otp import OtpError, send_otp, verify_otp
+from app.services.otp import (
+    OtpError,
+    send_otp,
+    verify_otp,
+    verify_telegram_login_code,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +45,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 _tg_auth_limit = rate_limiter("tg_auth", limit=30, window_seconds=60)
 _otp_request_limit = rate_limiter("otp_request", limit=5, window_seconds=60)
 _otp_verify_limit = rate_limiter("otp_verify", limit=15, window_seconds=60)
+_code_verify_limit = rate_limiter("code_verify", limit=15, window_seconds=60)
 
 _ALLOWED_LANGS = frozenset({"uz", "ru"})
 
@@ -149,6 +156,81 @@ def otp_verify(data: OtpVerifyIn, db: Session = Depends(get_db)):
     elif data.first_name and not user.first_name:
         user.first_name = data.first_name
         db.commit()
+
+    if user.is_blocked:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Akkauntingiz bloklangan")
+
+    db.refresh(user)
+    access_token = create_access_token(subject=str(user.id), role="user")
+    refresh_token = create_refresh_token(subject=str(user.id), role="user")
+    return AuthResult(
+        token=TokenOut(access_token=access_token, refresh_token=refresh_token),
+        user=UserOut.model_validate(user),
+    )
+
+
+@router.post("/code/verify", response_model=AuthResult, dependencies=[Depends(_code_verify_limit)])
+def code_verify(data: CodeVerifyIn, db: Session = Depends(get_db)):
+    """Telegram bot orqali olingan 6 xonali kod bilan kirish (42.uz uslubi)."""
+    # 1. Store Review / demo tekshiruvi uchun
+    if settings.demo_login_enabled and data.code in (settings.otp_fake_code, "111111", "11111"):
+        demo_phone = "+998901234567"
+        user = db.scalar(select(User).where(User.phone.in_([demo_phone, demo_phone.lstrip("+")])))
+        if not user:
+            user = User(phone=demo_phone, first_name="Demo Foydalanuvchi")
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+        access_token = create_access_token(subject=str(user.id), role="user")
+        refresh_token = create_refresh_token(subject=str(user.id), role="user")
+        return AuthResult(
+            token=TokenOut(access_token=access_token, refresh_token=refresh_token),
+            user=UserOut.model_validate(user),
+        )
+
+    # 2. Redis'dan tekshirish
+    payload = verify_telegram_login_code(data.code)
+    if not payload or not payload.get("phone"):
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Kod noto'g'ri yoki muddati o'tgan")
+
+    phone = normalize_phone(payload["phone"]) or payload["phone"]
+    tg_id = payload.get("telegram_id")
+    first_name = payload.get("first_name")
+    last_name = payload.get("last_name")
+
+    user = None
+    if tg_id:
+        user = db.scalar(select(User).where(User.telegram_id == tg_id))
+    if not user:
+        user = db.scalar(select(User).where(User.phone.in_([phone, phone.lstrip("+")])))
+
+    if user:
+        if phone and user.phone != phone:
+            user.phone = phone
+        if tg_id and not user.telegram_id:
+            user.telegram_id = tg_id
+        if first_name and not user.first_name:
+            user.first_name = first_name
+        if last_name and not user.last_name:
+            user.last_name = last_name
+        db.commit()
+    else:
+        user = User(
+            phone=phone,
+            telegram_id=tg_id,
+            first_name=first_name,
+            last_name=last_name,
+        )
+        db.add(user)
+        try:
+            db.commit()
+        except IntegrityError:
+            db.rollback()
+            user = db.scalar(select(User).where(User.phone.in_([phone, phone.lstrip("+")])))
+            if not user and tg_id:
+                user = db.scalar(select(User).where(User.telegram_id == tg_id))
+            if not user:
+                raise
 
     if user.is_blocked:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Akkauntingiz bloklangan")

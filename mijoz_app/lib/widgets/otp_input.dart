@@ -81,13 +81,16 @@ class _OtpBoxInputState extends State<OtpBoxInput> {
 
   @override
   Widget build(BuildContext context) {
+    final boxWidth = widget.length > 5 ? 42.0 : 50.0;
+    final boxHeight = widget.length > 5 ? 50.0 : 56.0;
+    final fontSize = widget.length > 5 ? 20.0 : 22.0;
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         for (var i = 0; i < widget.length; i++)
           SizedBox(
-            width: 52,
-            height: 56,
+            width: boxWidth,
+            height: boxHeight,
             child: TextField(
               controller: _controllers[i],
               focusNode: _focusNodes[i],
@@ -95,7 +98,7 @@ class _OtpBoxInputState extends State<OtpBoxInput> {
               textAlign: TextAlign.center,
               keyboardType: TextInputType.number,
               maxLength: widget.length, // paste qilinganda to'liq kodni ushlab qolish uchun
-              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.slate900),
+              style: TextStyle(fontSize: fontSize, fontWeight: FontWeight.bold, color: AppColors.slate900),
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
               decoration: InputDecoration(
                 counterText: '',

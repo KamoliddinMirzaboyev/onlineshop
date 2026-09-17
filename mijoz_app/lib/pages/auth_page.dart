@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../core/format.dart';
 import '../core/theme.dart';
 import '../services/api.dart';
@@ -9,7 +10,7 @@ import '../widgets/otp_input.dart';
 import '../widgets/toast.dart';
 import 'location_permission_page.dart';
 
-enum _Step { phone, otp, name }
+enum _Step { telegramCode, phone, otp, name }
 
 class AuthPage extends StatefulWidget {
   const AuthPage({super.key});
@@ -25,7 +26,7 @@ class _AuthPageState extends State<AuthPage> {
   final _firstNameController = TextEditingController();
   final _lastNameController = TextEditingController();
 
-  _Step _step = _Step.phone;
+  _Step _step = _Step.telegramCode;
   bool _loading = false;
   Timer? _resendTimer;
   int _resendCountdown = 0;
@@ -55,6 +56,51 @@ class _AuthPageState extends State<AuthPage> {
         setState(() => _resendCountdown--);
       }
     });
+  }
+
+  Future<void> _openTelegramBot() async {
+    final uri = Uri.parse('https://t.me/barakalibozorobot?start=login');
+    try {
+      final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!launched) {
+        await launchUrl(uri, mode: LaunchMode.platformDefault);
+      }
+    } catch (_) {
+      toast.error('Telegram botni ochishda xatolik yuz berdi');
+    }
+  }
+
+  Future<void> _verifyTelegramCode([String? directCode]) async {
+    if (_loading) return;
+    final code = directCode ?? _codeController.text.trim();
+    if (code.length != 6) {
+      toast.error('6 xonali kodni to\'liq kiriting');
+      return;
+    }
+    setState(() => _loading = true);
+    try {
+      final res = await api.post('/auth/code/verify', {
+        'code': code,
+      });
+      await api.setTokens(
+        access: res['token']['access_token'] as String?,
+        refresh: res['token']['refresh_token'] as String?,
+      );
+      if (!mounted) return;
+      final firstName = (res['user']['first_name'] as String?) ?? '';
+      if (firstName.trim().isEmpty) {
+        setState(() {
+          _step = _Step.name;
+          _codeController.clear();
+        });
+      } else {
+        _goToPermissions();
+      }
+    } catch (e) {
+      toast.error('Kod noto\'g\'ri yoki muddati o\'tgan');
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
   Future<void> _requestCode() async {
@@ -202,6 +248,7 @@ class _AuthPageState extends State<AuthPage> {
                     children: [
                       Text(
                         switch (_step) {
+                          _Step.telegramCode => 'Kodni kiriting 🔐',
                           _Step.phone => 'Xush kelibsiz 👋',
                           _Step.otp => 'Kodni tasdiqlash 🔐',
                           _Step.name => 'Tanishing 🤝',
@@ -217,6 +264,7 @@ class _AuthPageState extends State<AuthPage> {
                       const SizedBox(height: 6),
                       Text(
                         switch (_step) {
+                          _Step.telegramCode => 'Telegram bot orqali 6 xonali tasdiqlash kodini oling',
                           _Step.phone => 'Davom etish uchun telefon raqamingizni kiriting',
                           _Step.otp => '${_phoneController.text} raqamiga yuborilgan 5 xonali kod',
                           _Step.name => 'Buyurtmalaringiz uchun ismingizni kiriting',
@@ -225,6 +273,7 @@ class _AuthPageState extends State<AuthPage> {
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 24),
+                      if (_step == _Step.telegramCode) ..._telegramCodeFields(),
                       if (_step == _Step.phone) ..._phoneFields(),
                       if (_step == _Step.otp) ..._otpFields(),
                       if (_step == _Step.name) ..._nameFields(),
@@ -238,6 +287,122 @@ class _AuthPageState extends State<AuthPage> {
       ),
     );
   }
+
+  List<Widget> _telegramCodeFields() => [
+        // Telegram botga o'tish tugmasi (42.uz uslubida)
+        InkWell(
+          onTap: _openTelegramBot,
+          borderRadius: BorderRadius.circular(16),
+          child: Ink(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF2AABEE), Color(0xFF229ED9)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF229ED9).withValues(alpha: 0.3),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.send_rounded,
+                    color: Colors.white,
+                    size: 22,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Telegram bot orqali kod olish',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14.5,
+                        ),
+                      ),
+                      SizedBox(height: 2),
+                      Text(
+                        '@barakalibozorobot ga o\'tish',
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  color: Colors.white70,
+                  size: 16,
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 24),
+        const Text(
+          'Bot bergan 6 xonali kodni kiriting:',
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: AppColors.slate600,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 12),
+        Center(
+          child: OtpBoxInput(
+            key: const ValueKey('telegram_otp'),
+            length: 6,
+            onChanged: (v) => _codeController.text = v,
+            onCompleted: (v) => _verifyTelegramCode(v),
+          ),
+        ),
+        const SizedBox(height: 24),
+        AppButton(
+          label: 'Kirish',
+          expand: true,
+          loading: _loading,
+          onPressed: () => _verifyTelegramCode(),
+        ),
+        const SizedBox(height: 16),
+        Center(
+          child: TextButton(
+            onPressed: () => setState(() {
+              _step = _Step.phone;
+              _codeController.clear();
+            }),
+            child: const Text(
+              'Boshqa usulda kirish (SMS / Demo)',
+              style: TextStyle(
+                color: AppColors.slate500,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ),
+      ];
 
   List<Widget> _phoneFields() => [
         Container(
@@ -289,6 +454,24 @@ class _AuthPageState extends State<AuthPage> {
           loading: _loading,
           onPressed: _requestCode,
         ),
+        const SizedBox(height: 12),
+        Center(
+          child: TextButton.icon(
+            onPressed: () => setState(() {
+              _step = _Step.telegramCode;
+              _codeController.clear();
+            }),
+            icon: const Icon(Icons.arrow_back_rounded, size: 16, color: Color(0xFF229ED9)),
+            label: const Text(
+              'Telegram orqali kod olishga qaytish',
+              style: TextStyle(
+                color: Color(0xFF229ED9),
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+              ),
+            ),
+          ),
+        ),
         const SizedBox(height: 16),
         Center(
           child: Text(
@@ -302,6 +485,7 @@ class _AuthPageState extends State<AuthPage> {
   List<Widget> _otpFields() => [
         Center(
           child: OtpBoxInput(
+            key: const ValueKey('phone_otp'),
             length: 5,
             onChanged: (v) => _codeController.text = v,
             onCompleted: (v) => _verifyCode(v),

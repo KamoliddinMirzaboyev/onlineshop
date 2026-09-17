@@ -25,9 +25,12 @@ class FakeRedis:
         self._check()
         return self.store.get(key)
 
-    def set(self, key, value, ex=None):
+    def set(self, key, value, ex=None, nx=False):
         self._check()
+        if nx and key in self.store:
+            return False
         self.store[key] = str(value)
+        return True
 
     def delete(self, *keys):
         self._check()
@@ -255,3 +258,69 @@ def test_signin_returns_refresh_token(client, fake_mode):
     body = _verify(client, "+998901119905", first_name="R").json()
     assert body["token"]["access_token"]
     assert body["token"]["refresh_token"]
+
+
+def test_create_and_verify_telegram_login_code(fake_redis):
+    code = otp_service.create_telegram_login_code(
+        phone="+998901112233",
+        telegram_id=987654321,
+        first_name="Ali",
+        last_name="Valiyev",
+    )
+    assert len(code) == 6
+    assert code.isdigit()
+
+    # Birinchi marta tekshirilganda qaytadi
+    payload = otp_service.verify_telegram_login_code(code)
+    assert payload is not None
+    assert payload["phone"] == "+998901112233"
+    assert payload["telegram_id"] == 987654321
+    assert payload["first_name"] == "Ali"
+
+    # Ikkinchi marta o'chirilgan (single-use)
+    assert otp_service.verify_telegram_login_code(code) is None
+
+
+def test_telegram_code_verify_endpoint_creates_user(client, fake_redis, db_session):
+    code = otp_service.create_telegram_login_code(
+        phone="+998901114455",
+        telegram_id=12345678,
+        first_name="Nodir",
+    )
+    resp = client.post("/api/auth/code/verify", json={"code": code})
+    assert resp.status_code == 200, resp.text
+    data = resp.json()
+    assert data["token"]["access_token"]
+    assert data["token"]["refresh_token"]
+    assert data["user"]["phone"] == "+998901114455"
+    assert data["user"]["first_name"] == "Nodir"
+
+
+def test_telegram_code_verify_endpoint_existing_user(client, fake_redis, db_session):
+    user = User(phone="+998901116677", first_name="Eski Foydalanuvchi", telegram_id=888888)
+    db_session.add(user)
+    db_session.commit()
+
+    code = otp_service.create_telegram_login_code(
+        phone="+998901116677",
+        telegram_id=888888,
+    )
+    resp = client.post("/api/auth/code/verify", json={"code": code})
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["user"]["id"] == user.id
+
+
+def test_telegram_code_verify_invalid_or_expired(client, fake_redis):
+    resp = client.post("/api/auth/code/verify", json={"code": "000000"})
+    assert resp.status_code == 401
+    assert "Kod noto'g'ri" in resp.json()["detail"]
+
+
+def test_telegram_code_verify_demo_mode(client, monkeypatch, db_session):
+    from app.core.config import settings
+    monkeypatch.setattr(settings, "demo_login_enabled", True)
+    monkeypatch.setattr(settings, "otp_fake_code", "111111")
+    resp = client.post("/api/auth/code/verify", json={"code": "111111"})
+    assert resp.status_code == 200
+    assert resp.json()["user"]["phone"] == "+998901234567"

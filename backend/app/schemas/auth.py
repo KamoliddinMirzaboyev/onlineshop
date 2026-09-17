@@ -37,6 +37,18 @@ class OtpVerifyIn(BaseModel):
         return s[:128] if s else None
 
 
+class CodeVerifyIn(BaseModel):
+    code: str = Field(min_length=4, max_length=8)
+
+    @field_validator("code")
+    @classmethod
+    def _clean_code(cls, v: str) -> str:
+        s = v.strip()
+        if not s:
+            raise ValueError("Kod kiritilmadi")
+        return s
+
+
 class FCMTokenIn(BaseModel):
     fcm_token: str = Field(min_length=1, max_length=512)
 
