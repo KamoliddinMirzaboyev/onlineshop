@@ -290,10 +290,9 @@ class _AuthPageState extends State<AuthPage> {
 
   List<Widget> _telegramCodeFields() => [
         // Telegram botga o'tish tugmasi (42.uz uslubida)
-        InkWell(
+        GestureDetector(
           onTap: _openTelegramBot,
-          borderRadius: BorderRadius.circular(16),
-          child: Ink(
+          child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             decoration: BoxDecoration(
               gradient: const LinearGradient(
@@ -304,7 +303,7 @@ class _AuthPageState extends State<AuthPage> {
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF229ED9).withValues(alpha: 0.3),
+                  color: const Color(0xFF229ED9).withValues(alpha: 0.35),
                   blurRadius: 12,
                   offset: const Offset(0, 4),
                 ),
@@ -313,19 +312,19 @@ class _AuthPageState extends State<AuthPage> {
             child: Row(
               children: [
                 Container(
-                  width: 42,
-                  height: 42,
+                  width: 44,
+                  height: 44,
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.2),
+                    color: Colors.white.withValues(alpha: 0.22),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(
                     Icons.send_rounded,
                     color: Colors.white,
-                    size: 22,
+                    size: 24,
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 14),
                 const Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -335,15 +334,15 @@ class _AuthPageState extends State<AuthPage> {
                         style: TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.w700,
-                          fontSize: 14.5,
+                          fontSize: 15,
                         ),
                       ),
-                      SizedBox(height: 2),
+                      SizedBox(height: 3),
                       Text(
                         '@barakalibozorobot ga o\'tish',
                         style: TextStyle(
                           color: Colors.white70,
-                          fontSize: 12,
+                          fontSize: 12.5,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -352,7 +351,7 @@ class _AuthPageState extends State<AuthPage> {
                 ),
                 const Icon(
                   Icons.arrow_forward_ios_rounded,
-                  color: Colors.white70,
+                  color: Colors.white,
                   size: 16,
                 ),
               ],
