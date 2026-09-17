@@ -16,7 +16,7 @@ from aiogram.types import (
 )
 
 from app.bot import arepo, repo
-from app.bot.handlers import lang_kb, main_menu, start_shopping_kb
+from app.bot.handlers import lang_kb, main_menu, show_shop_button, start_shopping_kb
 from app.bot.i18n import t
 
 router = Router()
@@ -32,7 +32,7 @@ def _phone_kb(lang: str) -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         keyboard=[[KeyboardButton(text=t(lang, "send_phone"), request_contact=True)]],
         resize_keyboard=True,
-        one_time_keyboard=True,
+        is_persistent=True,
     )
 
 
@@ -65,6 +65,7 @@ async def cmd_start(message: Message, state: FSMContext) -> None:
         return
     if repo.is_onboarded(user):
         await state.clear()
+        await show_shop_button(message.bot, message.chat.id)
         await message.answer(
             t(user.language, "start", name=user.first_name or ""),
             reply_markup=main_menu(user.language),
@@ -112,11 +113,12 @@ async def onboard_phone(message: Message, state: FSMContext) -> None:
 
 @router.message(StateFilter(Onboarding.phone))
 async def onboard_phone_hint(message: Message, state: FSMContext) -> None:
-    """Matn yoki boshqa xabar — contact tugmasini qayta ko'rsat."""
+    """Matn yoki boshqa xabar — raqam faqat tugma orqali qabul qilinadi (Telegram
+    tasdiqlagan kontakt), shuni aniq tushuntiramiz."""
     if not message.from_user:
         return
     user = await arepo.get_or_create_user(message.from_user.id, None, None)
-    await message.answer(t(user.language, "phone_ask"), reply_markup=_phone_kb(user.language))
+    await message.answer(t(user.language, "phone_use_button"), reply_markup=_phone_kb(user.language))
 
 
 @router.message(StateFilter(Onboarding.name), F.text)
@@ -133,6 +135,7 @@ async def onboard_name(message: Message, state: FSMContext) -> None:
     await _delete(message)  # user's name reply
     await state.clear()
     user = await arepo.get_or_create_user(message.from_user.id, None, None)
+    await show_shop_button(message.bot, message.chat.id)
     await message.answer(
         t(user.language, "onboard_done", name=first),
         reply_markup=main_menu(user.language),

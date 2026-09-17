@@ -138,6 +138,19 @@ export function getInitData(): string {
   return data || cachedInitData || "";
 }
 
+export const BOT_URL = "https://t.me/barakalibozorobot";
+
+/** Botga qaytaradi: Telegram ichida chatni ochib Mini App'ni yopadi. */
+export function openBot() {
+  const wa = getWebApp();
+  if (wa?.openTelegramLink) {
+    wa.openTelegramLink(BOT_URL);
+    wa.close();
+  } else {
+    window.location.href = BOT_URL;
+  }
+}
+
 export function getLanguage(): "uz" | "ru" {
   const code = getWebApp()?.initDataUnsafe?.user?.language_code ?? "uz";
   return code.startsWith("ru") ? "ru" : "uz";

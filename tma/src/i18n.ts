@@ -93,6 +93,13 @@ const dict = {
     cancelled_note: "Buyurtma bekor qilindi",
     thank_you: "Xaridingiz uchun rahmat! 🙏",
     close: "Yopish",
+    gate_onboarding_title: "Avval ro'yxatdan o'ting",
+    gate_onboarding_text:
+      "Botda «📱 Raqamni yuborish» tugmasini bosib telefon raqamingizni, so'ng ismingizni yuboring. Keyin ilovani qayta oching.",
+    gate_open_bot: "Botga o'tish",
+    gate_blocked_title: "Akkauntingiz bloklangan",
+    gate_blocked_text: "Savollar bo'lsa, qo'llab-quvvatlash xizmatiga yozing.",
+    check_again_short: "Qayta tekshirish",
   },
   ru: {
     restaurants: "Рестораны",
@@ -183,6 +190,13 @@ const dict = {
     cancelled_note: "Заказ отменён",
     thank_you: "Спасибо за покупку! 🙏",
     close: "Закрыть",
+    gate_onboarding_title: "Сначала пройдите регистрацию",
+    gate_onboarding_text:
+      "В боте нажмите кнопку «📱 Отправить номер», затем отправьте своё имя. После этого откройте приложение снова.",
+    gate_open_bot: "Перейти в бот",
+    gate_blocked_title: "Ваш аккаунт заблокирован",
+    gate_blocked_text: "Если есть вопросы, напишите в поддержку.",
+    check_again_short: "Проверить снова",
   },
 };
 

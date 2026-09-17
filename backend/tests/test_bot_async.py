@@ -51,3 +51,14 @@ def test_location_handler_schedules_background_refinement():
     src = inspect.getsource(handlers)
     assert "refine_order_address" in src
     assert "to_thread" in src
+
+
+def test_shop_menu_button_only_for_onboarded():
+    """"Sotib olish" (Mini App) tugmasi umumiy emas — faqat onboarding'dan o'tganlarga."""
+    from app.bot import run
+    run_src = inspect.getsource(run)
+    assert "MenuButtonWebApp" not in run_src
+    onboarding_src = inspect.getsource(onboarding)
+    assert onboarding_src.count("show_shop_button(") >= 2  # /start + onboard_name
+    for fn in (handlers.on_open_app_btn, handlers.on_orders_btn):
+        assert "_require_onboarded" in inspect.getsource(fn)

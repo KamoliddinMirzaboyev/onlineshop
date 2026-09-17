@@ -26,7 +26,13 @@ TEXTS = {
         "lang": "🌐 Til / Язык",
         "help": "ℹ️ Yordam",
         "offer": "📄 Ommaviy oferta",
-        "phone_ask": "📱 Telefon raqamingizni yuboring",
+        "phone_ask": "📱 Telefon raqamingizni yuborish uchun pastdagi «📱 Raqamni yuborish» tugmasini bosing 👇",
+        "phone_use_button": (
+            "❗️ Raqamni qo'lda yozish qabul qilinmaydi.\n"
+            "Pastdagi «📱 Raqamni yuborish» tugmasini bosing 👇\n\n"
+            "Tugma ko'rinmasa — xabar yozish maydoni yonidagi klaviatura belgisini bosing."
+        ),
+        "need_onboarding": "Avval ro'yxatdan o'ting: /start bosing va telefon raqamingiz hamda ismingizni yuboring.",
         "send_phone": "📱 Raqamni yuborish",
         "phone_saved": "✅ Raqamingiz saqlandi.",
         "lang_choose": "Tilni tanlang / Выберите язык:",
@@ -85,7 +91,13 @@ TEXTS = {
         "lang": "🌐 Til / Язык",
         "help": "ℹ️ Помощь",
         "offer": "📄 Публичная оферта",
-        "phone_ask": "📱 Отправьте ваш номер телефона",
+        "phone_ask": "📱 Чтобы отправить номер, нажмите кнопку «📱 Отправить номер» ниже 👇",
+        "phone_use_button": (
+            "❗️ Номер, введённый вручную, не принимается.\n"
+            "Нажмите кнопку «📱 Отправить номер» ниже 👇\n\n"
+            "Если кнопки не видно — нажмите значок клавиатуры рядом с полем ввода."
+        ),
+        "need_onboarding": "Сначала пройдите регистрацию: нажмите /start и отправьте номер телефона и имя.",
         "send_phone": "📱 Отправить номер",
         "phone_saved": "✅ Ваш номер сохранён.",
         "lang_choose": "Tilni tanlang / Выберите язык:",

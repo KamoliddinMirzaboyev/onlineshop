@@ -1,15 +1,20 @@
 import asyncio
+import logging
 
-from aiogram import F, Router
+from aiogram import Bot, F, Router
+from aiogram.exceptions import TelegramAPIError
 from aiogram.filters import Command
 from aiogram.types import (
     CallbackQuery, Contact, InlineKeyboardButton, InlineKeyboardMarkup,
-    KeyboardButton, Message, ReplyKeyboardMarkup, ReplyKeyboardRemove, WebAppInfo,
+    KeyboardButton, MenuButtonWebApp, Message, ReplyKeyboardMarkup, ReplyKeyboardRemove,
+    WebAppInfo,
 )
+from aiogram.types import User as TgUser
 
 from app.bot import arepo, repo
 from app.bot.i18n import TEXTS, split_telegram_html, t
 from app.core.config import settings
+from app.models import User
 from app.services.notify import notify_location_update
 from app.services.orders import refine_order_address
 
@@ -44,6 +49,28 @@ def start_shopping_kb(lang: str) -> InlineKeyboardMarkup:
             web_app=WebAppInfo(url=settings.tma_url),
         )]]
     )
+
+
+async def show_shop_button(bot: Bot | None, chat_id: int) -> None:
+    """"Sotib olish" menyu tugmasi — faqat shu chatga (onboarding'dan o'tganlar)."""
+    if bot is None:
+        return
+    try:
+        await bot.set_chat_menu_button(
+            chat_id=chat_id,
+            menu_button=MenuButtonWebApp(text="Sotib olish", web_app=WebAppInfo(url=settings.tma_url)),
+        )
+    except TelegramAPIError as e:
+        logging.warning("menu button (chat %s) qo'yilmadi: %s", chat_id, e)
+
+
+async def _require_onboarded(message: Message, tg: TgUser) -> User | None:
+    """Onboarding'dan o'tmagan bo'lsa /start'ga yo'naltiradi va None qaytaradi."""
+    user = await arepo.get_or_create_user(tg.id, tg.first_name, tg.username)
+    if not repo.is_onboarded(user):
+        await message.answer(t(user.language, "need_onboarding"), reply_markup=ReplyKeyboardRemove())
+        return None
+    return user
 
 
 def lang_kb() -> InlineKeyboardMarkup:
@@ -135,14 +162,16 @@ async def on_offer_btn(message: Message) -> None:
 @router.message(F.text.in_(_btn_texts("open_app")))
 async def on_open_app_btn(message: Message) -> None:
     if not message.from_user: return
-    user = await arepo.get_or_create_user(message.from_user.id, message.from_user.first_name, message.from_user.username)
+    user = await _require_onboarded(message, message.from_user)
+    if user is None: return
     await message.answer(t(user.language, "start_shopping_prompt"), reply_markup=start_shopping_kb(user.language))
 
 
 @router.message(F.text.in_(_btn_texts("orders")))
 async def on_orders_btn(message: Message) -> None:
     if not message.from_user: return
-    user = await arepo.get_or_create_user(message.from_user.id, message.from_user.first_name, message.from_user.username)
+    user = await _require_onboarded(message, message.from_user)
+    if user is None: return
     # order history lives in the Mini App
     kb = InlineKeyboardMarkup(
         inline_keyboard=[[InlineKeyboardButton(
@@ -182,6 +211,8 @@ async def on_contact(message: Message) -> None:
     user = await arepo.get_or_create_user(
         message.from_user.id, message.from_user.first_name, message.from_user.username
     )
+    if repo.is_onboarded(user):
+        await show_shop_button(message.bot, message.chat.id)
     await message.answer(t(user.language, "phone_saved"), reply_markup=main_menu(user.language))
 
 

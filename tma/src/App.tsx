@@ -7,8 +7,9 @@ import Splash from "./components/Splash";
 import { useTelegramBackButton } from "./hooks/useTelegramBackButton";
 import { prefetchStore } from "./hooks/useStore";
 import HomePage from "./pages/HomePage";
-import { useAuth } from "./store/auth";
+import { useAuth, type AuthGateReason } from "./store/auth";
 import { useI18n } from "./i18n";
+import { openBot } from "./telegram";
 
 // Home'dan tashqari sahifalar — alohida chunk (leaflet/checkout boshlang'ich
 // bundle'ni shishirmasin). Home landing bo'lgani uchun eager qoladi.
@@ -109,8 +110,43 @@ function AppRoutes() {
   );
 }
 
+/** Onboarding tugamagan yoki bloklangan — ilovaning hech bir qismi ochilmaydi.
+ * Asosiy himoya serverda (/auth/telegram 403); bu faqat tushunarli ekran. */
+function AccessGate({ reason }: { reason: AuthGateReason }) {
+  const { t } = useI18n();
+  const login = useAuth((s) => s.login);
+  const onboarding = reason === "onboarding";
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center gap-4 px-6 text-center bg-tg-bg">
+      <div className="text-5xl">{onboarding ? "📱" : "⛔️"}</div>
+      <h1 className="text-lg font-semibold">
+        {onboarding ? t.gate_onboarding_title : t.gate_blocked_title}
+      </h1>
+      <p className="text-tg-hint text-sm leading-relaxed max-w-sm">
+        {onboarding ? t.gate_onboarding_text : t.gate_blocked_text}
+      </p>
+      {onboarding && (
+        <button
+          type="button"
+          onClick={openBot}
+          className="w-full max-w-xs bg-brand text-white font-medium px-6 py-3 rounded-2xl active:scale-95 transition"
+        >
+          {t.gate_open_bot}
+        </button>
+      )}
+      <button
+        type="button"
+        onClick={() => void login()}
+        className="text-sm font-medium text-brand"
+      >
+        {t.check_again_short}
+      </button>
+    </div>
+  );
+}
+
 export default function App() {
-  const { ready, login, error, user } = useAuth();
+  const { ready, login, error, user, gate } = useAuth();
 
   useEffect(() => {
     void login();
@@ -121,11 +157,12 @@ export default function App() {
 
   // Auth muvaffaqiyatsiz — splash o'rniga xato + retry (katalog ochilmaydi agar kerak).
   // Katalog public, lekin user yo'q bo'lsa ham Home ochilishi mumkin (faqat error banner).
-  const showApp = ready;
+  const showApp = ready && !gate;
 
   return (
     <>
       <AnimatePresence>{!ready && <Splash />}</AnimatePresence>
+      {ready && gate && <AccessGate reason={gate} />}
       {showApp && (
         <>
           {error && !user && (
