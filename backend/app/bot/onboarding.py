@@ -16,7 +16,7 @@ from aiogram.types import (
 )
 
 from app.bot import arepo, repo
-from app.bot.handlers import lang_kb, main_menu, show_shop_button, start_shopping_kb
+from app.bot.handlers import hide_shop_button, lang_kb, main_menu, show_shop_button, start_shopping_kb
 from app.bot.i18n import t
 
 router = Router()
@@ -71,7 +71,11 @@ async def cmd_start(message: Message, state: FSMContext) -> None:
             reply_markup=main_menu(user.language),
         )
         return
+
+    # Ro'yxatdan o'tmagan: Mini App menyu tugmasi va eski klaviaturalar olib tashlanadi
+    await hide_shop_button(message.bot, message.chat.id)
     await state.set_state(Onboarding.language)
+    await message.answer("Barakali Bozor'ga xush kelibsiz!", reply_markup=ReplyKeyboardRemove())
     msg = await message.answer(t("uz", "lang_choose"), reply_markup=lang_kb())
     await state.update_data(prompt_id=msg.message_id)
 

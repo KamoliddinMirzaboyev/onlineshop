@@ -64,10 +64,24 @@ async def show_shop_button(bot: Bot | None, chat_id: int) -> None:
         logging.warning("menu button (chat %s) qo'yilmadi: %s", chat_id, e)
 
 
+async def hide_shop_button(bot: Bot | None, chat_id: int) -> None:
+    """"Sotib olish" menyu tugmasini tozalaydi — ro'yxatdan o'tmaganlarga Mini App ko'rinmasin."""
+    if bot is None:
+        return
+    try:
+        await bot.set_chat_menu_button(
+            chat_id=chat_id,
+            menu_button=MenuButtonCommands(),
+        )
+    except TelegramAPIError as e:
+        logging.warning("menu button tozalash (chat %s) xato: %s", chat_id, e)
+
+
 async def _require_onboarded(message: Message, tg: TgUser) -> User | None:
     """Onboarding'dan o'tmagan bo'lsa /start'ga yo'naltiradi va None qaytaradi."""
     user = await arepo.get_or_create_user(tg.id, tg.first_name, tg.username)
     if not repo.is_onboarded(user):
+        await hide_shop_button(message.bot, message.chat.id)
         await message.answer(t(user.language, "need_onboarding"), reply_markup=ReplyKeyboardRemove())
         return None
     return user
