@@ -10,6 +10,9 @@ plugins {
 // google-services.json joylangandan keyin FCM ishlaydi (yo'q bo'lsa build o'tadi).
 if (file("google-services.json").exists()) {
     apply(plugin = "com.google.gms.google-services")
+    // Release build ProGuard/R8 bilan xiralashtirilgani uchun, bu plugin
+    // bo'lmasa native/crash stack-trace'lar o'qib bo'lmas holga keladi.
+    apply(plugin = "com.google.firebase.crashlytics")
 }
 
 val keystoreProperties = Properties()

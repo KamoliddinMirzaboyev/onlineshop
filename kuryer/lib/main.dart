@@ -1,14 +1,20 @@
 import 'dart:async';
+import 'dart:ui';
 
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/theme.dart';
+import 'pages/force_update_page.dart';
 import 'pages/login_page.dart';
 import 'pages/onboarding_page.dart';
 import 'services/api.dart';
+import 'services/app_version.dart';
 import 'services/cache.dart';
 import 'services/fcm.dart';
 import 'services/location.dart';
@@ -17,6 +23,7 @@ import 'services/order_widget.dart';
 import 'services/rate_prompt.dart';
 import 'state/auth.dart';
 import 'state/order_alerts.dart';
+import 'widgets/connectivity_banner.dart';
 import 'widgets/nav_shell.dart';
 import 'widgets/splash.dart';
 import 'widgets/toast.dart';
@@ -29,8 +36,30 @@ Future<void> main() async {
   // Faqat token birinchi kadrga kerak (login/nav qaysi ekran ochilishini
   // hal qiladi) — qolgan servislar kadrni kutib turmasin.
   await api.init();
+  await _initCrashReporting();
   runApp(const BarakaliCourierApp());
   unawaited(_initServices());
+}
+
+/// Firebase'ni shu yerda ertaroq ham ishga tushiramiz (fcm.init() pastda
+/// baribir qayta chaqiradi — try/catch bilan xavfsiz, ikkalasi ham FlutterFire
+/// hujjatlashtirilgan pattern) shunda birinchi kadrdan oldingi xatolar ham
+/// Crashlytics'ga tushadi. google-services.json bo'lmasa (masalan CI) jim
+/// o'tkazib yuboriladi.
+Future<void> _initCrashReporting() async {
+  try {
+    await Firebase.initializeApp();
+    // Debug build'dagi mahalliy xatolar Crashlytics dashboard'ini
+    // chiqindilamasin — faqat release/profile'da yig'iladi.
+    await FirebaseCrashlytics.instance.setCrashlyticsCollectionEnabled(!kDebugMode);
+    FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
+    PlatformDispatcher.instance.onError = (error, stack) {
+      FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+      return true;
+    };
+  } catch (e) {
+    debugPrint('Crashlytics init failed (google-services.json?): $e');
+  }
 }
 
 /// Birinchi kadrdan keyin ishga tushadi — sovuq start ~300-500ms tezlashadi.
@@ -55,6 +84,7 @@ class _BarakaliCourierAppState extends State<BarakaliCourierApp> {
   // brand animation reads even on a fast connection (mirrors App.tsx).
   bool _booting = true;
   bool? _onboardingDone;
+  String? _forceUpdateUrl;
 
   @override
   void initState() {
@@ -63,11 +93,17 @@ class _BarakaliCourierAppState extends State<BarakaliCourierApp> {
       if (mounted) setState(() => _booting = false);
     });
     unawaited(_loadOnboarding());
+    unawaited(_checkForceUpdate());
   }
 
   Future<void> _loadOnboarding() async {
     final done = await isOnboardingDone();
     if (mounted) setState(() => _onboardingDone = done);
+  }
+
+  Future<void> _checkForceUpdate() async {
+    final url = await checkForceUpdateStoreUrl();
+    if (mounted && url != null) setState(() => _forceUpdateUrl = url);
   }
 
   @override
@@ -81,21 +117,24 @@ class _BarakaliCourierAppState extends State<BarakaliCourierApp> {
         title: 'BB Kuryer',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.light,
-        home: _onboardingDone == null
-            ? const Scaffold(
-                backgroundColor: AppColors.slate50,
-                body: SizedBox.shrink(),
-              )
-            : _onboardingDone!
-                ? const AuthGate()
-                : OnboardingPage(
-                    onDone: () => setState(() => _onboardingDone = true),
-                  ),
+        home: _forceUpdateUrl != null
+            ? ForceUpdatePage(storeUrl: _forceUpdateUrl!)
+            : _onboardingDone == null
+                ? const Scaffold(
+                    backgroundColor: AppColors.slate50,
+                    body: SizedBox.shrink(),
+                  )
+                : _onboardingDone!
+                    ? const AuthGate()
+                    : OnboardingPage(
+                        onDone: () => setState(() => _onboardingDone = true),
+                      ),
         builder: (context, child) {
           // Overlays hosted above every route: toast stack + boot splash.
           return Stack(
             children: [
               child ?? const SizedBox.shrink(),
+              const ConnectivityBanner(),
               const ToastHost(),
               Positioned.fill(
                 child: IgnorePointer(

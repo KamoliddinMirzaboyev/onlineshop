@@ -1,18 +1,23 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'core/theme.dart';
 import 'services/api.dart';
 import 'pages/app_shell.dart';
 import 'pages/auth_page.dart';
+import 'pages/force_update_page.dart';
 import 'pages/notifications_page.dart';
 import 'pages/order_detail_page.dart';
+import 'services/app_version.dart';
 import 'services/store.dart';
 import 'services/cart.dart';
 import 'services/notification_center.dart';
 import 'services/push.dart';
+import 'widgets/connectivity_banner.dart';
 import 'widgets/splash.dart';
 import 'widgets/toast.dart';
 
@@ -48,6 +53,14 @@ void main() async {
   try {
     await Firebase.initializeApp();
     FirebaseMessaging.onBackgroundMessage(_firebaseBackgroundHandler);
+    // Debug build'dagi mahalliy xatolar Crashlytics dashboard'ini
+    // chiqindilamasin — faqat release/profile'da yig'iladi.
+    await FirebaseCrashlytics.instance.setCrashlyticsCollectionEnabled(!kDebugMode);
+    FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
+    PlatformDispatcher.instance.onError = (error, stack) {
+      FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+      return true;
+    };
   } catch (e) {
     debugPrint('Firebase init failed: $e');
   }
@@ -138,6 +151,7 @@ class _MijozAppState extends State<MijozApp> {
         builder: (context, child) => Stack(
           children: [
             if (child != null) child,
+            const ConnectivityBanner(),
             const ToastHost(),
           ],
         ),
@@ -158,13 +172,22 @@ class _BootGate extends StatefulWidget {
 
 class _BootGateState extends State<_BootGate> {
   bool _ready = false;
+  String? _forceUpdateUrl;
 
   @override
   void initState() {
     super.initState();
-    // Splash animatsiyasi to'liq, chiroyli ko'rinishi uchun 2100ms
-    Future.delayed(const Duration(milliseconds: 2100), () {
-      if (mounted) setState(() => _ready = true);
+    // Splash animatsiyasi to'liq, chiroyli ko'rinishi uchun 2100ms — shu vaqt
+    // ichida majburiy yangilanish tekshiruvi ham parallel bajariladi.
+    Future.wait([
+      Future<void>.delayed(const Duration(milliseconds: 2100)),
+      checkForceUpdateStoreUrl(),
+    ]).then((results) {
+      if (!mounted) return;
+      setState(() {
+        _forceUpdateUrl = results[1] as String?;
+        _ready = true;
+      });
     });
   }
 
@@ -181,9 +204,14 @@ class _BootGateState extends State<_BootGate> {
         );
       },
       child: _ready
-          ? (api.hasToken
-              ? const AppShell(key: ValueKey('shell_screen'))
-              : const AuthPage(key: ValueKey('auth_screen')))
+          ? (_forceUpdateUrl != null
+              ? ForceUpdatePage(
+                  key: const ValueKey('force_update_screen'),
+                  storeUrl: _forceUpdateUrl!,
+                )
+              : (api.hasToken
+                  ? const AppShell(key: ValueKey('shell_screen'))
+                  : const AuthPage(key: ValueKey('auth_screen'))))
           : const SplashScreen(key: ValueKey('splash_screen')),
     );
   }
