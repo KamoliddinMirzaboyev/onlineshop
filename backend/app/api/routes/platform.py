@@ -9,8 +9,9 @@ from app.core.db import get_db
 from app.core.security import hash_password
 from sqlalchemy import delete as sqla_delete
 
-from app.models import Announcement, Business, Order, OrderItem, Restaurant, User
+from app.models import AppVersion, Announcement, Business, Order, OrderItem, Restaurant, User
 from app.schemas.admin import AnnouncementIn, AnnouncementOut
+from app.schemas.app_version import AppVersionIn, AppVersionOut
 from app.schemas.catalog import RestaurantOut
 from app.schemas.business import (
     BusinessBreakdown,
@@ -296,6 +297,28 @@ def create_announcement(
     db.refresh(ann)
     background.add_task(broadcast, ann.id)
     return ann
+
+
+# ── Ilova versiyasi (majburiy yangilanish) ──
+@router.get("/app-version/{app}", response_model=AppVersionOut)
+def get_app_version(app: str, db: Session = Depends(get_db)):
+    row = db.scalar(select(AppVersion).where(AppVersion.app == app))
+    if row is None:
+        return AppVersionOut(min_version_code=0, store_url=None)
+    return row
+
+
+@router.put("/app-version/{app}", response_model=AppVersionOut)
+def set_app_version(app: str, data: AppVersionIn, db: Session = Depends(get_db)):
+    row = db.scalar(select(AppVersion).where(AppVersion.app == app))
+    if row is None:
+        row = AppVersion(app=app)
+        db.add(row)
+    row.min_version_code = data.min_version_code
+    row.store_url = data.store_url
+    db.commit()
+    db.refresh(row)
+    return row
 
 
 @router.post("/announcements/{aid}/resend", response_model=AnnouncementOut, status_code=201)

@@ -3,6 +3,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import PasswordInput from "../components/PasswordInput";
 import { useAuth } from "../store";
+import AppVersionSettings from "../components/AppVersionSettings";
 
 export default function SettingsPage() {
   const { changePassword } = useAuth();
@@ -80,6 +81,8 @@ export default function SettingsPage() {
           <KeyRound size={16} /> {saving ? "Saqlanmoqda…" : "Saqlash"}
         </button>
       </form>
+
+      <AppVersionSettings />
     </div>
   );
 }

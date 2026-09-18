@@ -1,5 +1,6 @@
 from app.models.admin import AdminUser
 from app.models.announcement import Announcement
+from app.models.app_version import AppVersion
 from app.models.banner import Banner
 from app.models.business import Business
 from app.models.enums import AdminRole, AnnouncementStatus, OrderStatus, PaymentMethod, PaymentStatus
@@ -14,6 +15,7 @@ from app.models.user import User
 __all__ = [
     "AdminUser",
     "Announcement",
+    "AppVersion",
     "Banner",
     "Business",
     "PlatformAdmin",
