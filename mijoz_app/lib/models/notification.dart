@@ -19,6 +19,17 @@ class AppNotification {
   final bool isRead;
   final String createdAt;
 
+  AppNotification copyWith({bool? isRead}) => AppNotification(
+        id: id,
+        kind: kind,
+        title: title,
+        body: body,
+        imageUrl: imageUrl,
+        orderId: orderId,
+        isRead: isRead ?? this.isRead,
+        createdAt: createdAt,
+      );
+
   factory AppNotification.fromJson(Map<String, dynamic> j) => AppNotification(
         id: j['id'] as int,
         kind: (j['kind'] ?? 'order_status') as String,

@@ -36,10 +36,6 @@ class _NotificationsPageState extends State<NotificationsPage> {
         _items = AppNotification.listFrom(res);
         _loading = false;
       });
-      if (_items.any((n) => !n.isRead)) {
-        notificationCenter.markAllRead();
-        api.post('/notifications/read-all', {}).catchError((_) => null);
-      }
     } catch (_) {
       if (mounted) {
         setState(() {
@@ -50,6 +46,14 @@ class _NotificationsPageState extends State<NotificationsPage> {
     }
   }
 
+  void _markAllRead() {
+    setState(() {
+      _items = _items.map((n) => n.isRead ? n : n.copyWith(isRead: true)).toList();
+    });
+    notificationCenter.markAllRead();
+    api.post('/notifications/read-all', {}).catchError((_) => null);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -57,7 +61,26 @@ class _NotificationsPageState extends State<NotificationsPage> {
       body: SafeArea(
         child: Column(
           children: [
-            const PageHeader(title: 'Bildirishnomalar', back: true),
+            PageHeader(
+              title: 'Bildirishnomalar',
+              back: true,
+              trailing: _items.any((n) => !n.isRead)
+                  ? GestureDetector(
+                      onTap: _markAllRead,
+                      child: const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                        child: Text(
+                          'Barchasini o\'qildi',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.brand,
+                          ),
+                        ),
+                      ),
+                    )
+                  : null,
+            ),
             Expanded(
               child: _error
                   ? Center(
