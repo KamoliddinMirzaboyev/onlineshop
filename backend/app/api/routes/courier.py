@@ -456,11 +456,10 @@ def _notify_delivering(
         user_lang = (customer.language if customer else None) or "uz"
         if not user_id:
             continue
-        receipt_png = None
-        try:
-            receipt_png = render_receipt(full)
-        except Exception:
-            receipt_png = None
+        # Chek bu yerda QAYTA yuborilmaydi: buyurtma yaratilganda va har bir
+        # tahrirlanishda (admin/kuryer) allaqachon o'z chekini oladi — shu
+        # yerda ham qo'shsa, mijozga bir necha soniya ichida ikkita bir xil
+        # chek ketardi ("tahrirlandi" + "yo'lda" — ikkalasi ham bir xil summa).
         background.add_task(
             notify_delivering_eta,
             full,
@@ -471,7 +470,6 @@ def _notify_delivering(
             courier.name,
             courier.phone,
             user_lang,
-            receipt_png,
         )
 
 
