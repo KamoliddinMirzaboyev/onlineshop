@@ -1,6 +1,7 @@
 import logging
 import secrets
 from collections import defaultdict
+from datetime import datetime, timezone
 from math import ceil
 
 from fastapi import HTTPException, status
@@ -113,6 +114,59 @@ def restore_stock_atomic(db: Session, product_id: int, quantity: float) -> None:
         .where(Product.id == product_id)
         .values(stock=Product.stock + quantity)
     )
+
+
+def adjust_order_items(db: Session, order: Order, items: list) -> bool:
+    """Buyurtma miqdorini tahrirlaydi — tarozida aniqlangan haqiqiy vazn
+    (masalan 5 kg o'rniga 5.3 kg) kuryer yoki admin panelidan kiritilganda.
+    Zaxira qayta hisoblanadi, summalar (items_total/delivery_fee/total)
+    yangilanadi. `items` — order_item_id/quantity juftlari (OrderAdjustItemIn).
+    Chaqiruvchi status ruxsatini o'zi tekshiradi. True qaytaradi — haqiqiy
+    o'zgarish bo'lsa (chek qayta yuborish kerakligini bildiradi uchun)."""
+    adjust_map = {i.order_item_id: i.quantity for i in items}
+
+    planned: list[tuple[OrderItem, float]] = []
+    changed = False
+    for item in order.items:
+        new_qty = adjust_map[item.id] if item.id in adjust_map else item.quantity
+        if new_qty < 0:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "Miqdor manfiy bo'lishi mumkin emas")
+        if abs(new_qty - item.quantity) > 1e-9:
+            changed = True
+        planned.append((item, new_qty))
+
+    remaining = [(item, q) for item, q in planned if q > 0]
+    if not remaining:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "Buyurtmada kamida bitta mahsulot qolishi kerak",
+        )
+
+    for item, new_qty in planned:
+        delta = new_qty - item.quantity
+        if delta < 0:
+            restore_stock_atomic(db, item.product_id, -delta)
+        elif delta > 0:
+            reserve_stock_atomic(db, item.product_id, delta)
+        item.quantity = new_qty
+
+    order.items = [item for item, _q in remaining]
+    new_items_total = sum(item.price * item.quantity for item in order.items)
+    order.items_total = int(round(new_items_total))
+    # Savat kamaysa yetkazish haqi ham qayta hisoblanadi (masalan bepul
+    # yetkazish chegarasidan pastga tushib qolgan bo'lishi mumkin).
+    restaurant = db.get(Restaurant, order.restaurant_id)
+    if restaurant is not None:
+        order.delivery_fee = calc_delivery_fee(
+            order.items_total,
+            order.distance_km,
+            free_from=restaurant.free_delivery_from,
+            per_km=restaurant.delivery_fee,
+        )
+    order.total = order.items_total + order.delivery_fee
+    if changed:
+        order.items_adjusted_at = datetime.now(timezone.utc)
+    return changed
 
 
 def restore_order_stock(db: Session, order: Order) -> None:

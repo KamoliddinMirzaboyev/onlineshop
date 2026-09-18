@@ -47,11 +47,9 @@ from app.services.notify import (
     notify_status_change,
 )
 from app.services.orders import (
-    calc_delivery_fee,
+    adjust_order_items,
     ensure_transition,
     mark_order_paid_if_cash,
-    reserve_stock_atomic,
-    restore_stock_atomic,
 )
 from app.services.receipt import render_receipt
 from app.services.route_optimize import RouteStop, optimize_route
@@ -254,52 +252,9 @@ def courier_adjust_order(
             "Can only adjust order before delivering starts",
         )
 
-    adjust_map = {item.order_item_id: item.quantity for item in data.items}
-
-    # Oldindan yakuniy miqdorlarni hisoblab, bo'sh buyurtmani tekshiramiz.
     # Kuryer tarozida vaznni aniqlagach oshirishi ham, kamaytirishi ham mumkin;
     # mijozga har o'zgarishda yangi chek yuboriladi.
-    planned: list[tuple[OrderItem, float]] = []
-    changed = False
-    for item in order.items:
-        new_qty = adjust_map[item.id] if item.id in adjust_map else item.quantity
-        if new_qty < 0:
-            raise HTTPException(status.HTTP_400_BAD_REQUEST, "Miqdor manfiy bo'lishi mumkin emas")
-        if abs(new_qty - item.quantity) > 1e-9:
-            changed = True
-        planned.append((item, new_qty))
-
-    remaining = [(item, q) for item, q in planned if q > 0]
-    if not remaining:
-        raise HTTPException(
-            status.HTTP_400_BAD_REQUEST,
-            "Buyurtmada kamida bitta mahsulot qolishi kerak",
-        )
-
-    for item, new_qty in planned:
-        delta = new_qty - item.quantity
-        if delta < 0:
-            restore_stock_atomic(db, item.product_id, -delta)
-        elif delta > 0:
-            reserve_stock_atomic(db, item.product_id, delta)
-        item.quantity = new_qty
-
-    order.items = [item for item, _q in remaining]
-    new_items_total = sum(item.price * item.quantity for item in order.items)
-    order.items_total = int(round(new_items_total))
-    # Savat kamaysa yetkazish haqi ham qayta hisoblanadi (masalan bepul yetkazish
-    # chegarasidan pastga tushib qolgan bo'lishi mumkin).
-    restaurant = db.get(Restaurant, order.restaurant_id)
-    if restaurant is not None:
-        order.delivery_fee = calc_delivery_fee(
-            order.items_total,
-            order.distance_km,
-            free_from=restaurant.free_delivery_from,
-            per_km=restaurant.delivery_fee,
-        )
-    order.total = order.items_total + order.delivery_fee
-    if changed:
-        order.items_adjusted_at = datetime.now(timezone.utc)
+    changed = adjust_order_items(db, order, data.items)
 
     customer = db.get(User, order.user_id)
     user_id = customer.id if customer else None

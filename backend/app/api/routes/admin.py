@@ -35,13 +35,16 @@ from app.schemas.catalog import (
 from app.schemas.admin import DeliveryZoneIn, DeliveryZoneOut
 from app.models import DeliveryZone
 from app.models.enums import AdminRole
+from app.schemas.courier import OrderAdjustIn
 from app.schemas.order import ManualOrderIn, OrderAssignIn, OrderOut, OrderStatusUpdate
 from app.services import analytics, webpush
 from app.services.notify import (
-    broadcast_post, notify_courier_assigned, notify_new_order, notify_status_change,
+    broadcast_post, notify_courier_assigned, notify_new_order, notify_order_adjusted,
+    notify_status_change,
 )
 from app.services.orders import (
-    cancel_order, create_manual_order, ensure_transition, mark_order_paid_if_cash,
+    adjust_order_items, cancel_order, create_manual_order, ensure_transition,
+    mark_order_paid_if_cash,
 )
 
 # Autentifikatsiya poli: hech bir endpoint tokensiz ochilib qolmasligi uchun.
@@ -761,6 +764,53 @@ def assign_courier(
             notify_status_change, order, user_id, user_tg, user_lang,
             courier.name, courier.phone,
         )
+    return order
+
+
+@router.patch("/orders/{order_id}/adjust", response_model=OrderOut)
+def admin_adjust_order(
+    order_id: int,
+    data: OrderAdjustIn,
+    background: BackgroundTasks,
+    store: Restaurant = Depends(current_restaurant),
+    db: Session = Depends(get_db),
+):
+    """Admin buyurtma miqdorini tahrirlaydi — masalan tarozida 5 kg o'rniga
+    5.3 kg chiqsa. Kuryerning /courier/orders/{id}/adjust bilan bir xil
+    mantiq (adjust_order_items); yetkazilgan/bekor qilingan buyurtmada zaxira
+    va to'lov holati allaqachon yakunlangani uchun tahrirlanmaydi."""
+    order = _order_or_404(db, order_id, store)
+    if order.status in (OrderStatus.delivered, OrderStatus.cancelled):
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "Yakunlangan buyurtmani tahrirlab bo'lmaydi",
+        )
+    user_id, user_tg, user_lang = _customer_ctx(order)
+    changed = adjust_order_items(db, order, data.items)
+    db.commit()
+    db.refresh(order)
+    order = _order_or_404(db, order_id, store)  # items relationship commitdan keyin
+
+    if changed and user_id:
+        from app.services.receipt import render_receipt
+
+        try:
+            receipt_png = render_receipt(order)
+        except Exception:  # noqa: BLE001
+            receipt_png = None
+        background.add_task(
+            notify_order_adjusted, order, user_id, user_tg, user_lang, receipt_png, "admin",
+        )
+    if changed:
+        background.add_task(
+            webpush.notify_admins,
+            f"✏️ Buyurtma № {order.number} tahrirlandi",
+            f"Administrator buyurtma tarkibini o'zgartirdi · {order.total:,} so'm",
+            store.id,
+            url="/orders",
+            tag=f"adjust-{order.id}",
+        )
+    courier_events.publish({"type": "orders_updated", "restaurant_id": store.id})
     return order
 
 

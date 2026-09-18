@@ -1,4 +1,4 @@
-import { Bike, Check, MapPin, Navigation, Phone, Printer, Trash2, User, X } from "lucide-react";
+import { Bike, Check, MapPin, Navigation, Pencil, Phone, Printer, Save, Trash2, User, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { del, get, patch, post } from "../api";
@@ -174,6 +174,8 @@ export default function OrdersPage() {
   const [err, setErr] = useState(false);
   const [busy, setBusy] = useState<number | null>(null);
   const [couriers, setCouriers] = useState<AdminUser[]>([]);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [qtyDraft, setQtyDraft] = useState<Record<number, string>>({});
   // "Oxirgi so'rov yutadi" — filter almashganda eski so'rovni skip qilmaymiz,
   // faqat javobini e'tiborsiz qoldiramiz (avvalgi inFlight guard yangi
   // filterni butunlay yutib yuborardi).
@@ -301,6 +303,38 @@ export default function OrdersPage() {
     }
   };
 
+  const startEdit = (o: Order) => {
+    setEditingId(o.id);
+    setQtyDraft(Object.fromEntries(o.items.map((it) => [it.id, String(it.quantity)])));
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setQtyDraft({});
+  };
+
+  const saveEdit = async (o: Order) => {
+    const items = o.items.map((it) => ({
+      order_item_id: it.id,
+      quantity: Number(qtyDraft[it.id]),
+    }));
+    if (items.some((it) => !Number.isFinite(it.quantity) || it.quantity < 0)) {
+      toast.error("Miqdor noto'g'ri kiritildi");
+      return;
+    }
+    setBusy(o.id);
+    try {
+      await patch(`/admin/orders/${o.id}/adjust`, { items });
+      toast.success(`№ ${o.number}: miqdor yangilandi — mijozga yangi chek yuborildi`);
+      cancelEdit();
+      load();
+    } catch {
+      toast.error("Tahrirlab bo'lmadi");
+    } finally {
+      setBusy(null);
+    }
+  };
+
   // Kun filtri client tarafda ham qo'llanadi — backend `day` paramni hali
   // qo'llab-quvvatlamasa (deploy qilinmagan) ham ishlaydi. Toshkent (UTC+5,
   // DST yo'q) sanasi bo'yicha solishtiramiz.
@@ -423,24 +457,72 @@ export default function OrdersPage() {
               <div className="text-xs font-bold text-slate-800 mb-2 flex items-center gap-2">
                 Mahsulotlar
                 <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded-md text-xs">{itemsCount} dona</span>
+                {editingId !== o.id && o.status !== "delivered" && o.status !== "cancelled" && (
+                  <button
+                    onClick={() => startEdit(o)}
+                    className="ml-auto px-2 py-0.5 rounded-md text-xs font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 inline-flex items-center gap-1"
+                  >
+                    <Pencil size={12} /> Tahrirlash
+                  </button>
+                )}
               </div>
-              <div className="flex flex-wrap gap-2.5 pb-2">
-                {o.items.map((it) => (
-                  <div key={it.id} className="shrink-0 w-14 md:w-16 flex flex-col group">
-                    <div className="relative rounded-lg overflow-hidden bg-slate-100 border border-slate-200/60 aspect-square shadow-sm group-hover:shadow-md transition">
+              {editingId === o.id ? (
+                <div className="space-y-1.5 mb-2">
+                  {o.items.map((it) => (
+                    <div key={it.id} className="flex items-center gap-2.5 bg-slate-50 rounded-lg px-2.5 py-1.5">
                       {it.image_url ? (
-                        <img src={it.image_url} alt="" className="w-full h-full object-cover group-hover:scale-110 transition duration-500" />
+                        <img src={it.image_url} alt="" className="w-9 h-9 rounded-md object-cover shrink-0" />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center text-xl">🍽</div>
+                        <div className="w-9 h-9 rounded-md bg-slate-100 flex items-center justify-center text-sm shrink-0">🍽</div>
                       )}
-                      <div className="absolute top-0 right-0 bg-white/95 backdrop-blur-sm px-1.5 py-0.5 m-1 rounded-md text-[10px] font-bold text-slate-800 shadow-sm border border-slate-200/50">
-                        ×{it.quantity}
-                      </div>
+                      <div className="flex-1 min-w-0 text-xs font-semibold text-slate-700 truncate">{it.name_uz}</div>
+                      <input
+                        type="number"
+                        min={0}
+                        step="0.001"
+                        value={qtyDraft[it.id] ?? ""}
+                        onChange={(e) => setQtyDraft((d) => ({ ...d, [it.id]: e.target.value }))}
+                        className="w-20 px-2 py-1 rounded-lg border border-slate-300 text-sm font-bold text-right focus:outline-none focus:ring-2 focus:ring-brand/30"
+                      />
+                      <span className="text-xs text-slate-400 w-8">{it.unit ?? "dona"}</span>
                     </div>
-                    <div className="text-[11px] text-slate-700 mt-1 font-semibold leading-tight line-clamp-2" title={it.name_uz}>{it.name_uz}</div>
+                  ))}
+                  <div className="flex gap-2 pt-0.5">
+                    <button
+                      disabled={busy === o.id}
+                      onClick={() => saveEdit(o)}
+                      className="px-3 py-1.5 rounded-lg bg-brand text-white text-xs font-bold inline-flex items-center gap-1.5 disabled:opacity-50"
+                    >
+                      <Save size={14} /> Saqlash
+                    </button>
+                    <button
+                      disabled={busy === o.id}
+                      onClick={cancelEdit}
+                      className="px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600 text-xs font-bold disabled:opacity-50"
+                    >
+                      Bekor qilish
+                    </button>
                   </div>
-                ))}
-              </div>
+                </div>
+              ) : (
+                <div className="flex flex-wrap gap-2.5 pb-2">
+                  {o.items.map((it) => (
+                    <div key={it.id} className="shrink-0 w-14 md:w-16 flex flex-col group">
+                      <div className="relative rounded-lg overflow-hidden bg-slate-100 border border-slate-200/60 aspect-square shadow-sm group-hover:shadow-md transition">
+                        {it.image_url ? (
+                          <img src={it.image_url} alt="" className="w-full h-full object-cover group-hover:scale-110 transition duration-500" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-xl">🍽</div>
+                        )}
+                        <div className="absolute top-0 right-0 bg-white/95 backdrop-blur-sm px-1.5 py-0.5 m-1 rounded-md text-[10px] font-bold text-slate-800 shadow-sm border border-slate-200/50">
+                          ×{it.quantity}
+                        </div>
+                      </div>
+                      <div className="text-[11px] text-slate-700 mt-1 font-semibold leading-tight line-clamp-2" title={it.name_uz}>{it.name_uz}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="mt-2 pt-2 border-t border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-2.5">

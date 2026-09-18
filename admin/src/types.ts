@@ -68,6 +68,7 @@ export interface OrderItem {
   image_url?: string | null;
   price: number;
   quantity: number;
+  unit?: string;
 }
 
 export interface Order {

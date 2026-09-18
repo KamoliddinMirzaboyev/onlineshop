@@ -17,7 +17,7 @@ const LABEL: Record<NotificationEvent["type"], string> = {
   new: "Yangi buyurtma",
   accepted: "Kuryer qabul qildi",
   delivered: "Yetkazib berildi",
-  adjusted: "Kuryer tahrirladi",
+  adjusted: "Buyurtma tahrirlandi",
 };
 
 // Har hodisa uchun aniq izoh — "holati yangilandi" o'rniga.
@@ -25,7 +25,7 @@ const BODY: Record<NotificationEvent["type"], string> = {
   new: "Yangi buyurtma kelib tushdi",
   accepted: "Kuryer buyurtmani qabul qildi",
   delivered: "Buyurtma mijozga yetkazib berildi",
-  adjusted: "Buyurtma tarkibi kuryer tomonidan o'zgartirildi",
+  adjusted: "Buyurtma tarkibi o'zgartirildi",
 };
 
 // so'm formatlash: 45000 -> "45 000 so'm"

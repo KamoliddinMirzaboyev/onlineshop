@@ -454,21 +454,24 @@ def notify_order_adjusted(
     user_telegram_id: int | None,
     lang: str | None = "uz",
     receipt_png: bytes | None = None,
+    actor: str = "courier",
 ) -> None:
-    """Kuryer miqdorni tahrirlaganda — mijozga yangi chek + summa."""
+    """Miqdor tahrirlanganda (kuryer yoki admin) — mijozga yangi chek + summa."""
     l = _lang(lang)
     total = int(order.total or 0)
+    who_ru = "курьером" if actor == "courier" else "администратором"
+    who_uz = "Kuryer" if actor == "courier" else "Administrator"
     if l == "ru":
         text = (
             f"✏️ <b>Заказ обновлён · № {order.number}</b>\n"
-            f"Количество/состав изменены курьером.\n"
+            f"Количество/состав изменены {who_ru}.\n"
             f"💳 Новая сумма: <b>{total:,} сум</b>".replace(",", " ")
         )
         caption = f"🧾 Обновлённый чек · № {order.number} · {total:,} сум".replace(",", " ")
     else:
         text = (
             f"✏️ <b>Buyurtma yangilandi · № {order.number}</b>\n"
-            f"Kuryer miqdor/tarkibni tahrirladi.\n"
+            f"{who_uz} miqdor/tarkibni tahrirladi.\n"
             f"💳 Yangi summa: <b>{total:,} so'm</b>".replace(",", " ")
         )
         caption = f"🧾 Yangilangan chek · № {order.number} · {total:,} so'm".replace(",", " ")
