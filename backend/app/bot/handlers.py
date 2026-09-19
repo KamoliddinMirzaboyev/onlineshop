@@ -6,8 +6,8 @@ from aiogram.exceptions import TelegramAPIError
 from aiogram.filters import Command
 from aiogram.types import (
     CallbackQuery, Contact, InlineKeyboardButton, InlineKeyboardMarkup,
-    KeyboardButton, MenuButtonWebApp, Message, ReplyKeyboardMarkup, ReplyKeyboardRemove,
-    WebAppInfo,
+    KeyboardButton, MenuButtonCommands, MenuButtonWebApp, Message, ReplyKeyboardMarkup,
+    ReplyKeyboardRemove, WebAppInfo,
 )
 from aiogram.types import User as TgUser
 
