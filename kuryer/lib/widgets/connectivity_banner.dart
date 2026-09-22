@@ -1,12 +1,18 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 
 import '../core/theme.dart';
 
 /// Internet aloqasi uzilganda ekran tepasida ingichka ogohlantirish paydo
-/// bo'ladi, qayta ulanganda avtomatik yo'qoladi. Faqat tarmoq interfeysi
-/// (wifi/mobil) borligini tekshiradi — captive-portal kabi holatlarni
-/// aniqlamaydi, lekin asosiy holat (havo rejimi, signal yo'q) uchun yetarli.
+/// bo'ladi, qayta ulanganda avtomatik yo'qoladi.
+///
+/// `connectivity_plus` faqat tarmoq interfeysini ko'radi va Wi-Fi ↔ mobil
+/// almashganda, VPN/Private DNS'da, fondan qaytganda yolg'on `none` beradi.
+/// Shuning uchun `none` kelsa banner darhol chiqmaydi: qisqa kutib, serverga
+/// haqiqiy TCP ulanish bilan tekshiriladi — faqat u ham yiqilsa ko'rsatiladi.
 class ConnectivityBanner extends StatefulWidget {
   const ConnectivityBanner({super.key});
 
@@ -14,18 +20,67 @@ class ConnectivityBanner extends StatefulWidget {
   State<ConnectivityBanner> createState() => _ConnectivityBannerState();
 }
 
-class _ConnectivityBannerState extends State<ConnectivityBanner> {
+class _ConnectivityBannerState extends State<ConnectivityBanner> with WidgetsBindingObserver {
+  static const _host = 'api.barakali-bozor.uz';
+  static const _settle = Duration(seconds: 2);
+  static const _recheck = Duration(seconds: 5);
+
+  StreamSubscription<List<ConnectivityResult>>? _sub;
+  Timer? _timer;
   bool _offline = false;
+  int _gen = 0;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _sub = Connectivity().onConnectivityChanged.listen(_apply);
     Connectivity().checkConnectivity().then(_apply);
-    Connectivity().onConnectivityChanged.listen(_apply);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _sub?.cancel();
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) Connectivity().checkConnectivity().then(_apply);
   }
 
   void _apply(List<ConnectivityResult> results) {
-    final offline = results.isEmpty || results.every((r) => r == ConnectivityResult.none);
+    _timer?.cancel();
+    _gen++;
+    if (results.any((r) => r != ConnectivityResult.none)) {
+      _set(false);
+    } else {
+      _timer = Timer(_settle, _verify);
+    }
+  }
+
+  Future<void> _verify() async {
+    final gen = _gen;
+    final reachable = await _reachable();
+    if (!mounted || gen != _gen) return;
+    _set(!reachable);
+    // Ulanish tiklanganda plugin hodisa bermasligi mumkin — davriy qayta tekshiramiz.
+    if (!reachable) _timer = Timer(_recheck, _verify);
+  }
+
+  Future<bool> _reachable() async {
+    try {
+      final s = await Socket.connect(_host, 443, timeout: const Duration(seconds: 4));
+      s.destroy();
+      return true;
+    } on Object {
+      return false;
+    }
+  }
+
+  void _set(bool offline) {
     if (mounted && offline != _offline) setState(() => _offline = offline);
   }
 
