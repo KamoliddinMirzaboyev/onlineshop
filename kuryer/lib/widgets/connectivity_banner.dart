@@ -90,14 +90,16 @@ class _ConnectivityBannerState extends State<ConnectivityBanner> with WidgetsBin
       top: 0,
       left: 0,
       right: 0,
-      child: SafeArea(
-        bottom: false,
-        child: AnimatedSlide(
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOutCubic,
-          offset: _offline ? Offset.zero : const Offset(0, -1.2),
-          child: Material(
-            color: AppColors.red600,
+      // SafeArea slide ICHIDA bo'lishi shart: tashqarida bo'lsa, yashirin holatda
+      // banner faqat o'z balandligicha suriladi va status bar ostida ko'rinib qoladi.
+      child: AnimatedSlide(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOutCubic,
+        offset: _offline ? Offset.zero : const Offset(0, -1.2),
+        child: Material(
+          color: AppColors.red600,
+          child: SafeArea(
+            bottom: false,
             child: SizedBox(
               width: double.infinity,
               child: Padding(
