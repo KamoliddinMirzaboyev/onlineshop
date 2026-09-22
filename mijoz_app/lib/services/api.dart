@@ -159,6 +159,7 @@ class ApiService {
     String path, {
     Object? body,
     bool isRetry = false,
+    bool isNetRetry = false,
   }) async {
     final uri = Uri.parse('$_base$path');
     const timeout = Duration(seconds: 15);
@@ -178,12 +179,26 @@ class ApiService {
           res = await http.get(uri, headers: _headers).timeout(timeout);
       }
     } on TimeoutException {
+      // Bitta so'rov bir marta qisqa uzilishdan (paket yo'qolishi, wifi<->mobil
+      // almashinuvi) o'lib qolishi mumkin — darhol "internet yo'q" ko'rsatmasdan
+      // bir marta qayta urinib ko'ramiz.
+      if (!isNetRetry) {
+        return _request(method, path, body: body, isRetry: isRetry, isNetRetry: true);
+      }
       _notifyNetworkError('Internet sekin ishlayapti. Mobil tarmoqni tekshiring.');
       rethrow;
     } on SocketException {
+      if (!isNetRetry) {
+        await Future.delayed(const Duration(milliseconds: 800));
+        return _request(method, path, body: body, isRetry: isRetry, isNetRetry: true);
+      }
       _notifyNetworkError('Internet aloqasi yo\'q. Mobil tarmoqni yoqib ko\'ring.');
       rethrow;
     } on http.ClientException {
+      if (!isNetRetry) {
+        await Future.delayed(const Duration(milliseconds: 800));
+        return _request(method, path, body: body, isRetry: isRetry, isNetRetry: true);
+      }
       _notifyNetworkError('Internet aloqasi yo\'q. Mobil tarmoqni yoqib ko\'ring.');
       rethrow;
     }
