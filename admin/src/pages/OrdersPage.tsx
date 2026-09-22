@@ -87,7 +87,7 @@ const printReceipt = (o: Order) => {
         <td class="text-left" colspan="2" style="padding-bottom: 2px;">${idx + 1}. ${esc(it.name_uz)}</td>
       </tr>
       <tr>
-        <td class="text-left" style="padding-bottom: 6px; color: #444;">${it.quantity} x ${money(it.price)}</td>
+        <td class="text-left" style="padding-bottom: 6px;">${it.quantity} x ${money(it.price)}</td>
         <td class="text-right" style="padding-bottom: 6px;">${money(it.price * it.quantity)}</td>
       </tr>
     `;
@@ -100,14 +100,21 @@ const printReceipt = (o: Order) => {
         <title>Chek №${esc(o.number)}</title>
         <style>
           @page { margin: 0; size: auto; }
-          body { 
-            font-family: 'Courier New', Courier, monospace; 
-            margin: 0; 
-            padding: 4mm; 
-            color: #000; 
-            font-size: 13px;
+          html, body {
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+          body {
+            font-family: 'Courier New', Courier, monospace;
+            margin: 0;
+            padding: 4mm;
+            color: #000;
+            font-size: 15px;
+            font-weight: 700;
             line-height: 1.4;
             max-width: 80mm;
+            -webkit-font-smoothing: none;
+            text-rendering: optimizeSpeed;
           }
           .text-center { text-align: center; }
           .text-right { text-align: right; }
