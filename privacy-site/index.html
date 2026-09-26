@@ -1,0 +1,1361 @@
+<!DOCTYPE html>
+<html lang="uz" data-theme="light">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Barakali Bozor — Maxfiylik Siyosati va Hisobni O'chirish (Privacy Policy & Account Deletion)</title>
+  <meta name="description" content="Barakali Bozor ilovasi (uz.barakalibozor.mijoz) uchun rasmiy Maxfiylik Siyosati (Privacy Policy) va Hisobni O'chirish (Account Deletion) portali. Google Play Console talablariga to'liq mos." />
+  <meta name="author" content="YTT Safayeva Nargiza" />
+
+  <!-- Google Fonts: Plus Jakarta Sans -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+  <style>
+    :root {
+      --primary: #10b981;
+      --primary-dark: #059669;
+      --primary-light: #ecfdf5;
+      --primary-glow: rgba(16, 185, 129, 0.15);
+      --danger: #ef4444;
+      --danger-light: #fef2f2;
+      --accent: #0284c7;
+      
+      --bg-body: #f8fafc;
+      --bg-surface: #ffffff;
+      --bg-card: #ffffff;
+      --bg-alt: #f1f5f9;
+      
+      --text-main: #0f172a;
+      --text-muted: #475569;
+      --text-subtle: #94a3b8;
+      
+      --border-color: #e2e8f0;
+      --border-subtle: #f1f5f9;
+      
+      --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+      --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07);
+      --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08);
+      
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 16px;
+      --radius-xl: 24px;
+      --radius-full: 9999px;
+      
+      --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    [data-theme="dark"] {
+      --bg-body: #0b0f19;
+      --bg-surface: #111827;
+      --bg-card: #141c2e;
+      --bg-alt: #1a243b;
+      
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --text-subtle: #64748b;
+      
+      --border-color: #1e293b;
+      --border-subtle: #172033;
+      
+      --primary-light: rgba(16, 185, 129, 0.12);
+      --primary-glow: rgba(16, 185, 129, 0.25);
+      --danger-light: rgba(239, 68, 68, 0.15);
+      
+      --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.4);
+      --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4);
+      --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: var(--bg-body);
+      color: var(--text-main);
+      line-height: 1.7;
+      font-size: 15px;
+      transition: background-color 0.3s ease, color 0.3s ease;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .container {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 0 20px;
+    }
+
+    /* Top Sticky Header */
+    .site-header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(255, 255, 255, 0.88);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border-bottom: 1px solid var(--border-color);
+      transition: var(--transition);
+    }
+    [data-theme="dark"] .site-header {
+      background: rgba(17, 24, 39, 0.88);
+    }
+
+    .header-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 70px;
+    }
+
+    .brand-wrap {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+      color: var(--text-main);
+    }
+
+    .brand-icon {
+      width: 42px;
+      height: 42px;
+      border-radius: var(--radius-md);
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-weight: 800;
+      font-size: 20px;
+      box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+    }
+
+    .brand-title {
+      font-size: 1.15rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      line-height: 1.2;
+    }
+
+    .brand-subtitle {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    /* Nav Tabs in Header */
+    .nav-tabs {
+      display: flex;
+      background: var(--bg-alt);
+      padding: 4px;
+      border-radius: var(--radius-full);
+      gap: 4px;
+      border: 1px solid var(--border-color);
+    }
+
+    @media (max-width: 768px) {
+      .nav-tabs { display: none; }
+    }
+
+    .nav-tab-btn {
+      background: transparent;
+      border: none;
+      padding: 6px 14px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      border-radius: var(--radius-full);
+      cursor: pointer;
+      text-decoration: none;
+      transition: var(--transition);
+    }
+
+    .nav-tab-btn.active, .nav-tab-btn:hover {
+      background: var(--bg-surface);
+      color: var(--text-main);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .lang-switcher {
+      display: flex;
+      background: var(--bg-alt);
+      border: 1px solid var(--border-color);
+      padding: 3px;
+      border-radius: var(--radius-full);
+      gap: 2px;
+    }
+
+    .lang-btn {
+      background: transparent;
+      border: none;
+      font-size: 0.76rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      padding: 5px 10px;
+      border-radius: var(--radius-full);
+      cursor: pointer;
+      transition: var(--transition);
+    }
+
+    .lang-btn.active {
+      background: var(--primary);
+      color: #ffffff;
+      box-shadow: 0 2px 6px rgba(16, 185, 129, 0.3);
+    }
+
+    .icon-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-color);
+      background: var(--bg-surface);
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: var(--transition);
+    }
+
+    .icon-btn:hover {
+      border-color: var(--primary);
+      color: var(--primary);
+    }
+
+    /* Hero Section */
+    .hero-section {
+      padding: 40px 0 28px;
+      text-align: center;
+      border-bottom: 1px solid var(--border-color);
+      background: radial-gradient(circle at 50% 0%, var(--primary-glow) 0%, transparent 60%);
+    }
+
+    .badge-wrap {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+
+    .verified-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--primary-light);
+      color: var(--primary-dark);
+      padding: 5px 12px;
+      border-radius: var(--radius-full);
+      font-size: 0.8rem;
+      font-weight: 700;
+      border: 1px solid rgba(16, 185, 129, 0.25);
+    }
+    [data-theme="dark"] .verified-badge { color: #34d399; }
+
+    .hero-title {
+      font-size: 2.2rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      line-height: 1.2;
+      margin-bottom: 12px;
+      color: var(--text-main);
+    }
+
+    .hero-desc {
+      max-width: 680px;
+      margin: 0 auto 24px;
+      color: var(--text-muted);
+      font-size: 1rem;
+    }
+
+    /* App Metadata Grid */
+    .app-meta-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 12px;
+      max-width: 900px;
+      margin: 0 auto;
+      text-align: left;
+    }
+
+    .meta-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      padding: 12px 16px;
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .meta-card-label {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-subtle);
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .meta-card-val {
+      font-size: 0.92rem;
+      font-weight: 600;
+      color: var(--text-main);
+    }
+
+    .code-badge {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.82rem;
+      background: var(--bg-alt);
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: var(--accent);
+    }
+
+    /* Highlights Banner Cards */
+    .highlights-wrap {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+      margin: 28px 0;
+    }
+
+    @media (max-width: 860px) {
+      .highlights-wrap { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 500px) {
+      .highlights-wrap { grid-template-columns: 1fr; }
+    }
+
+    .highlight-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      padding: 18px;
+      border-radius: var(--radius-lg);
+      transition: var(--transition);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .highlight-card:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-md);
+      border-color: var(--primary);
+    }
+
+    .hl-icon {
+      width: 38px;
+      height: 38px;
+      border-radius: var(--radius-md);
+      background: var(--primary-light);
+      color: var(--primary-dark);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      margin-bottom: 10px;
+    }
+    [data-theme="dark"] .hl-icon { color: #34d399; }
+
+    .hl-title {
+      font-size: 0.92rem;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .hl-desc {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    /* Main Content Layout */
+    .content-layout {
+      display: grid;
+      grid-template-columns: 260px 1fr;
+      gap: 36px;
+      padding: 28px 0 60px;
+      position: relative;
+    }
+
+    @media (max-width: 900px) {
+      .content-layout { grid-template-columns: 1fr; }
+      .toc-sidebar { display: none; }
+    }
+
+    /* Sticky TOC Sidebar */
+    .toc-sidebar {
+      position: sticky;
+      top: 90px;
+      height: fit-content;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      padding: 18px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .toc-title {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-subtle);
+      font-weight: 800;
+      margin-bottom: 12px;
+    }
+
+    .toc-links {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .toc-links a {
+      text-decoration: none;
+      color: var(--text-muted);
+      font-size: 0.84rem;
+      font-weight: 500;
+      padding: 6px 10px;
+      border-radius: var(--radius-sm);
+      display: block;
+      transition: var(--transition);
+    }
+
+    .toc-links a:hover, .toc-links a.active {
+      color: var(--primary-dark);
+      background: var(--primary-light);
+      font-weight: 700;
+    }
+    [data-theme="dark"] .toc-links a:hover, [data-theme="dark"] .toc-links a.active {
+      color: #34d399;
+    }
+
+    /* Special Highlight in TOC for Account Deletion */
+    .toc-links a.toc-deletion {
+      color: var(--danger);
+      font-weight: 700;
+    }
+    .toc-links a.toc-deletion:hover {
+      background: var(--danger-light);
+      color: var(--danger);
+    }
+
+    /* Search Bar */
+    .search-box {
+      margin-bottom: 24px;
+      position: relative;
+    }
+
+    .search-input {
+      width: 100%;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      padding: 12px 16px 12px 42px;
+      border-radius: var(--radius-md);
+      font-size: 0.95rem;
+      color: var(--text-main);
+      outline: none;
+      transition: var(--transition);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .search-input:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px var(--primary-glow);
+    }
+
+    .search-icon {
+      position: absolute;
+      left: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-subtle);
+    }
+
+    /* Policy Section Cards */
+    .policy-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-xl);
+      padding: 30px;
+      margin-bottom: 24px;
+      box-shadow: var(--shadow-sm);
+      scroll-margin-top: 90px;
+      transition: var(--transition);
+    }
+
+    .policy-card:hover {
+      box-shadow: var(--shadow-md);
+    }
+
+    .policy-card.card-danger {
+      border-color: rgba(239, 68, 68, 0.4);
+      background: linear-gradient(180deg, var(--danger-light) 0%, var(--bg-card) 120px);
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 18px;
+      border-bottom: 1px solid var(--border-subtle);
+      padding-bottom: 14px;
+    }
+
+    .sec-num {
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      color: #ffffff;
+      font-weight: 800;
+      font-size: 15px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .sec-num.num-danger {
+      background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+    }
+
+    .sec-title {
+      font-size: 1.3rem;
+      font-weight: 800;
+      color: var(--text-main);
+      letter-spacing: -0.01em;
+    }
+
+    p { margin-bottom: 14px; color: var(--text-muted); }
+    strong { color: var(--text-main); font-weight: 700; }
+    ul, ol { margin: 10px 0 16px 22px; color: var(--text-muted); }
+    li { margin-bottom: 6px; }
+
+    /* Tables */
+    .table-container {
+      overflow-x: auto;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-color);
+      margin: 18px 0;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 0.88rem;
+    }
+
+    th {
+      background: var(--bg-alt);
+      padding: 10px 14px;
+      font-weight: 700;
+      color: var(--text-main);
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    td {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border-subtle);
+      vertical-align: top;
+      color: var(--text-muted);
+    }
+
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: var(--bg-alt); }
+
+    /* Callout & Alerts */
+    .callout {
+      border-radius: var(--radius-md);
+      padding: 16px;
+      margin: 18px 0;
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      font-size: 0.9rem;
+    }
+
+    .callout-icon { font-size: 20px; flex-shrink: 0; line-height: 1; }
+    .callout-info {
+      background: rgba(2, 132, 199, 0.08);
+      border: 1px solid rgba(2, 132, 199, 0.25);
+      color: var(--text-main);
+    }
+    .callout-warning {
+      background: rgba(245, 158, 11, 0.1);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+      color: var(--text-main);
+    }
+    .callout-danger {
+      background: var(--danger-light);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      color: var(--text-main);
+    }
+
+    /* Account Deletion Steps Box */
+    .steps-box {
+      background: var(--bg-alt);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      padding: 20px;
+      margin: 18px 0;
+    }
+
+    .step-item {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+    .step-item:last-child { margin-bottom: 0; }
+
+    .step-badge {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--primary);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 13px;
+      flex-shrink: 0;
+    }
+
+    .contact-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 14px;
+      margin-top: 18px;
+    }
+
+    .contact-card {
+      background: var(--bg-alt);
+      border: 1px solid var(--border-color);
+      padding: 16px;
+      border-radius: var(--radius-md);
+      text-decoration: none;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      transition: var(--transition);
+    }
+
+    .contact-card:hover {
+      border-color: var(--primary);
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .contact-card-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      background: var(--bg-surface);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      box-shadow: var(--shadow-sm);
+      color: var(--primary);
+    }
+
+    /* Footer */
+    .site-footer {
+      border-top: 1px solid var(--border-color);
+      background: var(--bg-surface);
+      padding: 32px 0;
+      margin-top: 40px;
+    }
+
+    .footer-inner {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      font-size: 0.86rem;
+      color: var(--text-muted);
+    }
+
+    .footer-links {
+      display: flex;
+      gap: 16px;
+      list-style: none;
+    }
+
+    .footer-links a {
+      color: var(--text-muted);
+      text-decoration: none;
+      transition: var(--transition);
+    }
+
+    .footer-links a:hover { color: var(--primary); }
+
+    /* Print styles */
+    @media print {
+      .site-header, .toc-sidebar, .search-box, .highlights-wrap, .site-footer { display: none !important; }
+      .content-layout { display: block !important; padding: 0 !important; }
+      .policy-card { border: none !important; box-shadow: none !important; padding: 12px 0 !important; }
+      body { background: #fff !important; color: #000 !important; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Sticky Header -->
+  <header class="site-header">
+    <div class="container header-inner">
+      <a href="#" class="brand-wrap">
+        <div class="brand-icon">🛍️</div>
+        <div>
+          <div class="brand-title">Barakali Bozor</div>
+          <div class="brand-subtitle" id="t-header-sub">Maxfiylik va Ma'lumotlar Xavfsizligi</div>
+        </div>
+      </a>
+
+      <!-- Quick Section Tabs in Header -->
+      <nav class="nav-tabs" aria-label="Tezkor bo'limlar">
+        <a href="#sec-privacy" class="nav-tab-btn active" id="tab-privacy-btn">Maxfiylik Siyosati</a>
+        <a href="#sec-deletion" class="nav-tab-btn" id="tab-deletion-btn">Hisobni O'chirish</a>
+        <a href="#sec-contact" class="nav-tab-btn" id="tab-contact-btn">Aloqa</a>
+      </nav>
+
+      <div class="header-actions">
+        <!-- Language Switcher (UZ / RU / EN) -->
+        <div class="lang-switcher" aria-label="Language selector">
+          <button class="lang-btn active" onclick="setLang('uz')">UZ</button>
+          <button class="lang-btn" onclick="setLang('ru')">RU</button>
+          <button class="lang-btn" onclick="setLang('en')">EN</button>
+        </div>
+
+        <!-- Dark/Light Mode -->
+        <button class="icon-btn" onclick="toggleTheme()" aria-label="Rejimni o'zgartirish" title="Rejimni o'zgartirish">
+          <span id="theme-icon">🌙</span>
+        </button>
+
+        <!-- Print / PDF -->
+        <button class="icon-btn" onclick="window.print()" aria-label="Chop etish yoki PDF" title="Chop etish">
+          🖨️
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero Section -->
+  <section class="hero-section">
+    <div class="container">
+      <div class="badge-wrap">
+        <div class="verified-badge">
+          <span>✓</span>
+          <span id="t-badge-verified">Google Play Console Talablariga To'liq Mos (2026)</span>
+        </div>
+      </div>
+
+      <h1 class="hero-title" id="t-hero-title">Maxfiylik Siyosati va Ma'lumotlar Portali</h1>
+      <p class="hero-desc" id="t-hero-desc">
+        Barakali Bozor mobil ilovasida foydalanuvchilar shaxsiy ma'lumotlarini to'plash, qayta ishlash, himoya qilish hamda hisobni to'liq o'chirish bo'yicha rasmiy hujjat.
+      </p>
+
+      <!-- App Metadata -->
+      <div class="app-meta-grid">
+        <div class="meta-card">
+          <div class="meta-card-label" id="t-meta-app">Ilova Nomi</div>
+          <div class="meta-card-val">Barakali Bozor</div>
+        </div>
+        <div class="meta-card">
+          <div class="meta-card-label" id="t-meta-package">Paket ID (Application ID)</div>
+          <div class="meta-card-val"><span class="code-badge">uz.barakalibozor.mijoz</span></div>
+        </div>
+        <div class="meta-card">
+          <div class="meta-card-label" id="t-meta-developer">Dasturchi / Yuridik Shaxs</div>
+          <div class="meta-card-val">YTT Safayeva Nargiza</div>
+        </div>
+        <div class="meta-card">
+          <div class="meta-card-label" id="t-meta-updated">Oxirgi Yangilanish</div>
+          <div class="meta-card-val" id="last-updated-text">2026-yil 25-sentabr</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Highlights -->
+  <section class="container">
+    <div class="highlights-wrap">
+      <div class="highlight-card">
+        <div class="hl-icon">🔒</div>
+        <div class="hl-title" id="t-hl1-t">HTTPS / TLS Shifrlash</div>
+        <div class="hl-desc" id="t-hl1-d">Barcha ma'lumotlar kuchli kriptografik shifrlash protokollari bilan himoyalangan.</div>
+      </div>
+      <div class="highlight-card">
+        <div class="hl-icon">📍</div>
+        <div class="hl-title" id="t-hl2-t">Shaffof Joylashuv</div>
+        <div class="hl-desc" id="t-hl2-d">GPS faqat ilova ochiq bo'lganda yetkazish manzilini aniqlash uchun olinadi. Fonda kuzatilmaydi.</div>
+      </div>
+      <div class="highlight-card">
+        <div class="hl-icon">💳</div>
+        <div class="hl-title" id="t-hl3-t">Karta Saqlanmaydi</div>
+        <div class="hl-desc" id="t-hl3-d">Bank kartasi ma'lumotlari serverlarimizda aslo saqlanmaydi.</div>
+      </div>
+      <div class="highlight-card">
+        <div class="hl-icon">🗑️</div>
+        <div class="hl-title" id="t-hl4-t">Hisobni To'liq O'chirish</div>
+        <div class="hl-desc" id="t-hl4-d">Foydalanuvchi istalgan paytda o'z hisobini va ma'lumotlarini butunlay o'chirish huquqiga ega.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Main Content Layout -->
+  <main class="container content-layout">
+    <!-- Sticky Table of Contents Sidebar -->
+    <aside class="toc-sidebar">
+      <div class="toc-title" id="t-toc-title">Mundarija</div>
+      <ul class="toc-links">
+        <li><a href="#sec-general" id="t-toc-1">1. Umumiy Qoidalar</a></li>
+        <li><a href="#sec-collection" id="t-toc-2">2. To'planadigan Ma'lumotlar</a></li>
+        <li><a href="#sec-purpose" id="t-toc-3">3. Ma'lumotdan Foydalanish</a></li>
+        <li><a href="#sec-location" id="t-toc-4">4. Joylashuv (GPS) Siyosati</a></li>
+        <li><a href="#sec-sharing" id="t-toc-5">5. Uchinchi Shaxslar va SDK</a></li>
+        <li><a href="#sec-retention" id="t-toc-6">6. Saqlash Muddati</a></li>
+        <li><a href="#sec-rights" id="t-toc-7">7. Foydalanuvchi Huquqlari</a></li>
+        <li><a href="#sec-deletion" class="toc-deletion" id="t-toc-8">8. Hisobni O'chirish (Deletion)</a></li>
+        <li><a href="#sec-security" id="t-toc-9">9. Axborot Xavfsizligi</a></li>
+        <li><a href="#sec-children" id="t-toc-10">10. Bolalar Maxfiyligi</a></li>
+        <li><a href="#sec-contact" id="t-toc-11">11. Aloqa va Bog'lanish</a></li>
+      </ul>
+    </aside>
+
+    <!-- Main Content Body -->
+    <div class="content-body" id="sec-privacy">
+      <!-- Search Box -->
+      <div class="search-box">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="policy-search" class="search-input" placeholder="Hujjatdan qidirish (masalan: joylashuv, karta, o'chirish, email)..." oninput="filterContent()" />
+      </div>
+
+      <!-- 1. General -->
+      <section id="sec-general" class="policy-card">
+        <div class="section-header">
+          <div class="sec-num">1</div>
+          <h2 class="sec-title" id="t-s1-title">Umumiy Qoidalar va Ma'lumot Nazoratchisi</h2>
+        </div>
+        <div id="t-s1-content">
+          <p>
+            Ushbu Maxfiylik Siyosati <strong>“Barakali Bozor”</strong> mobil ilovasi (Google Play paketi: <code>uz.barakalibozor.mijoz</code>), Telegram Mini App va unga aloqador veb-xizmatlardan foydalanganingizda shaxsiy ma'lumotlaringiz qanday to'planishi, qayta ishlanishi va himoyalanishini belgilaydi.
+          </p>
+          <p>
+            Shaxsiy ma'lumotlarning rasmiy nazoratchisi (Data Controller): 
+            <strong>Yakka tartibdagi tadbirkor Safayeva Nargiza</strong> (“Barakali Bozor”), O‘zbekiston Respublikasi qonunchiligi asosida faoliyat yuritadi.
+          </p>
+          <div class="callout callout-info">
+            <div class="callout-icon">ℹ️</div>
+            <div>
+              Ilovani o'rnatish va undan foydalanish orqali siz ushbu siyosatda bayon etilgan shartlarga to'liq roziligingizni bildirasiz.
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 2. Data Collected -->
+      <section id="sec-collection" class="policy-card">
+        <div class="section-header">
+          <div class="sec-num">2</div>
+          <h2 class="sec-title" id="t-s2-title">To'planadigan Shaxsiy Ma'lumotlar Turlari</h2>
+        </div>
+        <div id="t-s2-content">
+          <p>Biz faqat buyurtmalarni yetkazib berish va xizmat sifatini oshirish uchun zarur bo'lgan minimal ma'lumotlarni yig'amiz:</p>
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Ma'lumot Toifasi</th>
+                  <th>Aniq Ma'lumotlar</th>
+                  <th>Yig'ish Maqsadi</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>Shaxsiy Identifikatsiya</strong></td>
+                  <td>Telefon raqami, Foydalanuvchi ismi, (ixtiyoriy) Telegram ID va username</td>
+                  <td>Hisob ochish, SMS-tasdiqlash, buyurtmani mijozga biriktirish va bog'lanish</td>
+                </tr>
+                <tr>
+                  <td><strong>Buyurtma va Yetkazish</strong></td>
+                  <td>Yetkazish manzili (ko'cha, xonadon), savat tarkibi, buyurtma vaqti va izohlar</td>
+                  <td>Taomlarni tayyorlash va kuryer orqali to'g'ri manzilga yetkazib berish</td>
+                </tr>
+                <tr>
+                  <td><strong>Geolokatsiya (GPS)</strong></td>
+                  <td>Ilova ochiq paytdagi aniq yoki taxminiy geografik koordinatalar</td>
+                  <td>Yaqin do'konlarni ko'rsatish, kuryer uchun masofa va narxni to'g'ri hisoblash</td>
+                </tr>
+                <tr>
+                  <td><strong>Qurilma va Texnik Ma'lumotlar</strong></td>
+                  <td>FCM push-tokeni, ilova versiyasi, OS versiyasi, crash-log jurnallari</td>
+                  <td>Buyurtma holati bo'yicha bildirishnomalar yuborish va ilova barqarorligini ta'minlash</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="callout callout-warning">
+            <div class="callout-icon">🚫</div>
+            <div>
+              <strong>Biz quyidagilarni ASLO to'plamaymiz va saqlamaymiz:</strong> Bank karta raqamlari, CVV kodlari, kontaktlar daftarchasi (Contacts), audio/video yozuvlar, SMS xabarlari yoki boshqa ilovalardagi faoliyatingiz.
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 3. Purpose -->
+      <section id="sec-purpose" class="policy-card">
+        <div class="section-header">
+          <div class="sec-num">3</div>
+          <h2 class="sec-title" id="t-s3-title">Ma'lumotlardan Foydalanish Maqsadlari</h2>
+        </div>
+        <div id="t-s3-content">
+          <p>Yig'ilgan ma'lumotlar quyidagi aniq maqsadlarda qayta ishlanadi:</p>
+          <ul>
+            <li>Buyurtmalarni qabul qilish, do'konga yetkazish va kuryer orqali xaridorni topish;</li>
+            <li>Buyurtma jarayoni (tayyorlanmoqda, kuryer yo'lda, yetkazildi) haqida real vaqtda push-xabar yuborish;</li>
+            <li>Mijozlar qo'llab-quvvatlash xizmati orqali murojaatlarni hal etish;</li>
+            <li>Ilovadagi texnik xatoliklarni bartaraf etish va ilova ishlashini yaxshilash;</li>
+            <li>Firibgarlik va ruxsatsiz harakatlarning oldini olish.</li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- 4. Location -->
+      <section id="sec-location" class="policy-card">
+        <div class="section-header">
+          <div class="sec-num">4</div>
+          <h2 class="sec-title" id="t-s4-title">Joylashuv (GPS) Ma'lumotlari Bo'yicha Maxsus Qoidalar</h2>
+        </div>
+        <div id="t-s4-content">
+          <p>
+            Google Play'ning geolokatsiya ma'lumotlari bo'yicha qoidalariga binoan:
+          </p>
+          <ul>
+            <li><strong>Faqat Faol Foydalanishda (Foreground):</strong> Joylashuv faqat ilovadan bevosita foydalanayotganingizda (xaritada manzil tanlayotganda) so'raladi.</li>
+            <li><strong>Fonda (Background) Kuzatilmaydi:</strong> Ilova yopilganda yoki minimallashtirilganda sizning joylashuvingiz mutlaqo kuzatilmaydi.</li>
+            <li><strong>Ixtiyoriylik:</strong> GPS ruxsatini berish majburiy emas. Agar ruxsatni rad etsangiz, yetkazish manzilini xaritadan qo'lda tanlashingiz yoki qidiruv satriga yozishingiz mumkin.</li>
+            <li><strong>Geocoding xizmatlari:</strong> Koordinatani o'qiladigan manzil matniga aylantirish uchun xavfsiz OpenStreetMap / BigDataCloud API xizmatlaridan foydalaniladi.</li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- 5. Third Parties -->
+      <section id="sec-sharing" class="policy-card">
+        <div class="section-header">
+          <div class="sec-num">5</div>
+          <h2 class="sec-title" id="t-s5-title">Uchinchi Shaxslar va Xizmatlar Bilan Bo'lishish</h2>
+        </div>
+        <div id="t-s5-content">
+          <p>Biz foydalanuvchilarning shaxsiy ma'lumotlarini uchinchi shaxslarga <strong>SOTMAYMIZ</strong>. Ma'lumotlar faqat buyurtmani bajarish uchun zarur bo'lgan quyidagi ishonchli tomonlar bilan almashiladi:</p>
+          <ul>
+            <li><strong>Tayinlangan Kuryer:</strong> Faqat buyurtmani yetkazish uchun xaridor ismi, telefoni va manzili.</li>
+            <li><strong>Sotuvchi Do'kon:</strong> Buyurtma tarkibi va mijoz aloqasi.</li>
+            <li><strong>Google Firebase (Firebase Cloud Messaging):</strong> Mobil qurilmangizga bildirishnomalar yuborish uchun.</li>
+            <li><strong>Qonuniy talablar:</strong> Faqat O'zbekiston Respublikasining vakolatli davlat organlari rasmiy so'rovi bo'yicha qonunda belgilangan hollarda.</li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- 6. Retention -->
+      <section id="sec-retention" class="policy-card">
+        <div class="section-header">
+          <div class="sec-num">6</div>
+          <h2 class="sec-title" id="t-s6-title">Ma'lumotlarni Saqlash Muddati</h2>
+        </div>
+        <div id="t-s6-content">
+          <p>
+            Shaxsiy ma'lumotlar hisobingiz faol bo'lgan davr mobaynida saqlanadi. 
+            Moliya va soliq qonunchiligi talablariga binoan yakunlangan buyurtmalar tarixi 3 yil muddatgacha arxivlanadi. 
+            Hisobingiz o'chirilganda, barcha shaxsiy identifikatorlar darhol bazadan o'chiriladi yoki qaytarib bo'lmas tarzda anonimlashtiriladi.
+          </p>
+        </div>
+      </section>
+
+      <!-- 7. User Rights -->
+      <section id="sec-rights" class="policy-card">
+        <div class="section-header">
+          <div class="sec-num">7</div>
+          <h2 class="sec-title" id="t-s7-title">Foydalanuvchi Huquqlari</h2>
+        </div>
+        <div id="t-s7-content">
+          <p>Siz quyidagi qonuniy huquqlarga egasiz:</p>
+          <ul>
+            <li>O'z shaxsiy ma'lumotlaringiz nusxasini so'rash va ular bilan tanishish;</li>
+            <li>Noto'g'ri yoki eskirgan ma'lumotlarni tuzatish (Ilovadagi “Profil” bo'limi orqali);</li>
+            <li>Qurilma sozlamalari orqali Push-bildirishnomalar yoki Geolokatsiya ruxsatlarini istalgan payt bekor qilish;</li>
+            <li>Hisobingizni va barcha shaxsiy ma'lumotlaringizni to'liq o'chirib tashlashni talab qilish.</li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- 8. Account Deletion (Google Play Data Safety Mandate) -->
+      <section id="sec-deletion" class="policy-card card-danger">
+        <div class="section-header">
+          <div class="sec-num num-danger">8</div>
+          <h2 class="sec-title" id="t-s8-title" style="color:var(--danger)">Hisob va Ma'lumotlarni O'chirish Tartibi (Account Deletion)</h2>
+        </div>
+        <div id="t-s8-content">
+          <p>
+            Google Play siyosatiga muvofiq, har bir foydalanuvchi o'z akkauntini va barcha shaxsiy ma'lumotlarini mustaqil o'chirish huquqiga ega.
+          </p>
+
+          <div class="callout callout-danger">
+            <div class="callout-icon">⚠️</div>
+            <div>
+              <strong>Ogohlantirish:</strong> Hisob o'chirilgandan so'ng sizning telefon raqamingiz, ismingiz va yetkazish manzillaringiz serverdan butunlay o'chiriladi va ularni qayta tiklash imkoni bo'lmaydi.
+            </div>
+          </div>
+
+          <h3 style="margin:16px 0 10px; font-size:1.05rem;">A) Ilova orqali o'chirish (Avtomatik va Tezkor):</h3>
+          <div class="steps-box">
+            <div class="step-item">
+              <div class="step-badge">1</div>
+              <div>Smartfoningizda <strong>Barakali Bozor</strong> ilovasini oching.</div>
+            </div>
+            <div class="step-item">
+              <div class="step-badge">2</div>
+              <div>Quyi menyudagi <strong>“Profil”</strong> bo‘limiga o‘ting.</div>
+            </div>
+            <div class="step-item">
+              <div class="step-badge">3</div>
+              <div>Sahifaning pastki qismidagi <strong>“Hisobni o‘chirish”</strong> tugmasini bosing.</div>
+            </div>
+            <div class="step-item">
+              <div class="step-badge">4</div>
+              <div>Tasdiqlang. Hisobingiz va ma'lumotlaringiz o'sha zahotiyoq tizimdan butunlay o'chiriladi.</div>
+            </div>
+          </div>
+
+          <h3 style="margin:20px 0 10px; font-size:1.05rem;">B) Ilovasiz (Qo'llab-quvvatlash xizmati orqali):</h3>
+          <p>
+            Agar siz mobil ilovaga kira olmasangiz yoki telefoningiz yo'qolgan bo'lsa, ro'yxatdan o'tgan telefon raqamingizni ko'rsatgan holda bizning rasmiy kanalimizga murojaat yuboring:
+          </p>
+          <ul>
+            <li>Rasmiy Email: <a href="mailto:kamoliddinmirzaboyev05@gmail.com" style="color:var(--primary); font-weight:700;">kamoliddinmirzaboyev05@gmail.com</a></li>
+            <li>Telegram Admin: <a href="https://t.me/MrMirzaboyev" target="_blank" style="color:var(--primary); font-weight:700;">@MrMirzaboyev</a></li>
+            <li>Telefon: <a href="tel:+998909888899" style="color:var(--primary); font-weight:700;">+998 90 988 88 99</a></li>
+          </ul>
+          <p>So'rovingiz qabul qilingach, shaxsingiz tasdiqlanib, hisob 3 ish kuni ichida to'liq o'chiriladi.</p>
+
+          <h3 style="margin:20px 0 10px; font-size:1.05rem;">Qaysi ma'lumotlar o'chiriladi?</h3>
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Ma'lumot turi</th>
+                  <th>Natija</th>
+                  <th>Izoh</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Telefon raqami va Ism</td>
+                  <td><strong>To'liq o'chiriladi</strong></td>
+                  <td>Bazada siz haqingizda hech qanday identifikator qolmaydi</td>
+                </tr>
+                <tr>
+                  <td>Yetkazish manzillari</td>
+                  <td><strong>To'liq o'chiriladi</strong></td>
+                  <td>Saqlangan joylashuv va xonadon ma'lumotlari tozalanadi</td>
+                </tr>
+                <tr>
+                  <td>FCM Bildirishnoma tokenlari</td>
+                  <td><strong>To'liq o'chiriladi</strong></td>
+                  <td>Qurilmangizga push-xabar yuborish butunlay to'xtatiladi</td>
+                </tr>
+                <tr>
+                  <td>Eski buyurtma hisobotlari</td>
+                  <td>Anonimlashtiriladi</td>
+                  <td>Moliya hisoboti uchun ism/telefonsiz, faqat raqam ko'rinishida saqlanadi</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- 9. Security -->
+      <section id="sec-security" class="policy-card">
+        <div class="section-header">
+          <div class="sec-num">9</div>
+          <h2 class="sec-title" id="t-s9-title">Axborot Xavfsizligi Choralari</h2>
+        </div>
+        <div id="t-s9-content">
+          <p>Biz sizning shaxsiy ma'lumotlaringizni xavfsiz saqlash uchun quyidagi texnik choralarni ko'ramiz:</p>
+          <ul>
+            <li>Barcha tarmoq so'rovlari xavfsiz <strong>HTTPS va TLS 1.3</strong> shifrlash protokollari orqali uzatiladi;</li>
+            <li>Avtorizatsiya tokenlari qurilmada Android Keystore va iOS Keychain tizim himoyasida saqlanadi;</li>
+            <li>Ma'lumotlar bazalariga kirish qat'iy cheklangan va xavfsiz himoyalangan serverlarda saqlanadi.</li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- 10. Children -->
+      <section id="sec-children" class="policy-card">
+        <div class="section-header">
+          <div class="sec-num">10</div>
+          <h2 class="sec-title" id="t-s10-title">Bolalar Maxfiyligi (Children's Privacy)</h2>
+        </div>
+        <div id="t-s10-content">
+          <p>
+            Bizning xizmatlarimiz 13 yoshga (yoki mintaqangiz qonunlariga ko'ra 18 yoshga) to'lmagan shaxslarga mo'ljallanmagan. 
+            Biz bolalardan bila turib ma'lumot yig'maymiz. 
+            Agar ota-ona yoki vasiy farzandi o'z ma'lumotlarini taqdim etganini bilsa, biz bilan bog'lanishi mumkin va bu ma'lumotlar zudlik bilan o'chirib tashlanadi.
+          </p>
+        </div>
+      </section>
+
+      <!-- 11. Contact -->
+      <section id="sec-contact" class="policy-card">
+        <div class="section-header">
+          <div class="sec-num">11</div>
+          <h2 class="sec-title" id="t-s11-title">Aloqa va Bog'lanish Ma'lumotlari</h2>
+        </div>
+        <div id="t-s11-content">
+          <p>
+            Maxfiylik siyosati yoki hisobingiz yuzasidan barcha savollar va murojaatlar uchun rasmiy aloqa vositalarimiz:
+          </p>
+          <div class="contact-grid">
+            <a href="mailto:kamoliddinmirzaboyev05@gmail.com" class="contact-card">
+              <div class="contact-card-icon">✉️</div>
+              <div>
+                <div class="meta-card-label">Rasmiy Email</div>
+                <div class="meta-card-val" style="font-size:0.84rem">kamoliddinmirzaboyev05@gmail.com</div>
+              </div>
+            </a>
+            <a href="https://t.me/MrMirzaboyev" target="_blank" rel="noopener" class="contact-card">
+              <div class="contact-card-icon">✈️</div>
+              <div>
+                <div class="meta-card-label">Telegram Qo'llab-quvvatlash</div>
+                <div class="meta-card-val">@MrMirzaboyev</div>
+              </div>
+            </a>
+            <a href="tel:+998909888899" class="contact-card">
+              <div class="contact-card-icon">📞</div>
+              <div>
+                <div class="meta-card-label">Telefon</div>
+                <div class="meta-card-val">+998 90 988 88 99</div>
+              </div>
+            </a>
+            <div class="contact-card">
+              <div class="contact-card-icon">🏢</div>
+              <div>
+                <div class="meta-card-label">Yuridik Manzil</div>
+                <div class="meta-card-val" style="font-size:0.84rem">O'zbekiston Respublikasi</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <div>
+        © 2026 Barakali Bozor (YTT Safayeva Nargiza). Barcha huquqlar himoyalangan.
+      </div>
+      <ul class="footer-links">
+        <li><a href="#sec-privacy">Maxfiylik Siyosati</a></li>
+        <li><a href="#sec-deletion">Hisobni O'chirish</a></li>
+        <li><a href="#sec-contact">Aloqa</a></li>
+      </ul>
+    </div>
+  </footer>
+
+  <!-- Scripts: Theme, Multi-language (UZ / RU / EN), Search & Scrollspy -->
+  <script>
+    const i18n = {
+      uz: {
+        header_sub: "Maxfiylik va Ma'lumotlar Xavfsizligi",
+        badge_verified: "Google Play Console Talablariga To'liq Mos (2026)",
+        hero_title: "Maxfiylik Siyosati va Ma'lumotlar Portali",
+        hero_desc: "Barakali Bozor mobil ilovasida foydalanuvchilar shaxsiy ma'lumotlarini to'plash, qayta ishlash, himoya qilish hamda hisobni to'liq o'chirish bo'yicha rasmiy hujjat.",
+        meta_app: "Ilova Nomi",
+        meta_package: "Paket ID (Application ID)",
+        meta_developer: "Dasturchi / Yuridik Shaxs",
+        meta_updated: "Oxirgi Yangilanish",
+        updated_val: "2026-yil 25-sentabr",
+        hl1_t: "HTTPS / TLS Shifrlash",
+        hl1_d: "Barcha ma'lumotlar kuchli kriptografik shifrlash protokollari bilan himoyalangan.",
+        hl2_t: "Shaffof Joylashuv",
+        hl2_d: "GPS faqat ilova ochiq bo'lganda yetkazish manzilini aniqlash uchun olinadi. Fonda kuzatilmaydi.",
+        hl3_t: "Karta Saqlanmaydi",
+        hl3_d: "Bank kartasi ma'lumotlari serverlarimizda aslo saqlanmaydi.",
+        hl4_t: "Hisobni To'liq O'chirish",
+        hl4_d: "Foydalanuvchi istalgan paytda o'z hisobini va ma'lumotlarini butunlay o'chirish huquqiga ega.",
+        toc_title: "Mundarija",
+        toc_1: "1. Umumiy Qoidalar",
+        toc_2: "2. To'planadigan Ma'lumotlar",
+        toc_3: "3. Ma'lumotdan Foydalanish",
+        toc_4: "4. Joylashuv (GPS) Siyosati",
+        toc_5: "5. Uchinchi Shaxslar va SDK",
+        toc_6: "6. Saqlash Muddati",
+        toc_7: "7. Foydalanuvchi Huquqlari",
+        toc_8: "8. Hisobni O'chirish (Deletion)",
+        toc_9: "9. Axborot Xavfsizligi",
+        toc_10: "10. Bolalar Maxfiyligi",
+        toc_11: "11. Aloqa va Bog'lanish"
+      },
+      ru: {
+        header_sub: "Конфиденциальность и безопасность данных",
+        badge_verified: "Полное соответствие требованиям Google Play Console (2026)",
+        hero_title: "Политика Конфиденциальности и Данных",
+        hero_desc: "Официальный документ о сборе, обработке, защите и полном удалении персональных данных пользователей мобильного приложения Barakali Bozor.",
+        meta_app: "Название приложения",
+        meta_package: "Идентификатор пакета (Package ID)",
+        meta_developer: "Разработчик / Юр. лицо",
+        meta_updated: "Последнее обновление",
+        updated_val: "25 сентября 2026 г.",
+        hl1_t: "Шифрование HTTPS / TLS",
+        hl1_d: "Все запросы надежно зашифрованы современными протоколами.",
+        hl2_t: "Прозрачная геолокация",
+        hl2_d: "GPS запрашивается только при открытом приложении для доставки. В фоне не отслеживается.",
+        hl3_t: "Данные карт не хранятся",
+        hl3_d: "Данные банковских карт никогда не сохраняются на наших серверах.",
+        hl4_t: "Удаление аккаунта",
+        hl4_d: "Пользователь имеет право в любой момент полностью удалить свой аккаунт и данные.",
+        toc_title: "Содержание",
+        toc_1: "1. Общие положения",
+        toc_2: "2. Собираемые данные",
+        toc_3: "3. Цели использования",
+        toc_4: "4. Политика геолокации (GPS)",
+        toc_5: "5. Третьи лица и SDK",
+        toc_6: "6. Срок хранения",
+        toc_7: "7. Права пользователей",
+        toc_8: "8. Удаление аккаунта (Deletion)",
+        toc_9: "9. Безопасность данных",
+        toc_10: "10. Конфиденциальность детей",
+        toc_11: "11. Контакты и связь"
+      },
+      en: {
+        header_sub: "Privacy & Data Security Portal",
+        badge_verified: "Fully Compliant with Google Play Console Policies (2026)",
+        hero_title: "Privacy Policy & Account Deletion Portal",
+        hero_desc: "Official disclosure on collection, processing, security, and full account deletion within the Barakali Bozor mobile app.",
+        meta_app: "App Name",
+        meta_package: "Package ID (Application ID)",
+        meta_developer: "Developer / Legal Entity",
+        meta_updated: "Last Updated",
+        updated_val: "September 25, 2026",
+        hl1_t: "HTTPS / TLS Encryption",
+        hl1_d: "All network traffic and data are securely encrypted.",
+        hl2_t: "Transparent Location",
+        hl2_d: "GPS is collected only in the foreground during ordering. Never tracked in background.",
+        hl3_t: "No Card Data Stored",
+        hl3_d: "Payment card credentials are never stored on our servers.",
+        hl4_t: "Complete Account Deletion",
+        hl4_d: "Users have the full right to delete their account and associated data at any time.",
+        toc_title: "Table of Contents",
+        toc_1: "1. General Provisions",
+        toc_2: "2. Data We Collect",
+        toc_3: "3. Purpose of Processing",
+        toc_4: "4. Location (GPS) Policy",
+        toc_5: "5. Third-Party Disclosures & SDKs",
+        toc_6: "6. Data Retention Period",
+        toc_7: "7. User Rights",
+        toc_8: "8. Account Deletion (Mandatory)",
+        toc_9: "9. Data Security",
+        toc_10: "10. Children's Privacy",
+        toc_11: "11. Contact & Support"
+      }
+    };
+
+    function setLang(lang) {
+      document.querySelectorAll('.lang-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.textContent.toLowerCase() === lang);
+      });
+      document.documentElement.lang = lang;
+
+      const d = i18n[lang];
+      if (!d) return;
+
+      document.getElementById('t-header-sub').textContent = d.header_sub;
+      document.getElementById('t-badge-verified').textContent = d.badge_verified;
+      document.getElementById('t-hero-title').textContent = d.hero_title;
+      document.getElementById('t-hero-desc').textContent = d.hero_desc;
+      document.getElementById('t-meta-app').textContent = d.meta_app;
+      document.getElementById('t-meta-package').textContent = d.meta_package;
+      document.getElementById('t-meta-developer').textContent = d.meta_developer;
+      document.getElementById('t-meta-updated').textContent = d.meta_updated;
+      document.getElementById('last-updated-text').textContent = d.updated_val;
+
+      document.getElementById('t-hl1-t').textContent = d.hl1_t;
+      document.getElementById('t-hl1-d').textContent = d.hl1_d;
+      document.getElementById('t-hl2-t').textContent = d.hl2_t;
+      document.getElementById('t-hl2-d').textContent = d.hl2_d;
+      document.getElementById('t-hl3-t').textContent = d.hl3_t;
+      document.getElementById('t-hl3-d').textContent = d.hl3_d;
+      document.getElementById('t-hl4-t').textContent = d.hl4_t;
+      document.getElementById('t-hl4-d').textContent = d.hl4_d;
+
+      document.getElementById('t-toc-title').textContent = d.toc_title;
+      for (let i = 1; i <= 11; i++) {
+        const el = document.getElementById(`t-toc-${i}`);
+        if (el && d[`toc_${i}`]) el.textContent = d[`toc_${i}`];
+      }
+    }
+
+    function toggleTheme() {
+      const html = document.documentElement;
+      const target = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+      html.setAttribute('data-theme', target);
+      document.getElementById('theme-icon').textContent = target === 'dark' ? '☀️' : '🌙';
+      localStorage.setItem('theme', target);
+    }
+
+    (function() {
+      const saved = localStorage.getItem('theme');
+      if (saved) {
+        document.documentElement.setAttribute('data-theme', saved);
+        document.getElementById('theme-icon').textContent = saved === 'dark' ? '☀️' : '🌙';
+      } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.documentElement.setAttribute('data-theme', 'dark');
+        document.getElementById('theme-icon').textContent = '☀️';
+      }
+    })();
+
+    function filterContent() {
+      const q = document.getElementById('policy-search').value.toLowerCase().trim();
+      document.querySelectorAll('.policy-card').forEach(card => {
+        if (!q) {
+          card.style.display = 'block';
+          return;
+        }
+        card.style.display = card.textContent.toLowerCase().includes(q) ? 'block' : 'none';
+      });
+    }
+
+    window.addEventListener('scroll', () => {
+      const cards = document.querySelectorAll('.policy-card');
+      const links = document.querySelectorAll('.toc-links a');
+      let current = '';
+
+      cards.forEach(card => {
+        if (window.scrollY >= card.offsetTop - 120) {
+          current = card.getAttribute('id');
+        }
+      });
+
+      links.forEach(l => {
+        l.classList.remove('active');
+        if (l.getAttribute('href') === `#${current}`) {
+          l.classList.add('active');
+        }
+      });
+    });
+  </script>
+</body>
+</html>
