@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../core/i18n.dart';
 import '../core/theme.dart';
 
 /// Zamonaviy va nafis pastki navigatsiya paneli — tanlangan tab ostida
@@ -9,15 +10,16 @@ class BottomNav extends StatelessWidget {
   final int index;
   final ValueChanged<int> onChanged;
 
-  static const _items = [
-    (Icons.home_rounded, Icons.home_outlined, 'Bosh sahifa'),
-    (Icons.search_rounded, Icons.search_outlined, 'Qidiruv'),
-    (Icons.receipt_long_rounded, Icons.receipt_long_outlined, 'Buyurtmalar'),
-    (Icons.person_rounded, Icons.person_outline_rounded, 'Profil'),
-  ];
-
   @override
   Widget build(BuildContext context) {
+    final tr = context.tr;
+    final items = [
+      (Icons.home_rounded, Icons.home_outlined, tr.navHome),
+      (Icons.search_rounded, Icons.search_outlined, tr.navSearch),
+      (Icons.receipt_long_rounded, Icons.receipt_long_outlined, tr.navOrders),
+      (Icons.person_rounded, Icons.person_outline_rounded, tr.navProfile),
+    ];
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -38,7 +40,7 @@ class BottomNav extends StatelessWidget {
             height: 56,
             child: LayoutBuilder(
               builder: (context, constraints) {
-                final itemWidth = constraints.maxWidth / _items.length;
+                final itemWidth = constraints.maxWidth / items.length;
                 return Stack(
                   children: [
                     // Tanlangan tab ostida siljib yuruvchi pill
@@ -61,8 +63,8 @@ class BottomNav extends StatelessWidget {
                       ),
                     ),
                     Row(
-                      children: List.generate(_items.length, (i) {
-                        final (activeIcon, inactiveIcon, label) = _items[i];
+                      children: List.generate(items.length, (i) {
+                        final (activeIcon, inactiveIcon, label) = items[i];
                         return SizedBox(
                           width: itemWidth,
                           child: _NavItem(

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../core/format.dart';
+import '../core/i18n.dart';
 import '../core/theme.dart';
 
 /// Dial a phone number (`tel:` link).
@@ -20,12 +22,14 @@ Future<void> launchExternal(String url) async {
 
 /// Status pill — with per-status colours and icons.
 class StatusPill extends StatelessWidget {
-  const StatusPill(this.status, {super.key, this.showIcon = true});
+  const StatusPill(this.status, {super.key, this.showIcon = true, this.lang});
   final String status;
   final bool showIcon;
+  final String? lang;
 
   @override
   Widget build(BuildContext context) {
+    final language = lang ?? context.watch<LanguageProvider>().code;
     final (bg, fg) = statusPillColors(status);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -41,7 +45,7 @@ class StatusPill extends StatelessWidget {
             const SizedBox(width: 4),
           ],
           Text(
-            statusLabel(status),
+            statusLabel(status, language),
             style: TextStyle(
               color: fg,
               fontSize: 11.5,

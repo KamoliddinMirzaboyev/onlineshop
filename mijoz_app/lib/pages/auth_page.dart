@@ -1,16 +1,15 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:provider/provider.dart';
 import '../core/format.dart';
+import '../core/i18n.dart';
 import '../core/theme.dart';
 import '../services/api.dart';
 import '../services/push.dart';
 import '../widgets/common.dart';
-import '../widgets/otp_input.dart';
 import '../widgets/toast.dart';
 import 'location_permission_page.dart';
 
-enum _Step { telegramCode, phone, otp, name }
+enum _Step { phone, name }
 
 class AuthPage extends StatefulWidget {
   const AuthPage({super.key});
@@ -22,146 +21,169 @@ class AuthPage extends StatefulWidget {
 class _AuthPageState extends State<AuthPage> {
   final _phoneController = TextEditingController(text: '+998 ')
     ..selection = const TextSelection.collapsed(offset: 5);
-  final _codeController = TextEditingController();
   final _firstNameController = TextEditingController();
   final _lastNameController = TextEditingController();
 
-  _Step _step = _Step.telegramCode;
+  _Step _step = _Step.phone;
   bool _loading = false;
-  Timer? _resendTimer;
-  int _resendCountdown = 0;
 
   @override
   void dispose() {
-    _resendTimer?.cancel();
     _phoneController.dispose();
-    _codeController.dispose();
     _firstNameController.dispose();
     _lastNameController.dispose();
     super.dispose();
   }
 
-  void _startResendTimer() {
-    _resendTimer?.cancel();
-    setState(() => _resendCountdown = 60);
-    _resendTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (!mounted) {
-        timer.cancel();
-        return;
-      }
-      if (_resendCountdown <= 1) {
-        timer.cancel();
-        setState(() => _resendCountdown = 0);
-      } else {
-        setState(() => _resendCountdown--);
-      }
-    });
-  }
-
-  Future<void> _openTelegramBot() async {
-    final uri = Uri.parse('https://t.me/barakalibozorobot?start=login');
-    try {
-      final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
-      if (!launched) {
-        await launchUrl(uri, mode: LaunchMode.platformDefault);
-      }
-    } catch (_) {
-      toast.error('Telegram botni ochishda xatolik yuz berdi');
-    }
-  }
-
-  Future<void> _verifyTelegramCode([String? directCode]) async {
+  /// Telefon raqami kiritilgach tasdiqlash dialogini chiqarish
+  Future<void> _onPhoneSubmit() async {
     if (_loading) return;
-    final code = directCode ?? _codeController.text.trim();
-    if (code.length != 6) {
-      toast.error('6 xonali kodni to\'liq kiriting');
-      return;
-    }
-    setState(() => _loading = true);
-    try {
-      final res = await api.post('/auth/code/verify', {
-        'code': code,
-      });
-      await api.setTokens(
-        access: res['token']['access_token'] as String?,
-        refresh: res['token']['refresh_token'] as String?,
-      );
-      if (!mounted) return;
-      final firstName = (res['user']['first_name'] as String?) ?? '';
-      if (firstName.trim().isEmpty) {
-        setState(() {
-          _step = _Step.name;
-          _codeController.clear();
-        });
-      } else {
-        _goToPermissions();
-      }
-    } catch (e) {
-      toast.error('Kod noto\'g\'ri yoki muddati o\'tgan');
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
-
-  Future<void> _requestCode() async {
-    // Ikki marta bosilsa ikkita SMS ketardi (pul + rate limit).
-    if (_loading) return;
+    final tr = context.tr;
     final phone = _phoneController.text.trim();
-    if (phone.replaceAll(RegExp(r'\D'), '').length < 12) {
-      toast.error('Telefon raqamni to\'liq kiriting');
+    final digits = phone.replaceAll(RegExp(r'\D'), '');
+    if (digits.length < 12) {
+      toast.error(tr.authPhoneRequiredError);
       return;
     }
-    setState(() => _loading = true);
-    try {
-      await api.post('/auth/otp/request', {'phone': phone});
-      if (mounted) {
-        setState(() => _step = _Step.otp);
-        _startResendTimer();
-      }
-    } catch (e) {
-      toast.error('Telefon raqami noto\'g\'ri');
-    } finally {
-      if (mounted) setState(() => _loading = false);
+
+    // Telefon raqamingiz sizniki ekanligiga ishonch hosil qiling dialogi
+    final confirmed = await showModalBottomSheet<bool>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppColors.slate200,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Container(
+                width: 64,
+                height: 64,
+                decoration: const BoxDecoration(
+                  color: AppColors.brandSoft,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.phone_android_rounded, size: 32, color: AppColors.brand),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                tr.authConfirmPhoneTitle,
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.slate900,
+                  letterSpacing: -0.3,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 10),
+              Text(
+                tr.authConfirmPhoneDesc,
+                style: const TextStyle(fontSize: 14, color: AppColors.slate500, height: 1.4),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 14),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: AppColors.slate50,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Text(
+                  phone,
+                  style: const TextStyle(
+                    fontSize: 19,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.slate900,
+                    letterSpacing: 0.5,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: GhostButton(
+                      label: tr.edit,
+                      textColor: AppColors.slate700,
+                      borderColor: const Color(0xFFCBD5E1),
+                      onPressed: () => Navigator.pop(ctx, false),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: AppButton(
+                      label: tr.continueBtn,
+                      onPressed: () => Navigator.pop(ctx, true),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      await _loginWithPhone(phone);
     }
   }
 
-  Future<void> _verifyCode([String? directCode]) async {
-    // Avtomatik to'ldirish + qo'lda bosish bir vaqtda tushishi mumkin.
-    if (_loading) return;
-    final code = directCode ?? _codeController.text.trim();
-    if (code.isEmpty) {
-      toast.error('SMS kodni kiriting');
-      return;
-    }
+  /// Backendga faqat telefon raqami bilan kirish so'rovi
+  Future<void> _loginWithPhone(String phone) async {
     setState(() => _loading = true);
     try {
-      final res = await api.post('/auth/otp/verify', {
-        'phone': _phoneController.text.trim(),
-        'code': code,
+      final res = await api.post('/auth/phone', {
+        'phone': phone.replaceAll(RegExp(r'\s+'), ''),
       });
       await api.setTokens(
         access: res['token']['access_token'] as String?,
         refresh: res['token']['refresh_token'] as String?,
       );
       if (!mounted) return;
-      final firstName = (res['user']['first_name'] as String?) ?? '';
-      if (firstName.trim().isEmpty) {
+
+      final firstName = (res['user']['first_name'] as String?)?.trim() ?? '';
+      if (firstName.isEmpty) {
+        // Yangi foydalanuvchi — Ism va Familiya so'raladi
         setState(() => _step = _Step.name);
       } else {
+        // Mavjud foydalanuvchi — to'g'ridan-to'g'ri ruxsatlar sahifasiga
         _goToPermissions();
       }
     } catch (e) {
-      toast.error('SMS kod noto\'g\'ri');
+      if (e is ApiException) {
+        toast.error(e.userFriendlyMessage);
+      } else {
+        toast.error(context.tr.authGeneralError);
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
 
+  /// Yangi foydalanuvchi uchun ism-familiyani saqlash
   Future<void> _submitName() async {
     if (_loading) return;
+    final tr = context.tr;
     final first = _firstNameController.text.trim();
     if (first.isEmpty) {
-      toast.error('Ismingizni kiriting');
+      toast.error(tr.authNameRequiredError);
       return;
     }
     setState(() => _loading = true);
@@ -173,16 +195,14 @@ class _AuthPageState extends State<AuthPage> {
       });
       _goToPermissions();
     } catch (e) {
-      toast.error('Xatolik yuz berdi');
+      toast.error(tr.authSaveProfileError);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
 
+  /// Ruxsatlar sahifasiga o'tish (Joylashuv -> Bildirishnoma -> Asosiy oyna)
   void _goToPermissions() {
-    // Kirish bilanoq tokenni serverga yozamiz (ruxsat so'ramasdan — uni
-    // keyingi sahifa so'raydi). Busiz "Keyinroq" bosilsa token faqat ilova
-    // qayta ochilganda yozilardi va mijoz shu oraliqda push olmasdi.
     registerFcmToken();
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(builder: (_) => const LocationPermissionPage()),
@@ -191,15 +211,58 @@ class _AuthPageState extends State<AuthPage> {
 
   @override
   Widget build(BuildContext context) {
+    final tr = context.tr;
+    final isRu = context.lang.isRussian;
+
     return Scaffold(
       backgroundColor: AppColors.slate50,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                // Til almashtirish tugmasi
+                Align(
+                  alignment: Alignment.topRight,
+                  child: GestureDetector(
+                    onTap: () {
+                      final next = isRu ? AppLanguage.uz : AppLanguage.ru;
+                      context.read<LanguageProvider>().setLanguage(next);
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                        boxShadow: const [
+                          BoxShadow(color: Color(0x06000000), blurRadius: 4, offset: Offset(0, 1)),
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(context.lang.current.flag, style: const TextStyle(fontSize: 14)),
+                          const SizedBox(width: 6),
+                          Text(
+                            context.lang.current.displayName,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.slate700,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          const Icon(Icons.sync_alt_rounded, size: 13, color: AppColors.slate400),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+
                 // Brend belgisi
                 Container(
                   width: 80,
@@ -220,7 +283,11 @@ class _AuthPageState extends State<AuthPage> {
                   child: Image.asset(
                     'assets/icon/logo.png',
                     fit: BoxFit.contain,
-                    errorBuilder: (_, __, ___) => const Icon(Icons.shopping_bag_rounded, size: 40, color: AppColors.brand),
+                    errorBuilder: (_, __, ___) => const Icon(
+                      Icons.shopping_bag_rounded,
+                      size: 40,
+                      color: AppColors.brand,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -234,11 +301,15 @@ class _AuthPageState extends State<AuthPage> {
                   ),
                 ),
                 const SizedBox(height: 4),
-                const Text(
-                  'Tezkor va sifatli yetkazib berish',
-                  style: TextStyle(fontSize: 13.5, color: AppColors.slate400, fontWeight: FontWeight.w500),
+                Text(
+                  isRu ? 'Быстрая и качественная доставка' : 'Tezkor va sifatli yetkazib berish',
+                  style: const TextStyle(
+                    fontSize: 13.5,
+                    color: AppColors.slate400,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
-                const SizedBox(height: 28),
+                const SizedBox(height: 24),
 
                 // Asosiy karta
                 AppCard(
@@ -247,12 +318,9 @@ class _AuthPageState extends State<AuthPage> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Text(
-                        switch (_step) {
-                          _Step.telegramCode => 'Kodni kiriting 🔐',
-                          _Step.phone => 'Xush kelibsiz 👋',
-                          _Step.otp => 'Kodni tasdiqlash 🔐',
-                          _Step.name => 'Tanishing 🤝',
-                        },
+                        _step == _Step.phone
+                            ? (isRu ? 'Добро пожаловать 👋' : 'Xush kelibsiz 👋')
+                            : (isRu ? 'Давайте знакомиться 🤝' : 'Tanishing 🤝'),
                         style: const TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.w800,
@@ -263,20 +331,15 @@ class _AuthPageState extends State<AuthPage> {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        switch (_step) {
-                          _Step.telegramCode => 'Telegram bot orqali 6 xonali tasdiqlash kodini oling',
-                          _Step.phone => 'Davom etish uchun telefon raqamingizni kiriting',
-                          _Step.otp => '${_phoneController.text} raqamiga yuborilgan 5 xonali kod',
-                          _Step.name => 'Buyurtmalaringiz uchun ismingizni kiriting',
-                        },
+                        _step == _Step.phone
+                            ? (isRu ? 'Для продолжения введите номер телефона' : 'Davom etish uchun telefon raqamingizni kiriting')
+                            : (isRu ? 'Введите имя и фамилию для ваших заказов' : 'Buyurtmalaringiz uchun ism va familiyangizni kiriting'),
                         style: const TextStyle(fontSize: 13, color: AppColors.slate500),
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 24),
-                      if (_step == _Step.telegramCode) ..._telegramCodeFields(),
-                      if (_step == _Step.phone) ..._phoneFields(),
-                      if (_step == _Step.otp) ..._otpFields(),
-                      if (_step == _Step.name) ..._nameFields(),
+                      if (_step == _Step.phone) ..._phoneFields(tr),
+                      if (_step == _Step.name) ..._nameFields(tr),
                     ],
                   ),
                 ),
@@ -288,122 +351,7 @@ class _AuthPageState extends State<AuthPage> {
     );
   }
 
-  List<Widget> _telegramCodeFields() => [
-        // Telegram botga o'tish tugmasi (42.uz uslubida)
-        GestureDetector(
-          onTap: _openTelegramBot,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF2AABEE), Color(0xFF229ED9)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF229ED9).withValues(alpha: 0.35),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.22),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.send_rounded,
-                    color: Colors.white,
-                    size: 24,
-                  ),
-                ),
-                const SizedBox(width: 14),
-                const Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Telegram bot orqali kod olish',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 15,
-                        ),
-                      ),
-                      SizedBox(height: 3),
-                      Text(
-                        '@barakalibozorobot ga o\'tish',
-                        style: TextStyle(
-                          color: Colors.white70,
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const Icon(
-                  Icons.arrow_forward_ios_rounded,
-                  color: Colors.white,
-                  size: 16,
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 24),
-        const Text(
-          'Bot bergan 6 xonali kodni kiriting:',
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: AppColors.slate600,
-          ),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 12),
-        Center(
-          child: OtpBoxInput(
-            key: const ValueKey('telegram_otp'),
-            length: 6,
-            onChanged: (v) => _codeController.text = v,
-            onCompleted: (v) => _verifyTelegramCode(v),
-          ),
-        ),
-        const SizedBox(height: 24),
-        AppButton(
-          label: 'Kirish',
-          expand: true,
-          loading: _loading,
-          onPressed: () => _verifyTelegramCode(),
-        ),
-        const SizedBox(height: 16),
-        Center(
-          child: TextButton(
-            onPressed: () => setState(() {
-              _step = _Step.phone;
-              _codeController.clear();
-            }),
-            child: const Text(
-              'Boshqa usulda kirish (SMS / Demo)',
-              style: TextStyle(
-                color: AppColors.slate500,
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ),
-      ];
-
-  List<Widget> _phoneFields() => [
+  List<Widget> _phoneFields(AppStrings tr) => [
         Container(
           decoration: BoxDecoration(
             color: Colors.white,
@@ -423,7 +371,14 @@ class _AuthPageState extends State<AuthPage> {
                   children: [
                     Text('🇺🇿', style: TextStyle(fontSize: 16)),
                     SizedBox(width: 4),
-                    Text('UZ', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: AppColors.slate700)),
+                    Text(
+                      'UZ',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
+                        color: AppColors.slate700,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -434,13 +389,19 @@ class _AuthPageState extends State<AuthPage> {
                   keyboardType: TextInputType.phone,
                   autofocus: true,
                   inputFormatters: [UzPhoneFormatter()],
-                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16, color: AppColors.slate900, letterSpacing: 0.5),
-                  decoration: const InputDecoration(
-                    hintText: '+998 90 123 45 67',
-                    hintStyle: TextStyle(color: AppColors.slate300, fontWeight: FontWeight.normal),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 16,
+                    color: AppColors.slate900,
+                    letterSpacing: 0.5,
+                  ),
+                  decoration: InputDecoration(
+                    hintText: tr.authPhoneHint,
+                    hintStyle: const TextStyle(color: AppColors.slate300, fontWeight: FontWeight.normal),
                     border: InputBorder.none,
                     isDense: true,
                   ),
+                  onSubmitted: (_) => _onPhoneSubmit(),
                 ),
               ),
             ],
@@ -448,101 +409,29 @@ class _AuthPageState extends State<AuthPage> {
         ),
         const SizedBox(height: 20),
         AppButton(
-          label: 'SMS kod olish',
+          label: tr.authLoginBtn,
           expand: true,
           loading: _loading,
-          onPressed: _requestCode,
-        ),
-        const SizedBox(height: 12),
-        Center(
-          child: TextButton.icon(
-            onPressed: () => setState(() {
-              _step = _Step.telegramCode;
-              _codeController.clear();
-            }),
-            icon: const Icon(Icons.arrow_back_rounded, size: 16, color: Color(0xFF229ED9)),
-            label: const Text(
-              'Telegram orqali kod olishga qaytish',
-              style: TextStyle(
-                color: Color(0xFF229ED9),
-                fontWeight: FontWeight.w600,
-                fontSize: 13,
-              ),
-            ),
-          ),
+          onPressed: _onPhoneSubmit,
         ),
         const SizedBox(height: 16),
         Center(
           child: Text(
-            'Ro\'yxatdan o\'tish orqali siz foydalanish qoidalariga rozilik bildirasiz.',
+            tr.authTermsAgreement,
             style: const TextStyle(fontSize: 11.5, color: AppColors.slate400),
             textAlign: TextAlign.center,
           ),
         ),
       ];
 
-  List<Widget> _otpFields() => [
-        Center(
-          child: OtpBoxInput(
-            key: const ValueKey('phone_otp'),
-            length: 5,
-            onChanged: (v) => _codeController.text = v,
-            onCompleted: (v) => _verifyCode(v),
-          ),
-        ),
-        const SizedBox(height: 24),
-        AppButton(
-          label: 'Tasdiqlash',
-          expand: true,
-          loading: _loading,
-          onPressed: () => _verifyCode(),
-        ),
-        const SizedBox(height: 14),
-        Center(
-          child: _resendCountdown > 0
-              ? Text(
-                  'Kodni qayta yuborish (0:${_resendCountdown.toString().padLeft(2, '0')})',
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: AppColors.slate400,
-                    fontWeight: FontWeight.w500,
-                  ),
-                )
-              : TextButton.icon(
-                  onPressed: _loading ? null : _requestCode,
-                  icon: const Icon(Icons.refresh_rounded, size: 16, color: AppColors.brand),
-                  label: const Text(
-                    'Kodni qayta yuborish',
-                    style: TextStyle(
-                      color: AppColors.brand,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 13,
-                    ),
-                  ),
-                ),
-        ),
-        const SizedBox(height: 4),
-        Center(
-          child: TextButton.icon(
-            onPressed: () => setState(() {
-              _resendTimer?.cancel();
-              _step = _Step.phone;
-              _codeController.clear();
-            }),
-            icon: const Icon(Icons.edit_outlined, size: 16, color: AppColors.slate500),
-            label: const Text('Raqamni o\'zgartirish', style: TextStyle(color: AppColors.slate600, fontWeight: FontWeight.w600)),
-          ),
-        ),
-      ];
-
-  List<Widget> _nameFields() => [
+  List<Widget> _nameFields(AppStrings tr) => [
         TextField(
           controller: _firstNameController,
           autofocus: true,
           style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
           decoration: InputDecoration(
-            labelText: 'Ismingiz',
-            hintText: 'Ismingizni kiriting',
+            labelText: tr.authFirstNameLabel,
+            hintText: tr.authFirstNameHint,
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
@@ -555,18 +444,19 @@ class _AuthPageState extends State<AuthPage> {
           controller: _lastNameController,
           style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
           decoration: InputDecoration(
-            labelText: 'Familiyangiz (ixtiyoriy)',
-            hintText: 'Familiyangizni kiriting',
+            labelText: tr.authLastNameLabel,
+            hintText: tr.authLastNameHint,
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
               borderSide: const BorderSide(color: AppColors.brand, width: 1.8),
             ),
           ),
+          onSubmitted: (_) => _submitName(),
         ),
         const SizedBox(height: 22),
         AppButton(
-          label: 'Ilovaga kirish',
+          label: tr.authSaveAndContinue,
           expand: true,
           loading: _loading,
           onPressed: _submitName,

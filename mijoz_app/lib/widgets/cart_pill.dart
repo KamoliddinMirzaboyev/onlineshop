@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../core/format.dart';
+import '../core/i18n.dart';
 import '../core/theme.dart';
 import '../pages/cart_page.dart';
 import '../services/cart.dart';
@@ -88,12 +88,12 @@ class _CartPillState extends State<CartPill> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Text(
-                        'Savatchangizda',
-                        style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w500),
+                      Text(
+                        context.tr.cartInYourCart,
+                        style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w500),
                       ),
                       Text(
-                        '${money(cart.totalPrice)} so\'m',
+                        context.tr.formatMoney(cart.totalPrice),
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 16,
@@ -106,13 +106,13 @@ class _CartPillState extends State<CartPill> {
                 ),
                 Row(
                   mainAxisSize: MainAxisSize.min,
-                  children: const [
+                  children: [
                     Text(
-                      'Savatga o\'tish',
-                      style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700),
+                      context.tr.cartGoToCart,
+                      style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700),
                     ),
-                    SizedBox(width: 6),
-                    Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 18),
+                    const SizedBox(width: 6),
+                    const Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 18),
                   ],
                 ),
               ],

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import '../core/i18n.dart';
 import '../models/catalog.dart';
 import '../widgets/cart_pill.dart';
 import '../widgets/product_card.dart';
@@ -255,7 +257,7 @@ class _CategoryPageState extends State<CategoryPage> {
                       onChanged: (v) => setState(() => _searchQuery = v.trim().toLowerCase()),
                       style: const TextStyle(fontSize: 14, color: Color(0xFF0F172A)),
                       decoration: InputDecoration(
-                        hintText: '${widget.category.nameUz} bo\'yicha qidirish...',
+                        hintText: context.tr.categorySearchPlaceholder(widget.category.name(context.currentLangCode)),
                         hintStyle: const TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
                         prefixIcon: const Icon(Icons.search_rounded, size: 20, color: Color(0xFF64748B)),
                         suffixIcon: _searchQuery.isNotEmpty
@@ -291,7 +293,7 @@ class _CategoryPageState extends State<CategoryPage> {
                 // Kategoriya nomi
                 Expanded(
                   child: Text(
-                    widget.category.nameUz,
+                    widget.category.name(context.currentLangCode),
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       fontSize: 16.5,
@@ -353,7 +355,7 @@ class _CategoryPageState extends State<CategoryPage> {
                   ),
                   child: Center(
                     child: Text(
-                      sub.nameUz,
+                      sub.name(context.currentLangCode),
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
@@ -373,8 +375,8 @@ class _CategoryPageState extends State<CategoryPage> {
   /// Asosiy Kategoriya Mahsulotlari (3 talik Grid)
   Widget _buildCategoryContent(List<Subcategory> sections) {
     if (sections.isEmpty) {
-      return const Center(
-        child: Text('Bu yerda hozircha mahsulot yo\'q', style: TextStyle(color: Color(0xFF94A3B8))),
+      return Center(
+        child: Text(context.tr.categoryEmpty, style: const TextStyle(color: Color(0xFF94A3B8))),
       );
     }
 
@@ -388,7 +390,7 @@ class _CategoryPageState extends State<CategoryPage> {
       child: CustomScrollView(
         controller: _scrollController,
         physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
-        cacheExtent: 600,
+        scrollCacheExtent: const ScrollCacheExtent.pixels(600),
         slivers: [
           const SliverPadding(padding: EdgeInsets.only(top: 8)),
           for (final sub in sections) ...[
@@ -397,7 +399,7 @@ class _CategoryPageState extends State<CategoryPage> {
                 key: _sectionKeys[sub.id],
                 padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
                 child: Text(
-                  sub.nameUz,
+                  sub.name(context.currentLangCode),
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
@@ -440,9 +442,13 @@ class _CategoryPageState extends State<CategoryPage> {
       for (final sc in sections) ...sc.products,
     ];
 
+    final langCode = context.currentLangCode;
     final results = _searchQuery.isEmpty
         ? allProducts
-        : allProducts.where((p) => p.nameUz.toLowerCase().contains(_searchQuery)).toList();
+        : allProducts.where((p) =>
+            p.nameUz.toLowerCase().contains(_searchQuery) ||
+            p.nameRu.toLowerCase().contains(_searchQuery) ||
+            p.name(langCode).toLowerCase().contains(_searchQuery)).toList();
 
     if (results.isEmpty) {
       return Center(
@@ -452,13 +458,13 @@ class _CategoryPageState extends State<CategoryPage> {
             const Icon(Icons.search_off_rounded, size: 52, color: Color(0xFF94A3B8)),
             const SizedBox(height: 12),
             Text(
-              '"$_searchQuery" bo\'yicha mahsulot topilmadi',
+              context.tr.searchEmptyResult,
               style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF475569)),
             ),
             const SizedBox(height: 4),
-            const Text(
-              'Boshqa so\'z kiritib ko\'ring',
-              style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
+            Text(
+              context.tr.searchTryAnotherWord,
+              style: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
             ),
           ],
         ),

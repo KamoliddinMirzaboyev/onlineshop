@@ -6,10 +6,12 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'core/theme.dart';
+import 'core/i18n.dart';
 import 'services/api.dart';
 import 'pages/app_shell.dart';
 import 'pages/auth_page.dart';
 import 'pages/force_update_page.dart';
+import 'pages/location_permission_page.dart';
 import 'pages/notifications_page.dart';
 import 'pages/order_detail_page.dart';
 import 'services/app_version.dart';
@@ -50,6 +52,8 @@ void main() async {
   PaintingBinding.instance.imageCache.maximumSize = 120;
   PaintingBinding.instance.imageCache.maximumSizeBytes = 60 * 1024 * 1024; // 60MB
   await api.init();
+  final langProvider = LanguageProvider();
+  await langProvider.init();
   try {
     await Firebase.initializeApp();
     FirebaseMessaging.onBackgroundMessage(_firebaseBackgroundHandler);
@@ -64,11 +68,12 @@ void main() async {
   } catch (e) {
     debugPrint('Firebase init failed: $e');
   }
-  runApp(const MijozApp());
+  runApp(MijozApp(langProvider: langProvider));
 }
 
 class MijozApp extends StatefulWidget {
-  const MijozApp({super.key});
+  const MijozApp({super.key, required this.langProvider});
+  final LanguageProvider langProvider;
 
   @override
   State<MijozApp> createState() => _MijozAppState();
@@ -123,39 +128,44 @@ class _MijozAppState extends State<MijozApp> {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
+        ChangeNotifierProvider.value(value: widget.langProvider),
         ChangeNotifierProvider(create: (_) => StoreProvider()),
         // Katalog har yangilanganda savat u bilan solishtiriladi: eski narx,
         // tugagan yoki sotuvdan olingan mahsulot checkout'gacha emas, darhol
         // to'g'rilanadi va mijozga aytiladi.
-        ChangeNotifierProxyProvider<StoreProvider, CartProvider>(
+        ChangeNotifierProxyProvider2<StoreProvider, LanguageProvider, CartProvider>(
           create: (_) => CartProvider(),
-          update: (_, store, cart) {
+          update: (_, store, lang, cart) {
             final c = cart ?? CartProvider();
             // build ichida notifyListeners chaqirmaslik uchun — frame'dan keyin.
             WidgetsBinding.instance.addPostFrameCallback((_) {
-              for (final msg in c.syncWithCatalog(store.productsById)) {
-                toast.push(msg, title: 'Savat yangilandi');
+              for (final msg in c.syncWithCatalog(store.productsById, lang.code)) {
+                toast.push(msg, title: lang.strings.cartSyncUpdatedTitle);
               }
             });
             return c;
           },
         ),
       ],
-      child: MaterialApp(
-        title: 'Barakali Bozor',
-        navigatorKey: _navKey,
-        theme: AppTheme.light,
-        debugShowCheckedModeBanner: false,
-        // ToastHost hech qayerda mount qilinmagan edi — toast.error/success
-        // chaqiruvlari (auth, profil va h.k.) butunlay jim qolardi.
-        builder: (context, child) => Stack(
-          children: [
-            if (child != null) child,
-            const ConnectivityBanner(),
-            const ToastHost(),
-          ],
+      child: Consumer<LanguageProvider>(
+        builder: (context, lang, _) => MaterialApp(
+          title: 'Barakali Bozor',
+          locale: Locale(lang.code),
+          supportedLocales: const [Locale('uz'), Locale('ru')],
+          navigatorKey: _navKey,
+          theme: AppTheme.light,
+          debugShowCheckedModeBanner: false,
+          // ToastHost hech qayerda mount qilinmagan edi — toast.error/success
+          // chaqiruvlari (auth, profil va h.k.) butunlay jim qolardi.
+          builder: (context, child) => Stack(
+            children: [
+              if (child != null) child,
+              const ConnectivityBanner(),
+              const ToastHost(),
+            ],
+          ),
+          home: const _BootGate(),
         ),
-        home: const _BootGate(),
       ),
     );
   }
@@ -210,7 +220,13 @@ class _BootGateState extends State<_BootGate> {
                   storeUrl: _forceUpdateUrl!,
                 )
               : (api.hasToken
-                  ? const AppShell(key: ValueKey('shell_screen'))
+                  ? (api.onboarded
+                      ? const AppShell(key: ValueKey('shell_screen'))
+                      // Token bor, lekin ruxsatlar zanjiri (login -> joylashuv ->
+                      // bildirishnoma) yarim yo'lda tashlab ketilgan (ilova
+                      // o'chirilgan/tarmoq uzilgan) — qaytadan telefon so'ramasdan
+                      // to'g'ridan-to'g'ri ruxsatlar zanjiridan davom ettiramiz.
+                      : const LocationPermissionPage(key: ValueKey('resume_permissions_screen')))
                   : const AuthPage(key: ValueKey('auth_screen'))))
           : const SplashScreen(key: ValueKey('splash_screen')),
     );

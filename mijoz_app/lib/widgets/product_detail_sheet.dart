@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../core/format.dart';
+import '../core/i18n.dart';
 import '../core/theme.dart';
 import '../models/catalog.dart';
 import '../services/cart.dart';
@@ -117,7 +118,7 @@ class ProductDetailSheet extends StatelessWidget {
                             Positioned(
                               top: 12,
                               left: 12,
-                              child: _buildStockBadge(),
+                              child: _buildStockBadge(context),
                             ),
                           ],
                         ),
@@ -131,7 +132,7 @@ class ProductDetailSheet extends StatelessWidget {
                       textBaseline: TextBaseline.alphabetic,
                       children: [
                         Text(
-                          '${money(product.price)} so\'m',
+                          context.tr.formatMoney(product.price),
                           style: const TextStyle(
                             fontSize: 22,
                             fontWeight: FontWeight.w900,
@@ -141,9 +142,7 @@ class ProductDetailSheet extends StatelessWidget {
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          product.unit != null && product.unit!.isNotEmpty
-                              ? '/ 1 ${product.unit}'
-                              : '/ 1 dona',
+                          '/ ${context.tr.qtyWithUnit(1, product.unit)}',
                           style: const TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w500,
@@ -156,7 +155,7 @@ class ProductDetailSheet extends StatelessWidget {
 
                     // Mahsulot nomi
                     Text(
-                      product.nameUz,
+                      product.name(context.currentLangCode),
                       style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w800,
@@ -164,7 +163,7 @@ class ProductDetailSheet extends StatelessWidget {
                         height: 1.25,
                       ),
                     ),
-                    if (product.nameRu.isNotEmpty && product.nameRu != product.nameUz) ...[
+                    if (context.lang.isUzbek && product.nameRu.isNotEmpty && product.nameRu != product.nameUz) ...[
                       const SizedBox(height: 2),
                       Text(
                         product.nameRu,
@@ -181,13 +180,13 @@ class ProductDetailSheet extends StatelessWidget {
                     const SizedBox(height: 16),
 
                     // Tavsif sarlavhasi
-                    const Row(
+                    Row(
                       children: [
-                        Icon(Icons.notes_rounded, size: 18, color: AppColors.brand),
-                        SizedBox(width: 8),
+                        const Icon(Icons.notes_rounded, size: 18, color: AppColors.brand),
+                        const SizedBox(width: 8),
                         Text(
-                          'Mahsulot haqida',
-                          style: TextStyle(
+                          context.tr.productAbout,
+                          style: const TextStyle(
                             fontSize: 14.5,
                             fontWeight: FontWeight.w700,
                             color: Color(0xFF0F172A),
@@ -207,9 +206,9 @@ class ProductDetailSheet extends StatelessWidget {
                         border: Border.all(color: const Color(0xFFE2E8F0), width: 1),
                       ),
                       child: Text(
-                        (product.descriptionUz != null && product.descriptionUz!.trim().isNotEmpty)
-                            ? product.descriptionUz!.trim()
-                            : 'Ushbu mahsulot uchun qo‘shimcha tavsif berilmagan. Sifatli va yangi mahsulot.',
+                        (product.description(context.currentLangCode)?.trim().isNotEmpty == true)
+                            ? product.description(context.currentLangCode)!.trim()
+                            : context.tr.productNoDescription,
                         style: const TextStyle(
                           fontSize: 13.5,
                           height: 1.45,
@@ -244,7 +243,7 @@ class ProductDetailSheet extends StatelessWidget {
     );
   }
 
-  Widget _buildStockBadge() {
+  Widget _buildStockBadge(BuildContext context) {
     if (!product.inStock) {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
@@ -252,9 +251,9 @@ class ProductDetailSheet extends StatelessWidget {
           color: AppColors.red600,
           borderRadius: BorderRadius.circular(8),
         ),
-        child: const Text(
-          'Tugagan',
-          style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700),
+        child: Text(
+          context.tr.productOutOfStock,
+          style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700),
         ),
       );
     }
@@ -267,7 +266,9 @@ class ProductDetailSheet extends StatelessWidget {
           borderRadius: BorderRadius.circular(8),
         ),
         child: Text(
-          'Omborda ${product.stock.toInt()} dona qoldi',
+          context.lang.isRussian
+              ? 'На складе осталось ${product.stock.toInt()} шт'
+              : 'Omborda ${product.stock.toInt()} dona qoldi',
           style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700),
         ),
       );
@@ -279,9 +280,9 @@ class ProductDetailSheet extends StatelessWidget {
         color: AppColors.emerald600,
         borderRadius: BorderRadius.circular(8),
       ),
-      child: const Text(
-        'Sotuvda mavjud',
-        style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700),
+      child: Text(
+        context.tr.productInStock,
+        style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700),
       ),
     );
   }
@@ -300,9 +301,9 @@ class ProductDetailSheet extends StatelessWidget {
           color: AppColors.slate100,
           borderRadius: BorderRadius.circular(16),
         ),
-        child: const Text(
-          'Hozirda sotuvda mavjud emas',
-          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.slate400),
+        child: Text(
+          context.tr.productOutOfStock,
+          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.slate400),
         ),
       );
     }
@@ -329,7 +330,7 @@ class ProductDetailSheet extends StatelessWidget {
               const Icon(Icons.shopping_cart_outlined, color: Colors.white, size: 20),
               const SizedBox(width: 8),
               Text(
-                'Savatga qo\'shish • ${money(product.price)} so\'m',
+                '${context.tr.productAddToCart} • ${context.tr.formatMoney(product.price)}',
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 15,
@@ -397,12 +398,12 @@ class ProductDetailSheet extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Savatdagi jami:',
-                  style: TextStyle(fontSize: 11, color: AppColors.slate500),
+                Text(
+                  context.lang.isRussian ? 'В корзине:' : 'Savatdagi jami:',
+                  style: const TextStyle(fontSize: 11, color: AppColors.slate500),
                 ),
                 Text(
-                  '${money(product.price * qty)} so\'m',
+                  context.tr.formatMoney(product.price * qty),
                   style: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w800,

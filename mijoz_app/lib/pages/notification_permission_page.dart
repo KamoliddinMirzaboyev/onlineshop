@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import '../core/i18n.dart';
 import '../core/theme.dart';
+import '../services/api.dart';
 import '../services/push.dart';
 import '../widgets/common.dart';
 import 'app_shell.dart';
@@ -29,6 +31,7 @@ class _NotificationPermissionPageState extends State<NotificationPermissionPage>
     // foydalanuvchi keyin sozlamalardan bildirishnomani yoqsa, push darhol
     // ishlaydi — ilovani qayta ochish shart emas.
     registerFcmToken();
+    api.markOnboarded();
     if (!mounted) return;
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(builder: (_) => const AppShell()),
@@ -37,6 +40,7 @@ class _NotificationPermissionPageState extends State<NotificationPermissionPage>
 
   @override
   Widget build(BuildContext context) {
+    final tr = context.tr;
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -68,9 +72,9 @@ class _NotificationPermissionPageState extends State<NotificationPermissionPage>
                 child: const Icon(Icons.notifications_active_rounded, size: 52, color: Colors.white),
               ),
               const SizedBox(height: 32),
-              const Text(
-                'Bildirishnomalarni yoqing 🔔',
-                style: TextStyle(
+              Text(
+                tr.permNotificationTitle,
+                style: const TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.w900,
                   color: AppColors.slate900,
@@ -79,21 +83,21 @@ class _NotificationPermissionPageState extends State<NotificationPermissionPage>
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 12),
-              const Text(
-                'Buyurtmangiz qabul qilingani, tayyorlanayotgani va kuryer yetib kelgani haqida darhol xabardor bo\'ling.',
-                style: TextStyle(fontSize: 14, color: AppColors.slate500, height: 1.45),
+              Text(
+                tr.permNotificationDesc,
+                style: const TextStyle(fontSize: 14, color: AppColors.slate500, height: 1.45),
                 textAlign: TextAlign.center,
               ),
               const Spacer(),
               AppButton(
-                label: 'Bildirishnomalarni yoqish',
+                label: tr.permNotificationAllow,
                 expand: true,
                 loading: _loading,
                 onPressed: _allow,
               ),
               const SizedBox(height: 12),
               GhostButton(
-                label: 'Keyinroq',
+                label: tr.permLocationLater,
                 expand: true,
                 textColor: AppColors.slate500,
                 borderColor: Colors.transparent,

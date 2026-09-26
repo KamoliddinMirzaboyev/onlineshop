@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import '../core/i18n.dart';
 import '../core/theme.dart';
 import '../services/api.dart';
 
@@ -24,6 +25,12 @@ class _MapPickerPageState extends State<MapPickerPage> {
   bool _checking = false;
   String? _error;
 
+  @override
+  void dispose() {
+    _map.dispose();
+    super.dispose();
+  }
+
   LatLng get _initial => widget.initialLat != null && widget.initialLng != null
       ? LatLng(widget.initialLat!, widget.initialLng!)
       : _margilon;
@@ -42,7 +49,7 @@ class _MapPickerPageState extends State<MapPickerPage> {
         if (mounted) {
           setState(() {
             _checking = false;
-            _error = 'Kechirasiz, hozircha sizning hududingizga xizmat ko\'rsata olmaymiz';
+            _error = context.tr.checkoutOutOfArea;
           });
         }
         return;
@@ -131,9 +138,9 @@ class _MapPickerPageState extends State<MapPickerPage> {
                         style: const TextStyle(color: AppColors.red600, fontSize: 13, fontWeight: FontWeight.w600),
                       ),
                     ),
-                  const Text(
-                    'Xaritani surib uyingiz ustiga belgilang',
-                    style: TextStyle(fontSize: 12.5, color: AppColors.slate500, fontWeight: FontWeight.w600),
+                  Text(
+                    context.tr.mapMoveHint,
+                    style: const TextStyle(fontSize: 12.5, color: AppColors.slate500, fontWeight: FontWeight.w600),
                   ),
                   const SizedBox(height: 10),
                   SizedBox(
@@ -149,8 +156,8 @@ class _MapPickerPageState extends State<MapPickerPage> {
                           ? const SizedBox(
                               width: 20, height: 20,
                               child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                          : const Text('Shu yerni tanlash',
-                              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Colors.white)),
+                          : Text(context.tr.mapConfirmBtn,
+                              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Colors.white)),
                     ),
                   ),
                 ],

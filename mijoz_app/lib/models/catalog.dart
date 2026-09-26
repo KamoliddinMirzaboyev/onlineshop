@@ -23,6 +23,9 @@ class Product {
     this.unit, required this.isAvailable, this.stock = 0,
   });
 
+  String name(String lang) => (lang == 'ru' && nameRu.trim().isNotEmpty) ? nameRu : nameUz;
+  String? description(String lang) => (lang == 'ru' && (descriptionRu?.trim().isNotEmpty ?? false)) ? descriptionRu : descriptionUz;
+
   /// Sotib olish mumkinmi — sotuvda va qoldig'i bor.
   bool get inStock => isAvailable && stock > 0;
 
@@ -84,6 +87,8 @@ class Subcategory {
     this.imageUrl, required this.sortOrder, required this.products,
   });
 
+  String name(String lang) => (lang == 'ru' && nameRu.trim().isNotEmpty) ? nameRu : nameUz;
+
   factory Subcategory.fromJson(Map<String, dynamic> json) => Subcategory(
     id: json['id'], nameUz: json['name_uz'], nameRu: json['name_ru'],
     imageUrl: json['image_url'], sortOrder: json['sort_order'],
@@ -115,6 +120,8 @@ class Category {
     this.imageUrl, required this.sortOrder, this.bgColor, required this.subcategories,
   });
 
+  String name(String lang) => (lang == 'ru' && nameRu.trim().isNotEmpty) ? nameRu : nameUz;
+
   factory Category.fromJson(Map<String, dynamic> json) => Category(
     id: json['id'], groupId: json['group_id'], nameUz: json['name_uz'],
     nameRu: json['name_ru'], imageUrl: json['image_url'], sortOrder: json['sort_order'],
@@ -145,6 +152,8 @@ class CategoryGroup {
     required this.id, required this.nameUz, required this.nameRu,
     required this.sortOrder, this.bgColor,
   });
+
+  String name(String lang) => (lang == 'ru' && nameRu.trim().isNotEmpty) ? nameRu : nameUz;
 
   factory CategoryGroup.fromJson(Map<String, dynamic> json) => CategoryGroup(
     id: json['id'], nameUz: json['name_uz'], nameRu: json['name_ru'], sortOrder: json['sort_order'],

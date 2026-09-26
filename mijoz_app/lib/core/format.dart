@@ -36,8 +36,9 @@ String money(num n) {
   return (n < 0 ? '-' : '') + buf.toString();
 }
 
-/// "123 456 so'm"
-String formatPrice(num n) => '${money(n)} so\'m';
+/// "123 456 so'm" yoki "123 456 сум"
+String formatPrice(num n, [String lang = 'uz']) =>
+    '${money(n)} ${lang == 'ru' ? 'сум' : 'so\'m'}';
 
 String _two(int n) => n.toString().padLeft(2, '0');
 
@@ -48,16 +49,22 @@ String formatDateTime(String iso) {
   return '${_two(d.day)}.${_two(d.month)} ${_two(d.hour)}:${_two(d.minute)}';
 }
 
-const _monthsShort = [
+const _monthsShortUz = [
   'yan', 'fev', 'mar', 'apr', 'may', 'iyun',
   'iyul', 'avg', 'sen', 'okt', 'noy', 'dek',
 ];
 
-/// "05 июл"
-String formatDay(String iso) {
+const _monthsShortRu = [
+  'янв', 'фев', 'мар', 'апр', 'май', 'июн',
+  'июл', 'авг', 'сен', 'окт', 'ноя', 'дек',
+];
+
+/// "05 июл" / "05 iyul"
+String formatDay(String iso, [String lang = 'uz']) {
   final d = DateTime.tryParse(iso)?.toLocal();
   if (d == null) return iso;
-  return '${_two(d.day)} ${_monthsShort[d.month - 1]}';
+  final months = lang == 'ru' ? _monthsShortRu : _monthsShortUz;
+  return '${_two(d.day)} ${months[d.month - 1]}';
 }
 
 /// Full timestamp used on the detail screen: "05.07.2026, 14:30:05"
@@ -68,7 +75,7 @@ String formatFull(String iso) {
       '${_two(d.hour)}:${_two(d.minute)}:${_two(d.second)}';
 }
 
-const statusLabelMap = {
+const statusLabelMapUz = {
   'pending': 'Yangi',
   'confirmed': 'Tasdiqlangan',
   'preparing': 'Tayyorlanmoqda',
@@ -79,7 +86,21 @@ const statusLabelMap = {
   'cancelled': 'Bekor qilindi',
 };
 
-String statusLabel(String s) => statusLabelMap[s] ?? s;
+const statusLabelMapRu = {
+  'pending': 'Новый',
+  'confirmed': 'Подтверждён',
+  'preparing': 'Готовится',
+  'ready': 'Готов',
+  'accepted': 'Принят',
+  'delivering': 'В пути',
+  'delivered': 'Доставлен',
+  'cancelled': 'Отменён',
+};
+
+String statusLabel(String s, [String lang = 'uz']) {
+  final map = lang == 'ru' ? statusLabelMapRu : statusLabelMapUz;
+  return map[s] ?? s;
+}
 
 /// (background, foreground) colours for a status pill.
 (Color, Color) statusPillColors(String s) {
@@ -127,14 +148,25 @@ IconData statusIcon(String s) {
   }
 }
 
-const _paymentLabelMap = {
-  'cash': 'Naqd',
+const _paymentLabelMapUz = {
+  'cash': 'Naqd (kuryerga)',
   'payme': 'Payme',
   'click': 'Click',
   'uzum': 'Uzum',
 };
 
-String paymentLabel(String? m) => m == null ? '—' : (_paymentLabelMap[m] ?? m);
+const _paymentLabelMapRu = {
+  'cash': 'Наличные (курьеру)',
+  'payme': 'Payme',
+  'click': 'Click',
+  'uzum': 'Uzum',
+};
+
+String paymentLabel(String? m, [String lang = 'uz']) {
+  if (m == null) return '—';
+  final map = lang == 'ru' ? _paymentLabelMapRu : _paymentLabelMapUz;
+  return map[m] ?? m;
+}
 
 /// Yandex Maps navigation link (when lat/lng present).
 String? mapsUrl(double? lat, double? lng) => (lat != null && lng != null)
@@ -146,9 +178,25 @@ String formatQty(num quantity) => quantity == quantity.roundToDouble()
     ? quantity.round().toString()
     : quantity.toStringAsFixed(1);
 
-/// "1 kg", "3 dona"
-String qtyUnit(num quantity, String? unit) =>
-    '${formatQty(quantity)} ${(unit == null || unit.isEmpty) ? 'dona' : unit}';
+/// "1 kg", "3 dona" / "1 кг", "3 шт"
+String qtyUnit(num quantity, String? unit, [String lang = 'uz']) {
+  String u;
+  if (unit == null || unit.isEmpty) {
+    u = lang == 'ru' ? 'шт' : 'dona';
+  } else {
+    final lower = unit.toLowerCase();
+    if (lower == 'kg' || lower == 'кг') {
+      u = lang == 'ru' ? 'кг' : 'kg';
+    } else if (lower == 'litr' || lower == 'l' || lower == 'л') {
+      u = lang == 'ru' ? 'л' : 'litr';
+    } else if (lower == 'dona' || lower == 'sht' || lower == 'шт') {
+      u = lang == 'ru' ? 'шт' : 'dona';
+    } else {
+      u = unit;
+    }
+  }
+  return '${formatQty(quantity)} $u';
+}
 
 /// "4.2 km" / "850 m"
 String? distanceLabel(double? km) {
@@ -156,6 +204,6 @@ String? distanceLabel(double? km) {
   return km < 1 ? '${(km * 1000).round()} m' : '${km.toStringAsFixed(1)} km';
 }
 
-/// "~25 daqiqa"
-String? etaLabel(int? minutes) =>
-    (minutes != null && minutes > 0) ? '~$minutes daqiqa' : null;
+/// "~25 daqiqa" / "~25 мин"
+String? etaLabel(int? minutes, [String lang = 'uz']) =>
+    (minutes != null && minutes > 0) ? '~$minutes ${lang == 'ru' ? 'мин' : 'daqiqa'}' : null;

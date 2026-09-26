@@ -1,0 +1,8 @@
+# Google Play release imzolash (Keystore) sozlamalari
+# Bu fayldan nusxa olib, 'android/key.properties' nomiga o'zgartiring va o'z ma'lumotlaringizni yozing:
+# cp android/key.properties.example android/key.properties
+
+storePassword=YOUR_KEYSTORE_PASSWORD
+keyPassword=YOUR_KEY_PASSWORD
+keyAlias=upload
+storeFile=/Users/kamoliddin/upload-keystore.jks

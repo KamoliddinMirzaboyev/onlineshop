@@ -147,9 +147,10 @@ class CartProvider extends ChangeNotifier {
   /// checkout'da xato berardi. Shu yerda hammasi oldindan to'g'rilanadi.
   ///
   /// Qaytaradi: foydalanuvchiga ko'rsatiladigan o'zgarishlar ro'yxati.
-  List<String> syncWithCatalog(Map<int, Product> catalog) {
+  List<String> syncWithCatalog(Map<int, Product> catalog, [String lang = 'uz']) {
     if (_items.isEmpty || catalog.isEmpty) return const [];
 
+    final isRu = lang == 'ru';
     final changes = <String>[];
     final removed = <int>[];
 
@@ -159,21 +160,30 @@ class CartProvider extends ChangeNotifier {
 
       if (fresh == null || !fresh.isAvailable) {
         removed.add(entry.key);
-        changes.add('"${cached.product.nameUz}" sotuvdan olindi — savatdan chiqarildi');
+        final name = cached.product.name(lang);
+        changes.add(isRu
+            ? '"$name" снят с продажи — удалён из корзины'
+            : '"$name" sotuvdan olindi — savatdan chiqarildi');
         continue;
       }
       if (fresh.maxQuantity <= 0) {
         removed.add(entry.key);
-        changes.add('"${fresh.nameUz}" tugadi — savatdan chiqarildi');
+        final name = fresh.name(lang);
+        changes.add(isRu
+            ? '"$name" закончился — удалён из корзины'
+            : '"$name" tugadi — savatdan chiqarildi');
         continue;
       }
 
+      final name = fresh.name(lang);
       if (cached.quantity > fresh.maxQuantity) {
-        changes.add('"${fresh.nameUz}" — omborda ${fresh.maxQuantity} ta qoldi');
+        changes.add(isRu
+            ? '"$name" — на складе осталось ${fresh.maxQuantity} шт'
+            : '"$name" — omborda ${fresh.maxQuantity} ta qoldi');
         cached.quantity = fresh.maxQuantity;
       }
       if (cached.product.price != fresh.price) {
-        changes.add('"${fresh.nameUz}" narxi yangilandi');
+        changes.add(isRu ? 'Цена на "$name" обновлена' : '"$name" narxi yangilandi');
       }
       // Nusxani har doim yangisiga almashtiramiz (narx, rasm, qoldiq).
       _items[entry.key] = CartItem(product: fresh, quantity: cached.quantity);

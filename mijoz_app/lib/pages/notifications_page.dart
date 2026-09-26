@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../core/format.dart';
+import '../core/i18n.dart';
 import '../core/theme.dart';
 import '../models/notification.dart';
 import '../services/api.dart';
@@ -56,22 +57,23 @@ class _NotificationsPageState extends State<NotificationsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final tr = context.tr;
     return Scaffold(
       backgroundColor: AppColors.slate50,
       body: SafeArea(
         child: Column(
           children: [
             PageHeader(
-              title: 'Bildirishnomalar',
+              title: tr.notificationsTitle,
               back: true,
               trailing: _items.any((n) => !n.isRead)
                   ? GestureDetector(
                       onTap: _markAllRead,
-                      child: const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
                         child: Text(
-                          'Barchasini o\'qildi',
-                          style: TextStyle(
+                          tr.notificationsMarkAllRead,
+                          style: const TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w700,
                             color: AppColors.brand,
@@ -91,9 +93,9 @@ class _NotificationsPageState extends State<NotificationsPage> {
                           children: [
                             const Icon(Icons.error_outline_rounded, size: 40, color: AppColors.red500),
                             const SizedBox(height: 10),
-                            const Text('Xatolik yuz berdi', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                            Text(tr.errorOccurred, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
                             const SizedBox(height: 12),
-                            AppButton(label: 'Qayta urinish', onPressed: _load),
+                            AppButton(label: tr.retry, onPressed: _load),
                           ],
                         ),
                       ),
@@ -101,10 +103,10 @@ class _NotificationsPageState extends State<NotificationsPage> {
                   : _loading
                       ? const NotificationsSkeleton()
                       : _items.isEmpty
-                          ? const AppEmptyState(
+                          ? AppEmptyState(
                               icon: Icons.notifications_off_outlined,
-                              title: 'Yangi xabarlar yo\'q',
-                              subtitle: 'Buyurtmangiz holati va maxsus takliflar shu yerda ko\'rsatiladi.',
+                              title: tr.notificationsEmptyTitle,
+                              subtitle: tr.notificationsEmptyDesc,
                             )
                           : RefreshIndicator(
                               color: AppColors.brand,
@@ -193,10 +195,10 @@ class _NotificationTile extends StatelessWidget {
                     children: [
                       Text(formatDateTime(item.createdAt), style: const TextStyle(fontSize: 11.5, color: AppColors.slate400)),
                       if (item.orderId != null)
-                        const Row(
+                        Row(
                           children: [
-                            Text('Ko\'rish', style: TextStyle(fontSize: 12, color: AppColors.brand, fontWeight: FontWeight.w700)),
-                            Icon(Icons.chevron_right_rounded, size: 16, color: AppColors.brand),
+                            Text(context.lang.isRussian ? 'Посмотреть' : 'Ko\'rish', style: const TextStyle(fontSize: 12, color: AppColors.brand, fontWeight: FontWeight.w700)),
+                            const Icon(Icons.chevron_right_rounded, size: 16, color: AppColors.brand),
                           ],
                         ),
                     ],

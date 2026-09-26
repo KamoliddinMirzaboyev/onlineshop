@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../core/i18n.dart';
 import '../core/theme.dart';
 import '../models/user.dart';
 import '../models/catalog.dart';
@@ -52,6 +53,7 @@ class _ProfilePageState extends State<ProfilePage> {
     required String apiKey,
     TextInputType? keyboardType,
   }) async {
+    final tr = context.tr;
     final controller = TextEditingController(text: initialValue);
     final result = await showDialog<String>(
       context: context,
@@ -75,7 +77,7 @@ class _ProfilePageState extends State<ProfilePage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Bekor qilish', style: TextStyle(color: AppColors.slate500)),
+            child: Text(tr.cancel, style: const TextStyle(color: AppColors.slate500)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -84,13 +86,11 @@ class _ProfilePageState extends State<ProfilePage> {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
             onPressed: () => Navigator.pop(ctx, controller.text.trim()),
-            child: const Text('Saqlash'),
+            child: Text(tr.save),
           ),
         ],
       ),
     );
-    // Dialog yopilgach controller bo'shatiladi — har ochilishda yangisi
-    // yaratilib, eskisi xotirada qolib ketardi.
     controller.dispose();
 
     if (result == null || !mounted) return;
@@ -99,25 +99,29 @@ class _ProfilePageState extends State<ProfilePage> {
       final res = await api.patch('/auth/me', {apiKey: result});
       if (!mounted) return;
       setState(() => _user = User.fromJson(res));
-      toast.success('Ma\'lumot yangilandi');
+      toast.success(tr.profileDataUpdated);
     } catch (e) {
-      toast.error(apiKey == 'phone' ? 'Bu telefon raqami band bo\'lishi mumkin' : 'Saqlab bo\'lmadi');
+      if (!mounted) return;
+      toast.error(apiKey == 'phone'
+          ? tr.profilePhoneAlreadyTaken
+          : tr.profileSaveFailed);
     }
   }
 
   Future<void> _openAddAddressDialog() async {
+    final tr = context.tr;
     final controller = TextEditingController();
     final result = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Yangi manzil qo\'shish', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+        title: Text(tr.profileAddAddressTitle, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
         content: TextField(
           controller: controller,
           autofocus: true,
           decoration: InputDecoration(
-            hintText: 'Masalan: Chilonzor 9, 24-uy, 15-xonadon',
+            hintText: tr.profileAddressHint,
             hintStyle: const TextStyle(fontSize: 13, color: AppColors.slate400),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
             focusedBorder: OutlineInputBorder(
@@ -129,7 +133,7 @@ class _ProfilePageState extends State<ProfilePage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Bekor qilish', style: TextStyle(color: AppColors.slate500)),
+            child: Text(tr.cancel, style: const TextStyle(color: AppColors.slate500)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -138,7 +142,7 @@ class _ProfilePageState extends State<ProfilePage> {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
             onPressed: () => Navigator.pop(ctx, controller.text.trim()),
-            child: const Text('Qo\'shish'),
+            child: Text(tr.profileAddBtn),
           ),
         ],
       ),
@@ -148,36 +152,45 @@ class _ProfilePageState extends State<ProfilePage> {
     if (result == null || result.isEmpty || !mounted) return;
 
     try {
-      await api.post('/addresses', {'label': 'Uy', 'address_line': result});
-      toast.success('Manzil qo\'shildi');
+      await api.post('/addresses', {
+        'label': context.lang.isRussian ? 'Дом' : 'Uy',
+        'address_line': result,
+      });
+      if (!mounted) return;
+      toast.success(tr.profileAddressAdded);
       _load();
     } catch (_) {
-      toast.error('Manzilni saqlab bo\'lmadi');
+      if (!mounted) return;
+      toast.error(tr.profileAddressSaveFailed);
     }
   }
 
   Future<void> _deleteAddress(int id) async {
+    final tr = context.tr;
     try {
       await api.delete('/addresses/$id');
-      toast.success('Manzil o\'chirildi');
+      if (!mounted) return;
+      toast.success(tr.profileAddressDeleted);
       _load();
     } catch (_) {
-      toast.error('O\'chirib bo\'lmadi');
+      if (!mounted) return;
+      toast.error(tr.profileDeleteFailed);
     }
   }
 
   Future<void> _logout() async {
+    final tr = context.tr;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Hisobdan chiqish', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
-        content: const Text('Haqiqatan ham hisobingizdan chiqmoqchimisiz?'),
+        title: Text(tr.profileLogoutConfirmTitle, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+        content: Text(tr.profileLogoutConfirmDesc),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Bekor qilish', style: TextStyle(color: AppColors.slate500)),
+            child: Text(tr.cancel, style: const TextStyle(color: AppColors.slate500)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -186,7 +199,7 @@ class _ProfilePageState extends State<ProfilePage> {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Chiqish'),
+            child: Text(tr.profileLogout),
           ),
         ],
       ),
@@ -197,7 +210,6 @@ class _ProfilePageState extends State<ProfilePage> {
     try {
       await api.delete('/auth/fcm-token');
     } catch (_) {}
-    // Token serverda ham bekor qilinsin (o'g'irlangan qurilmada ishlamasin).
     await api.logout('/auth/logout');
     await api.setToken(null);
     if (!mounted) return;
@@ -209,19 +221,21 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Future<void> _confirmDeleteAccount() async {
+    final tr = context.tr;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Hisobni butunlay o\'chirish', style: TextStyle(fontWeight: FontWeight.w800, color: AppColors.red600)),
-        content: const Text(
-          'Haqiqatan ham hisobingizni o\'chirmoqchimisiz? Barcha shaxsiy ma\'lumotlaringiz, buyurtmalar tarixi va saqlangan manzillaringiz qaytarib bo\'lmas darajada o\'chiriladi.',
+        title: Text(
+          tr.profileDeleteAccountConfirmTitle,
+          style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.red600),
         ),
+        content: Text(tr.profileDeleteAccountConfirmDesc),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Bekor qilish', style: TextStyle(color: AppColors.slate500)),
+            child: Text(tr.cancel, style: const TextStyle(color: AppColors.slate500)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -230,7 +244,7 @@ class _ProfilePageState extends State<ProfilePage> {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('O\'chirish'),
+            child: Text(tr.delete),
           ),
         ],
       ),
@@ -244,7 +258,7 @@ class _ProfilePageState extends State<ProfilePage> {
       await api.setToken(null);
       if (!mounted) return;
       context.read<CartProvider>().clear();
-      toast.success('Hisobingiz muvaffaqiyatli o\'chirildi');
+      toast.success(tr.profileAccountDeleted);
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(builder: (_) => const AuthPage()),
         (r) => false,
@@ -252,10 +266,76 @@ class _ProfilePageState extends State<ProfilePage> {
     } catch (e) {
       if (mounted) {
         setState(() => _loading = false);
-        final msg = e is ApiException ? e.message : 'Hisobni o\'chirib bo\'lmadi';
+        final msg = e is ApiException ? e.message : tr.profileSaveFailed;
         toast.error(msg);
       }
     }
+  }
+
+  void _openLanguagePicker(BuildContext context) {
+    final tr = context.tr;
+    final langProvider = context.read<LanguageProvider>();
+    final currentCode = langProvider.code;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: AppColors.slate200,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  tr.profileSelectLanguage,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.slate900,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                _LanguageTile(
+                  title: "O'zbekcha",
+                  flag: '🇺🇿',
+                  isSelected: currentCode == 'uz',
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    langProvider.setLanguage(AppLanguage.uz);
+                  },
+                ),
+                const SizedBox(height: 10),
+                _LanguageTile(
+                  title: 'Русский',
+                  flag: '🇷🇺',
+                  isSelected: currentCode == 'ru',
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    langProvider.setLanguage(AppLanguage.ru);
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   String _initials(String? name) {
@@ -265,6 +345,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
   @override
   Widget build(BuildContext context) {
+    final tr = context.tr;
     final store = context.watch<StoreProvider>().store;
     final fullName = [_user?.firstName, _user?.lastName]
         .where((s) => s != null && s.isNotEmpty)
@@ -275,7 +356,7 @@ class _ProfilePageState extends State<ProfilePage> {
       body: SafeArea(
         child: Column(
           children: [
-            const PageHeader(title: 'Profil'),
+            PageHeader(title: tr.profileTitle),
             Expanded(
               child: _loading
                   ? const ProfileSkeleton()
@@ -317,7 +398,7 @@ class _ProfilePageState extends State<ProfilePage> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      fullName.isNotEmpty ? fullName : 'Foydalanuvchi',
+                                      fullName.isNotEmpty ? fullName : tr.profileUserFallback,
                                       style: const TextStyle(
                                         fontSize: 17,
                                         fontWeight: FontWeight.w800,
@@ -353,17 +434,17 @@ class _ProfilePageState extends State<ProfilePage> {
                         const SizedBox(height: 20),
 
                         // Shaxsiy ma'lumotlar bo'limi
-                        _SectionTitle(title: 'Shaxsiy ma\'lumotlar'),
+                        _SectionTitle(title: tr.profilePersonalInfo),
                         AppCard(
                           padding: EdgeInsets.zero,
                           child: Column(
                             children: [
                               _ProfileItemRow(
                                 icon: Icons.badge_outlined,
-                                label: 'Ism',
-                                value: _user?.firstName ?? 'Kiritilmagan',
+                                label: tr.profileFirstName,
+                                value: _user?.firstName ?? tr.profileNotSpecified,
                                 onTap: () => _editField(
-                                  title: 'Ismingizni o\'zgartirish',
+                                  title: tr.profileEditNameTitle,
                                   initialValue: _user?.firstName ?? '',
                                   apiKey: 'first_name',
                                 ),
@@ -371,10 +452,10 @@ class _ProfilePageState extends State<ProfilePage> {
                               const Divider(height: 1, color: Color(0xFFF1F5F9), indent: 52),
                               _ProfileItemRow(
                                 icon: Icons.person_outline_rounded,
-                                label: 'Familiya',
-                                value: (_user?.lastName?.isNotEmpty ?? false) ? _user!.lastName! : 'Kiritilmagan',
+                                label: tr.profileLastName,
+                                value: (_user?.lastName?.isNotEmpty ?? false) ? _user!.lastName! : tr.profileNotSpecified,
                                 onTap: () => _editField(
-                                  title: 'Familiyangizni o\'zgartirish',
+                                  title: tr.profileEditLastNameTitle,
                                   initialValue: _user?.lastName ?? '',
                                   apiKey: 'last_name',
                                 ),
@@ -382,10 +463,10 @@ class _ProfilePageState extends State<ProfilePage> {
                               const Divider(height: 1, color: Color(0xFFF1F5F9), indent: 52),
                               _ProfileItemRow(
                                 icon: Icons.phone_outlined,
-                                label: 'Telefon raqam',
+                                label: tr.profilePhone,
                                 value: _user?.phone ?? '—',
                                 onTap: () => _editField(
-                                  title: 'Telefon raqamini o\'zgartirish',
+                                  title: tr.profileEditPhoneTitle,
                                   initialValue: _user?.phone ?? '',
                                   apiKey: 'phone',
                                   keyboardType: TextInputType.phone,
@@ -400,7 +481,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const _SectionTitle(title: 'Saqlangan manzillar', bottomPadding: 0),
+                            _SectionTitle(title: tr.profileSavedAddresses, bottomPadding: 0),
                             GestureDetector(
                               onTap: _openAddAddressDialog,
                               child: Container(
@@ -409,13 +490,13 @@ class _ProfilePageState extends State<ProfilePage> {
                                   color: AppColors.brandSoft,
                                   borderRadius: BorderRadius.circular(10),
                                 ),
-                                child: const Row(
+                                child: Row(
                                   children: [
-                                    Icon(Icons.add_rounded, size: 16, color: AppColors.brand),
-                                    SizedBox(width: 4),
+                                    const Icon(Icons.add_rounded, size: 16, color: AppColors.brand),
+                                    const SizedBox(width: 4),
                                     Text(
-                                      'Qo\'shish',
-                                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.brand),
+                                      tr.profileAddBtn,
+                                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.brand),
                                     ),
                                   ],
                                 ),
@@ -427,10 +508,10 @@ class _ProfilePageState extends State<ProfilePage> {
                         AppCard(
                           padding: _addresses.isEmpty ? const EdgeInsets.all(20) : EdgeInsets.zero,
                           child: _addresses.isEmpty
-                              ? const Center(
+                              ? Center(
                                   child: Text(
-                                    'Saqlangan manzillar yo\'q',
-                                    style: TextStyle(color: AppColors.slate400, fontSize: 13.5),
+                                    tr.profileNoSavedAddresses,
+                                    style: const TextStyle(color: AppColors.slate400, fontSize: 13.5),
                                   ),
                                 )
                               : Column(
@@ -455,7 +536,7 @@ class _ProfilePageState extends State<ProfilePage> {
                                                 crossAxisAlignment: CrossAxisAlignment.start,
                                                 children: [
                                                   Text(
-                                                    _addresses[i]['label'] ?? 'Manzil',
+                                                    _addresses[i]['label'] ?? tr.orderAddress,
                                                     style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5, color: AppColors.slate900),
                                                   ),
                                                   const SizedBox(height: 2),
@@ -481,15 +562,42 @@ class _ProfilePageState extends State<ProfilePage> {
                         ),
                         const SizedBox(height: 16),
 
+                        // Ilova sozlamalari (Til tanlash)
+                        _SectionTitle(title: tr.profileAppSettings),
+                        AppCard(
+                          padding: EdgeInsets.zero,
+                          child: _ActionItemRow(
+                            icon: Icons.language_rounded,
+                            label: tr.profileLanguage,
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  context.lang.isRussian ? 'Русский 🇷🇺' : 'O\'zbekcha 🇺🇿',
+                                  style: const TextStyle(
+                                    fontSize: 13.5,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.slate600,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                const Icon(Icons.chevron_right_rounded, color: AppColors.slate400),
+                              ],
+                            ),
+                            onTap: () => _openLanguagePicker(context),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+
                         // Yordam va qonuniy ma'lumotlar
-                        _SectionTitle(title: 'Qo\'llab-quvvatlash va ilova'),
+                        _SectionTitle(title: tr.profileSupportAndApp),
                         AppCard(
                           padding: EdgeInsets.zero,
                           child: Column(
                             children: [
                               _ActionItemRow(
                                 icon: Icons.headset_mic_rounded,
-                                label: 'Texnik qo\'llab-quvvatlash',
+                                label: tr.profileSupport,
                                 trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.slate400),
                                 onTap: () => Navigator.of(context).push(
                                   MaterialPageRoute(builder: (_) => const ContactPage()),
@@ -498,22 +606,22 @@ class _ProfilePageState extends State<ProfilePage> {
                               const Divider(height: 1, color: Color(0xFFF1F5F9), indent: 52),
                               _ActionItemRow(
                                 icon: Icons.privacy_tip_outlined,
-                                label: 'Maxfiylik siyosati',
+                                label: tr.profilePrivacy,
                                 trailing: const Icon(Icons.open_in_new_rounded, size: 18, color: AppColors.slate400),
                                 onTap: () => launchExternal('https://www.barakali-bozor.uz/privacy'),
                               ),
                               const Divider(height: 1, color: Color(0xFFF1F5F9), indent: 52),
                               _ActionItemRow(
                                 icon: Icons.description_outlined,
-                                label: 'Ommaviy oferta',
+                                label: tr.profileTerms,
                                 trailing: const Icon(Icons.open_in_new_rounded, size: 18, color: AppColors.slate400),
                                 onTap: () => launchExternal('https://www.barakali-bozor.uz/terms'),
                               ),
                               const Divider(height: 1, color: Color(0xFFF1F5F9), indent: 52),
-                              const _ActionItemRow(
+                              _ActionItemRow(
                                 icon: Icons.info_outline_rounded,
-                                label: 'Ilova versiyasi',
-                                trailing: Text('v1.0.0', style: TextStyle(color: AppColors.slate400, fontSize: 13, fontWeight: FontWeight.w600)),
+                                label: tr.profileVersion,
+                                trailing: const Text('v1.0.0', style: TextStyle(color: AppColors.slate400, fontSize: 13, fontWeight: FontWeight.w600)),
                               ),
                             ],
                           ),
@@ -522,7 +630,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
                         // Chiqish va hisobni o'chirish
                         GhostButton(
-                          label: 'Hisobdan chiqish',
+                          label: tr.profileLogout,
                           icon: Icons.logout_rounded,
                           expand: true,
                           textColor: AppColors.slate700,
@@ -532,9 +640,9 @@ class _ProfilePageState extends State<ProfilePage> {
                         Center(
                           child: TextButton.icon(
                             icon: const Icon(Icons.delete_forever_rounded, size: 18, color: AppColors.red600),
-                            label: const Text(
-                              'Hisobni o\'chirish',
-                              style: TextStyle(color: AppColors.red600, fontSize: 13.5, fontWeight: FontWeight.w600),
+                            label: Text(
+                              tr.profileDeleteAccount,
+                              style: const TextStyle(color: AppColors.red600, fontSize: 13.5, fontWeight: FontWeight.w600),
                             ),
                             onPressed: _confirmDeleteAccount,
                           ),
@@ -549,6 +657,7 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Widget _buildAdminContactCard(BuildContext context, RestaurantDetail? store) {
+    final tr = context.tr;
     final phones = (store?.phones ?? []).take(2).toList();
     final telegram = store?.socials['telegram']?.replaceFirst('@', '');
     final hasContacts = phones.isNotEmpty || (telegram != null && telegram.isNotEmpty);
@@ -597,10 +706,10 @@ class _ProfilePageState extends State<ProfilePage> {
                   child: const Icon(Icons.headset_mic_rounded, color: Colors.white, size: 18),
                 ),
                 const SizedBox(width: 10),
-                const Expanded(
+                Expanded(
                   child: Text(
-                    'Buyurtma bo\'yicha adminga bog\'lanish',
-                    style: TextStyle(
+                    tr.profileAdminContactTitle,
+                    style: const TextStyle(
                       color: Colors.white,
                       fontSize: 14,
                       fontWeight: FontWeight.w700,
@@ -614,12 +723,12 @@ class _ProfilePageState extends State<ProfilePage> {
 
           // Telefon va Telegram kontaktlar ro'yxati
           if (!hasContacts)
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
               child: Center(
                 child: Text(
-                  'Bog\'lanish ma\'lumoti kiritilmagan',
-                  style: TextStyle(
+                  tr.profileAdminContactEmpty,
+                  style: const TextStyle(
                     color: AppColors.slate400,
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
@@ -647,10 +756,10 @@ class _ProfilePageState extends State<ProfilePage> {
                           child: const Icon(Icons.phone_rounded, color: AppColors.brand, size: 18),
                         ),
                         const SizedBox(width: 12),
-                        const Expanded(
+                        Expanded(
                           child: Text(
-                            'Qo\'ng\'iroq',
-                            style: TextStyle(
+                            tr.profileCallAdmin,
+                            style: const TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
                               color: AppColors.slate800,
@@ -695,10 +804,10 @@ class _ProfilePageState extends State<ProfilePage> {
                           child: const Icon(Icons.send_rounded, color: Color(0xFF0284C7), size: 17),
                         ),
                         const SizedBox(width: 12),
-                        const Expanded(
+                        Expanded(
                           child: Text(
-                            'Telegram',
-                            style: TextStyle(
+                            tr.profileTelegramAdmin,
+                            style: const TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
                               color: AppColors.slate800,
@@ -727,6 +836,57 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 }
 
+class _LanguageTile extends StatelessWidget {
+  const _LanguageTile({
+    required this.title,
+    required this.flag,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  final String title;
+  final String flag;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.brandSoft : Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: isSelected ? AppColors.brand : const Color(0xFFE2E8F0),
+            width: isSelected ? 1.6 : 1.0,
+          ),
+        ),
+        child: Row(
+          children: [
+            Text(flag, style: const TextStyle(fontSize: 22)),
+            const SizedBox(width: 14),
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                color: isSelected ? AppColors.brand : AppColors.slate800,
+              ),
+            ),
+            const Spacer(),
+            if (isSelected)
+              const Icon(Icons.check_circle_rounded, color: AppColors.brand, size: 22)
+            else
+              const Icon(Icons.circle_outlined, color: AppColors.slate300, size: 22),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
 class _SectionTitle extends StatelessWidget {
   const _SectionTitle({required this.title, this.bottomPadding = 8});

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import '../core/format.dart';
+import '../core/i18n.dart';
 import '../core/theme.dart';
 import '../models/order.dart';
 import '../services/api.dart';
@@ -99,14 +100,15 @@ class _OrdersPageState extends State<OrdersPage> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
+    final tr = context.tr;
     return Scaffold(
       backgroundColor: AppColors.slate50,
       body: SafeArea(
         child: Column(
           children: [
             PageHeader(
-              title: 'Buyurtmalarim',
-              subtitle: _orders.isNotEmpty ? '${_orders.length} ta buyurtma' : null,
+              title: tr.ordersTitle,
+              subtitle: _orders.isNotEmpty ? tr.ordersCount(_orders.length) : null,
               loading: _loading,
               onRefresh: () => _load(),
             ),
@@ -120,15 +122,15 @@ class _OrdersPageState extends State<OrdersPage> with WidgetsBindingObserver {
                           children: [
                             const Icon(Icons.error_outline_rounded, size: 44, color: AppColors.red500),
                             const SizedBox(height: 12),
-                            const Text('Xatolik yuz berdi', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                            Text(tr.errorOccurred, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
                             const SizedBox(height: 4),
-                            const Text(
-                              'Buyurtmalarni yuklab bo\'lmadi. Qayta urinib ko\'ring.',
-                              style: TextStyle(color: AppColors.slate500, fontSize: 13),
+                            Text(
+                              tr.orderLoadFailed,
+                              style: const TextStyle(color: AppColors.slate500, fontSize: 13),
                               textAlign: TextAlign.center,
                             ),
                             const SizedBox(height: 16),
-                            AppButton(label: 'Qayta urinish', onPressed: () => _load()),
+                            AppButton(label: tr.retry, onPressed: () => _load()),
                           ],
                         ),
                       ),
@@ -138,8 +140,8 @@ class _OrdersPageState extends State<OrdersPage> with WidgetsBindingObserver {
                       : _orders.isEmpty
                           ? AppEmptyState(
                               icon: Icons.receipt_long_rounded,
-                              title: 'Buyurtmalar yo\'q',
-                              subtitle: 'Siz hali birorta ham buyurtma bermagansiz. Sevimli mahsulotlaringizni xarid qiling!',
+                              title: tr.ordersEmptyTitle,
+                              subtitle: tr.ordersEmptyDesc,
                             )
                           : RefreshIndicator(
                               color: AppColors.brand,
@@ -268,12 +270,12 @@ class _OrderCard extends StatelessWidget {
             Row(
               children: [
                 Text(
-                  '${order.items.length} xil mahsulot',
+                  context.tr.ordersItemsCount(order.items.length),
                   style: const TextStyle(fontSize: 13, color: AppColors.slate500, fontWeight: FontWeight.w500),
                 ),
                 const Spacer(),
                 Text(
-                  '${money(order.total)} so\'m',
+                  '${money(order.total)} ${context.tr.currency}',
                   style: const TextStyle(
                     fontWeight: FontWeight.w800,
                     fontSize: 15,

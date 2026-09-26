@@ -25,6 +25,9 @@ class OrderItem {
   final String? unit;
   final String? note;
 
+  String name(String lang) =>
+      (lang == 'ru' && nameRu.trim().isNotEmpty) ? nameRu : nameUz;
+
   factory OrderItem.fromJson(Map<String, dynamic> j) => OrderItem(
         id: j['id'] as int,
         nameUz: (j['name_uz'] ?? '') as String,

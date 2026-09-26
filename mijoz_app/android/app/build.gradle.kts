@@ -37,7 +37,7 @@ android {
 
     defaultConfig {
         applicationId = "uz.barakalibozor.mijoz"
-        minSdk = flutter.minSdkVersion
+        minSdk = maxOf(flutter.minSdkVersion, 21)
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import '../core/format.dart';
+import '../core/i18n.dart';
 import '../core/theme.dart';
 import '../models/catalog.dart';
 import '../models/order.dart';
@@ -19,11 +20,11 @@ int _stageIndex(String status) {
   return 0; // pending
 }
 
-const _stages = [
-  ('Yangi', Icons.receipt_long_rounded),
-  ('Tayyorlash', Icons.soup_kitchen_rounded),
-  ('Yetkazish', Icons.delivery_dining_rounded),
-  ('Yetkazildi', Icons.check_circle_rounded),
+const _stageIcons = [
+  Icons.receipt_long_rounded,
+  Icons.soup_kitchen_rounded,
+  Icons.delivery_dining_rounded,
+  Icons.check_circle_rounded,
 ];
 
 /// Buyurtma tafsiloti — status progressi, mahsulotlar, kuryer, chek.
@@ -110,6 +111,8 @@ class _OrderDetailPageState extends State<OrderDetailPage> with WidgetsBindingOb
   @override
   Widget build(BuildContext context) {
     final order = _order;
+    final tr = context.tr;
+    final langCode = context.currentLangCode;
     return Scaffold(
       backgroundColor: AppColors.slate50,
       appBar: AppBar(
@@ -133,7 +136,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> with WidgetsBindingOb
           ),
         ),
         title: Text(
-          order != null ? 'Buyurtma № ${order.number}' : 'Buyurtma tafsiloti',
+          order != null ? tr.orderNumber(order.number) : tr.orderDetailsTitle,
           style: const TextStyle(
             fontSize: 17,
             fontWeight: FontWeight.w800,
@@ -157,9 +160,9 @@ class _OrderDetailPageState extends State<OrderDetailPage> with WidgetsBindingOb
                     children: [
                       const Icon(Icons.error_outline_rounded, size: 40, color: AppColors.red500),
                       const SizedBox(height: 10),
-                      const Text('Buyurtmani yuklab bo\'lmadi', style: TextStyle(fontWeight: FontWeight.w600)),
+                      Text(tr.orderLoadFailed, style: const TextStyle(fontWeight: FontWeight.w600)),
                       const SizedBox(height: 12),
-                      AppButton(label: 'Qayta urinish', onPressed: _load),
+                      AppButton(label: tr.retry, onPressed: _load),
                     ],
                   ),
                 )
@@ -179,14 +182,14 @@ class _OrderDetailPageState extends State<OrderDetailPage> with WidgetsBindingOb
                         borderRadius: BorderRadius.circular(18),
                         border: Border.all(color: const Color(0xFFFDE68A), width: 1),
                       ),
-                      child: const Row(
+                      child: Row(
                         children: [
-                          Icon(Icons.hourglass_top_rounded, color: Color(0xFFD97706), size: 22),
-                          SizedBox(width: 10),
+                          const Icon(Icons.hourglass_top_rounded, color: Color(0xFFD97706), size: 22),
+                          const SizedBox(width: 10),
                           Expanded(
                             child: Text(
-                              'Buyurtmangiz do‘kon tomonidan ko‘rib chiqilmoqda.',
-                              style: TextStyle(color: Color(0xFF92400E), fontSize: 13, fontWeight: FontWeight.w600),
+                              tr.orderPendingBanner,
+                              style: const TextStyle(color: Color(0xFF92400E), fontSize: 13, fontWeight: FontWeight.w600),
                             ),
                           ),
                         ],
@@ -201,14 +204,14 @@ class _OrderDetailPageState extends State<OrderDetailPage> with WidgetsBindingOb
                         borderRadius: BorderRadius.circular(18),
                         border: Border.all(color: const Color(0xFFA7F3D0), width: 1),
                       ),
-                      child: const Row(
+                      child: Row(
                         children: [
-                          Icon(Icons.check_circle_rounded, color: Color(0xFF059669), size: 24),
-                          SizedBox(width: 10),
+                          const Icon(Icons.check_circle_rounded, color: Color(0xFF059669), size: 24),
+                          const SizedBox(width: 10),
                           Expanded(
                             child: Text(
-                              'Buyurtma qabul qilindi. Tez orada yetkaziladi!',
-                              style: TextStyle(color: Color(0xFF065F46), fontSize: 13, fontWeight: FontWeight.w600),
+                              tr.orderJustPlacedBanner,
+                              style: const TextStyle(color: Color(0xFF065F46), fontSize: 13, fontWeight: FontWeight.w600),
                             ),
                           ),
                         ],
@@ -225,12 +228,12 @@ class _OrderDetailPageState extends State<OrderDetailPage> with WidgetsBindingOb
                         borderRadius: BorderRadius.circular(18),
                         border: Border.all(color: const Color(0xFFFECDD3), width: 1),
                       ),
-                      child: const Row(
+                      child: Row(
                         children: [
-                          Icon(Icons.cancel_rounded, color: AppColors.red600, size: 22),
-                          SizedBox(width: 10),
+                          const Icon(Icons.cancel_rounded, color: AppColors.red600, size: 22),
+                          const SizedBox(width: 10),
                           Expanded(
-                            child: Text('Buyurtma bekor qilingan', style: TextStyle(color: AppColors.red600, fontWeight: FontWeight.w700)),
+                            child: Text(tr.orderCancelledBanner, style: const TextStyle(color: AppColors.red600, fontWeight: FontWeight.w700)),
                           ),
                         ],
                       ),
@@ -249,7 +252,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> with WidgetsBindingOb
                           Expanded(
                             child: _MiniStat(
                               icon: Icons.route_rounded,
-                              label: 'Masofa',
+                              label: tr.orderDistanceLabel,
                               value: distanceLabel(order.distanceKm) ?? '—',
                             ),
                           ),
@@ -258,8 +261,8 @@ class _OrderDetailPageState extends State<OrderDetailPage> with WidgetsBindingOb
                           Expanded(
                             child: _MiniStat(
                               icon: Icons.access_time_rounded,
-                              label: 'Taxminiy vaqt',
-                              value: etaLabel(order.etaMinutes) ?? '—',
+                              label: tr.orderEstimatedTimeLabel,
+                              value: etaLabel(order.etaMinutes, langCode) ?? '—',
                               accent: true,
                             ),
                           ),
@@ -287,7 +290,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> with WidgetsBindingOb
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text('Yetkazib beruvchi kuryer', style: TextStyle(fontSize: 11, color: AppColors.slate400, fontWeight: FontWeight.w500)),
+                                Text(tr.orderCourier, style: const TextStyle(fontSize: 11, color: AppColors.slate400, fontWeight: FontWeight.w500)),
                                 const SizedBox(height: 2),
                                 Text(
                                   order.assignedCourierName!,
@@ -325,7 +328,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> with WidgetsBindingOb
                             const Icon(Icons.shopping_basket_outlined, size: 18, color: AppColors.slate600),
                             const SizedBox(width: 8),
                             Text(
-                              'Mahsulotlar (${order.items.length})',
+                              '${tr.productsCost} (${order.items.length})',
                               style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AppColors.slate900),
                             ),
                           ],
@@ -367,21 +370,21 @@ class _OrderDetailPageState extends State<OrderDetailPage> with WidgetsBindingOb
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        it.nameUz,
+                                        it.name(langCode),
                                         style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5, color: AppColors.slate900),
                                         maxLines: 2,
                                         overflow: TextOverflow.ellipsis,
                                       ),
                                       const SizedBox(height: 2),
                                       Text(
-                                        '${qtyUnit(it.quantity, it.unit)} × ${money(it.price)} so\'m',
+                                        '${qtyUnit(it.quantity, it.unit, langCode)} × ${money(it.price)} ${tr.currency}',
                                         style: const TextStyle(fontSize: 12, color: AppColors.slate400),
                                       ),
                                     ],
                                   ),
                                 ),
                                 Text(
-                                  '${money(it.price * it.quantity)} so\'m',
+                                  '${money(it.price * it.quantity)} ${tr.currency}',
                                   style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5, color: AppColors.slate900),
                                 ),
                               ],
@@ -390,9 +393,9 @@ class _OrderDetailPageState extends State<OrderDetailPage> with WidgetsBindingOb
                         const SizedBox(height: 8),
                         const Divider(height: 1, color: Color(0xFFF1F5F9)),
                         const SizedBox(height: 12),
-                        _kv('Yetkazib berish xizmati', order.deliveryFee == 0 ? 'Bepul' : '${money(order.deliveryFee)} so\'m'),
+                        _kv(tr.orderDeliveryService, order.deliveryFee == 0 ? tr.free : '${money(order.deliveryFee)} ${tr.currency}'),
                         const SizedBox(height: 8),
-                        _kv('Jami to\'lov', '${money(order.total)} so\'m', bold: true),
+                        _kv(tr.orderTotalPayment, '${money(order.total)} ${tr.currency}', bold: true),
                       ],
                     ),
                   ),
@@ -403,32 +406,32 @@ class _OrderDetailPageState extends State<OrderDetailPage> with WidgetsBindingOb
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Row(
+                        Row(
                           children: [
-                            Icon(Icons.info_outline_rounded, size: 18, color: AppColors.slate600),
-                            SizedBox(width: 8),
+                            const Icon(Icons.info_outline_rounded, size: 18, color: AppColors.slate600),
+                            const SizedBox(width: 8),
                             Text(
-                              'Yetkazish ma\'lumotlari',
-                              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AppColors.slate900),
+                              tr.orderDeliveryInfo,
+                              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AppColors.slate900),
                             ),
                           ],
                         ),
                         const SizedBox(height: 12),
                         const Divider(height: 1, color: Color(0xFFF1F5F9)),
                         const SizedBox(height: 12),
-                        _infoRow(Icons.location_on_rounded, 'Manzil', order.addressLine),
-                        if (order.phone != null) _infoRow(Icons.call_rounded, 'Telefon', order.phone!),
-                        _infoRow(Icons.payment_rounded, 'To\'lov turi', paymentLabel(order.paymentMethod)),
+                        _infoRow(Icons.location_on_rounded, tr.orderAddress, order.addressLine),
+                        if (order.phone != null) _infoRow(Icons.call_rounded, tr.checkoutPhone, order.phone!),
+                        _infoRow(Icons.payment_rounded, tr.orderPaymentType, paymentLabel(order.paymentMethod, langCode)),
                         if (order.comment != null && order.comment!.isNotEmpty)
-                          _infoRow(Icons.chat_bubble_rounded, 'Izoh', order.comment!),
-                        _infoRow(Icons.access_time_filled_rounded, 'Buyurtma vaqti', formatFull(order.createdAt), last: true),
+                          _infoRow(Icons.chat_bubble_rounded, tr.orderCommentLabel, order.comment!),
+                        _infoRow(Icons.access_time_filled_rounded, tr.orderPlacedTime, formatFull(order.createdAt), last: true),
                       ],
                     ),
                   ),
 
                   const SizedBox(height: 14),
                   GhostButton(
-                    label: 'Elektron chekni ko\'rish',
+                    label: tr.orderViewReceipt,
                     icon: Icons.receipt_long_rounded,
                     expand: true,
                     onPressed: _showReceipt,
@@ -436,7 +439,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> with WidgetsBindingOb
                   if (_store != null && (_store!.phones.isNotEmpty || _store!.socials.isNotEmpty)) ...[
                     const SizedBox(height: 10),
                     GhostButton(
-                      label: 'Do\'kon bilan bog\'lanish',
+                      label: tr.orderContactStore,
                       icon: Icons.support_agent_rounded,
                       expand: true,
                       onPressed: () => Navigator.of(context).push(
@@ -510,11 +513,13 @@ class _StageProgress extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final stages = context.tr.orderStages;
     return AppCard(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       child: Row(
-        children: List.generate(_stages.length, (i) {
-          final (title, icon) = _stages[i];
+        children: List.generate(_stageIcons.length, (i) {
+          final title = i < stages.length ? stages[i] : '';
+          final icon = _stageIcons[i];
           final done = i < stage;
           final active = i == stage;
 
@@ -556,7 +561,7 @@ class _StageProgress extends StatelessWidget {
                         color: done || active ? Colors.white : AppColors.slate400,
                       ),
                     ),
-                    if (i < _stages.length - 1)
+                    if (i < _stageIcons.length - 1)
                       Expanded(
                         child: Container(
                           height: 3,
@@ -676,7 +681,10 @@ class _ReceiptSheet extends StatelessWidget {
                       style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: AppColors.slate900),
                     ),
                     const SizedBox(height: 4),
-                    Text('Buyurtma raqami: № ${order.number}', style: const TextStyle(fontSize: 13, color: AppColors.slate400)),
+                    Text(
+                      context.tr.orderReceiptNumber(order.number),
+                      style: const TextStyle(fontSize: 13, color: AppColors.slate400),
+                    ),
                     if (store?.address != null) ...[
                       const SizedBox(height: 2),
                       Text(store!.address!, style: const TextStyle(fontSize: 12, color: AppColors.slate400)),
@@ -694,12 +702,12 @@ class _ReceiptSheet extends StatelessWidget {
                     children: [
                       Expanded(
                         child: Text(
-                          '${it.nameUz} × ${it.quantity}',
+                          '${it.name(context.currentLangCode)} × ${it.quantity}',
                           style: const TextStyle(fontSize: 13.5, color: AppColors.slate800),
                         ),
                       ),
                       Text(
-                        '${money(it.price * it.quantity)} so\'m',
+                        '${money(it.price * it.quantity)} ${context.tr.currency}',
                         style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: AppColors.slate900),
                       ),
                     ],
@@ -711,9 +719,9 @@ class _ReceiptSheet extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('Yetkazish', style: TextStyle(fontSize: 13, color: AppColors.slate500)),
+                  Text(context.tr.delivery, style: const TextStyle(fontSize: 13, color: AppColors.slate500)),
                   Text(
-                    order.deliveryFee == 0 ? 'Bepul' : '${money(order.deliveryFee)} so\'m',
+                    order.deliveryFee == 0 ? context.tr.free : '${money(order.deliveryFee)} ${context.tr.currency}',
                     style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.slate900),
                   ),
                 ],
@@ -722,15 +730,15 @@ class _ReceiptSheet extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('Jami', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: AppColors.slate900)),
+                  Text(context.tr.total, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: AppColors.slate900)),
                   Text(
-                    '${money(order.total)} so\'m',
+                    '${money(order.total)} ${context.tr.currency}',
                     style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18, color: AppColors.brand),
                   ),
                 ],
               ),
               const SizedBox(height: 24),
-              AppButton(label: 'Yopish', expand: true, onPressed: () => Navigator.pop(context)),
+              AppButton(label: context.tr.close, expand: true, onPressed: () => Navigator.pop(context)),
             ],
           ),
         ),

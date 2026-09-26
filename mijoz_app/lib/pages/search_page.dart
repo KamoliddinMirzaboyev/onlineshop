@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../core/i18n.dart';
 import '../core/theme.dart';
 import '../models/catalog.dart';
 import '../services/store.dart';
@@ -38,6 +39,7 @@ class _SearchPageState extends State<SearchPage> {
 
   @override
   Widget build(BuildContext context) {
+    final tr = context.tr;
     final store = context.watch<StoreProvider>().store;
     final seen = <int>{};
     final all = <Product>[];
@@ -66,7 +68,7 @@ class _SearchPageState extends State<SearchPage> {
           children: [
             Column(
               children: [
-                const PageHeader(title: 'Barakali Bozor'),
+                PageHeader(title: store?.name ?? tr.appName),
                 Padding(
                   padding: const EdgeInsets.all(12),
                   child: TextField(
@@ -74,7 +76,7 @@ class _SearchPageState extends State<SearchPage> {
                     autofocus: false,
                     onChanged: _onChanged,
                     decoration: InputDecoration(
-                      hintText: 'Mahsulotlarni qidirish...',
+                      hintText: tr.searchPlaceholder,
                       prefixIcon: const Icon(Icons.search, size: 20),
                       suffixIcon: _controller.text.isNotEmpty
                           ? IconButton(
@@ -94,7 +96,7 @@ class _SearchPageState extends State<SearchPage> {
                 ),
                 Expanded(
                   child: results.isEmpty
-                      ? const Center(child: Text('Hech narsa topilmadi', style: TextStyle(color: AppColors.slate400)))
+                      ? Center(child: Text(tr.searchEmptyResult, style: const TextStyle(color: AppColors.slate400)))
                       : GridView.builder(
                           padding: const EdgeInsets.fromLTRB(10, 0, 10, 100),
                           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(

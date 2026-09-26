@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../core/i18n.dart';
 import '../core/theme.dart';
 import '../services/store.dart';
 import '../widgets/common.dart';
@@ -10,6 +11,7 @@ class ContactPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tr = context.tr;
     final store = context.watch<StoreProvider>().store;
     final phones = (store?.phones ?? []).take(2).toList();
     final telegram = store?.socials['telegram']?.replaceFirst('@', '');
@@ -20,7 +22,7 @@ class ContactPage extends StatelessWidget {
       body: SafeArea(
         child: Column(
           children: [
-            const PageHeader(title: 'Mijozlarni qo\'llab-quvvatlash', back: true),
+            PageHeader(title: tr.contactTitle, back: true),
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.all(16),
@@ -55,19 +57,19 @@ class ContactPage extends StatelessWidget {
                                   color: Colors.white.withValues(alpha: 0.2),
                                   borderRadius: BorderRadius.circular(8),
                                 ),
-                                child: const Text(
-                                  '24/7 XIZMATINGIZDAMIZ',
-                                  style: TextStyle(color: Colors.white, fontSize: 10.5, fontWeight: FontWeight.w800, letterSpacing: 0.5),
+                                child: Text(
+                                  tr.contactSupportBadge,
+                                  style: const TextStyle(color: Colors.white, fontSize: 10.5, fontWeight: FontWeight.w800, letterSpacing: 0.5),
                                 ),
                               ),
                               const SizedBox(height: 10),
-                              const Text(
-                                'Savollaringiz bormi?',
-                                style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900),
+                              Text(
+                                tr.contactHaveQuestions,
+                                style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900),
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                'Operatorlarimiz buyurtmangiz bo\'yicha har qanday yordamni berishga tayyor.',
+                                tr.contactOperatorsReady,
                                 style: TextStyle(color: Colors.white.withValues(alpha: 0.9), fontSize: 12.5, height: 1.3),
                               ),
                             ],
@@ -89,19 +91,19 @@ class ContactPage extends StatelessWidget {
                   const SizedBox(height: 20),
 
                   if (empty)
-                    const AppEmptyState(
+                    AppEmptyState(
                       icon: Icons.contact_support_outlined,
-                      title: 'Ma\'lumot kiritilmagan',
-                      subtitle: 'Do\'kon ma\'muriyati tez orada aloqa ma\'lumotlarini kiritadi.',
+                      title: tr.contactNoInfoTitle,
+                      subtitle: tr.contactNoInfoDesc,
                     )
                   else ...[
                     // Telefon raqamlari
                     if (phones.isNotEmpty) ...[
-                      const Padding(
-                        padding: EdgeInsets.only(left: 4, bottom: 8),
+                      Padding(
+                        padding: const EdgeInsets.only(left: 4, bottom: 8),
                         child: Text(
-                          'Telefon orqali bog\'lanish',
-                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.slate400),
+                          tr.contactCallPhone,
+                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.slate400),
                         ),
                       ),
                       for (final p in phones)
@@ -125,7 +127,7 @@ class ContactPage extends StatelessWidget {
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      const Text('Do\'kon administratori', style: TextStyle(fontSize: 11.5, color: AppColors.slate400, fontWeight: FontWeight.w500)),
+                                      Text(tr.profileAdminContactTitle, style: const TextStyle(fontSize: 11.5, color: AppColors.slate400, fontWeight: FontWeight.w500)),
                                       const SizedBox(height: 2),
                                       Text(
                                         p,
@@ -143,7 +145,7 @@ class ContactPage extends StatelessWidget {
                                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                                   ),
                                   onPressed: () => launchPhone(p),
-                                  child: const Text('Qo\'ng\'iroq', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700)),
+                                  child: Text(tr.profileCallAdmin, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700)),
                                 ),
                               ],
                             ),
@@ -154,11 +156,11 @@ class ContactPage extends StatelessWidget {
 
                     // Telegram orqali bog'lanish
                     if (telegram != null && telegram.isNotEmpty) ...[
-                      const Padding(
-                        padding: EdgeInsets.only(left: 4, bottom: 8),
+                      Padding(
+                        padding: const EdgeInsets.only(left: 4, bottom: 8),
                         child: Text(
-                          'Ijtimoiy tarmoqlar',
-                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.slate400),
+                          tr.contactWriteTelegram,
+                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.slate400),
                         ),
                       ),
                       AppCard(
@@ -179,7 +181,7 @@ class ContactPage extends StatelessWidget {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Text('Telegram orqali yordam', style: TextStyle(fontSize: 11.5, color: AppColors.slate400, fontWeight: FontWeight.w500)),
+                                  Text(tr.contactWriteTelegram, style: const TextStyle(fontSize: 11.5, color: AppColors.slate400, fontWeight: FontWeight.w500)),
                                   const SizedBox(height: 2),
                                   Text(
                                     '@$telegram',
@@ -197,7 +199,7 @@ class ContactPage extends StatelessWidget {
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                               ),
                               onPressed: () => launchExternal('https://t.me/$telegram'),
-                              child: const Text('Yozish', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700)),
+                              child: Text(tr.profileTelegramAdmin, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700)),
                             ),
                           ],
                         ),

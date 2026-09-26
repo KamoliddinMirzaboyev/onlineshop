@@ -1,81 +1,231 @@
 <!DOCTYPE html>
-<html lang="uz">
+<html lang="uz" data-theme="light">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Barakali Bozor — Hisobni o‘chirish</title>
-  <meta name="description" content="Barakali Bozor hisobingizni va ma'lumotlaringizni qanday o'chirish mumkin." />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hisobni O'chirish — Barakali Bozor (Account Deletion)</title>
+  <meta name="description" content="Barakali Bozor ilovasida hisobni va shaxsiy ma'lumotlarni o'chirish bo'yicha rasmiy qo'llanma." />
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
   <style>
-    :root { color-scheme: light; }
-    body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
-           max-width: 720px; margin: 0 auto; padding: 40px 20px 80px;
-           line-height: 1.65; color: #0f172a; background: #fff; }
-    h1 { color: #16a34a; font-size: 1.5rem; line-height: 1.25; }
-    h2 { font-size: 1.05rem; margin-top: 1.9em; }
-    .meta { color: #64748b; font-size: 0.9rem; }
-    ol { padding-left: 1.3em; }
-    li { margin-bottom: 0.5em; }
-    a { color: #15803d; }
-    table { border-collapse: collapse; width: 100%; margin-top: 0.6em; font-size: 0.95rem; }
-    th, td { border: 1px solid #e2e8f0; padding: 8px 10px; text-align: left; }
-    th { background: #f8fafc; font-weight: 600; }
-    .box { border-left: 3px solid #16a34a; background: #f0fdf4; padding: 12px 16px;
-           border-radius: 0 10px 10px 0; margin: 1.4em 0; }
+    :root {
+      --primary: #ef4444;
+      --primary-dark: #dc2626;
+      --primary-light: #fef2f2;
+      --primary-glow: rgba(239, 68, 68, 0.15);
+      
+      --bg-body: #f8fafc;
+      --bg-surface: #ffffff;
+      --bg-card: #ffffff;
+      --bg-alt: #f1f5f9;
+      
+      --text-main: #0f172a;
+      --text-muted: #475569;
+      --text-subtle: #94a3b8;
+      --border-color: #e2e8f0;
+      
+      --radius-md: 12px;
+      --radius-lg: 16px;
+      --radius-full: 9999px;
+      --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07);
+    }
+
+    [data-theme="dark"] {
+      --bg-body: #0b0f19;
+      --bg-surface: #111827;
+      --bg-card: #141c2e;
+      --bg-alt: #1a243b;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --text-subtle: #64748b;
+      --border-color: #1e293b;
+      --primary-light: rgba(239, 68, 68, 0.12);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background: var(--bg-body);
+      color: var(--text-main);
+      line-height: 1.7;
+      font-size: 15px;
+      padding-bottom: 60px;
+    }
+
+    .container { max-width: 800px; margin: 0 auto; padding: 0 20px; }
+
+    header {
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border-color);
+      padding: 16px 0;
+      margin-bottom: 32px;
+    }
+    .header-inner {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+      color: var(--text-main);
+      font-weight: 800;
+    }
+
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      padding: 32px;
+      margin-bottom: 24px;
+      box-shadow: var(--shadow-md);
+    }
+
+    h1 { font-size: 1.8rem; font-weight: 800; margin-bottom: 8px; color: var(--text-main); }
+    h2 { font-size: 1.25rem; font-weight: 700; margin: 24px 0 12px; color: var(--text-main); }
+    p { color: var(--text-muted); margin-bottom: 14px; }
+    ol, ul { margin: 12px 0 16px 20px; color: var(--text-muted); }
+    li { margin-bottom: 8px; }
+
+    .badge {
+      display: inline-block;
+      background: var(--primary-light);
+      color: var(--primary);
+      padding: 4px 10px;
+      border-radius: var(--radius-full);
+      font-size: 0.8rem;
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
+
+    .alert-box {
+      background: var(--primary-light);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      padding: 16px;
+      border-radius: var(--radius-md);
+      margin: 16px 0;
+      color: var(--text-main);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 16px 0;
+      font-size: 0.9rem;
+    }
+    th, td {
+      border: 1px solid var(--border-color);
+      padding: 10px 14px;
+      text-align: left;
+    }
+    th { background: var(--bg-alt); color: var(--text-main); font-weight: 700; }
+    td { color: var(--text-muted); }
+
+    .btn-contact {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 20px;
+      border-radius: var(--radius-full);
+      background: #10b981;
+      color: #fff;
+      text-decoration: none;
+      font-weight: 700;
+      margin-top: 10px;
+    }
+    .back-link {
+      display: inline-block;
+      color: #10b981;
+      text-decoration: none;
+      font-weight: 600;
+      margin-bottom: 20px;
+    }
   </style>
 </head>
 <body>
-  <h1>Hisobni o‘chirish — Barakali Bozor</h1>
-  <p class="meta">
-    Oxirgi yangilanish: 2026-yil 12-sentabr ·
-    Ilova: <code>uz.barakalibozor.mijoz</code> (Barakali Bozor)
-  </p>
 
-  <h2>Ilova orqali (eng tez yo‘l)</h2>
-  <ol>
-    <li>Barakali Bozor ilovasini oching.</li>
-    <li><strong>Profil</strong> bo‘limiga o‘ting.</li>
-    <li>Sahifa pastidagi <strong>“Hisobni o‘chirish”</strong> tugmasini bosing.</li>
-    <li>Tasdiqlang. Hisob darhol o‘chiriladi — qo‘shimcha kutish yo‘q.</li>
-  </ol>
+  <header>
+    <div class="container header-inner">
+      <a href="/index.html" class="brand">
+        <span>🛍️</span> Barakali Bozor
+      </a>
+      <a href="/index.html" class="back-link" style="margin-bottom:0">← Maxfiylik siyosatiga qaytish</a>
+    </div>
+  </header>
 
-  <div class="box">
-    Faol (hali yetkazilmagan) buyurtmangiz bo‘lsa, avval u yakunlanishi kerak.
-    Aks holda kuryer manzilni va telefon raqamini yo‘qotadi.
-  </div>
+  <main class="container">
+    <div class="card">
+      <span class="badge">Google Play Data Safety Talabi</span>
+      <h1>Hisobni va Ma'lumotlarni O'chirish</h1>
+      <p>Ilova: <code>uz.barakalibozor.mijoz</code> (Barakali Bozor) · Yuridik shaxs: YTT Safayeva Nargiza</p>
 
-  <h2>Ilovasiz (murojaat orqali)</h2>
-  <p>
-    Telefoningiz yo‘qolgan yoki ilovaga kira olmasangiz, quyidagi manzilga
-    ro‘yxatdan o‘tgan telefon raqamingizni yozib yuboring — hisob 7 ish kuni
-    ichida o‘chiriladi:
-  </p>
-  <ul>
-    <li>Telegram: <a href="https://t.me/MrMirzaboyev">@MrMirzaboyev</a></li>
-    <li>Telefon: <a href="tel:+998909888899">+998 90 988 88 99</a></li>
-  </ul>
+      <div class="alert-box">
+        <strong>Diqqat:</strong> Hisob o'chirilgandan so'ng sizning telefon raqamingiz, profildagi ismingiz, kiritilgan yetkazish manzillari bazadan to'liq olib tashlanadi va ularni qayta tiklab bo'lmaydi.
+      </div>
 
-  <h2>Nima o‘chiriladi, nima qoladi</h2>
-  <table>
-    <thead><tr><th>Ma’lumot</th><th>Nima bo‘ladi</th></tr></thead>
-    <tbody>
-      <tr><td>Ism, telefon, Telegram hisobi bilan bog‘lanish</td><td>Butunlay o‘chiriladi</td></tr>
-      <tr><td>Saqlangan manzillar</td><td>Butunlay o‘chiriladi</td></tr>
-      <tr><td>Push-bildirishnoma tokeni</td><td>Butunlay o‘chiriladi</td></tr>
-      <tr><td>Hech qanday buyurtma bermagan hisob</td><td>Yozuv butunlay o‘chiriladi</td></tr>
-      <tr>
-        <td>Buyurtma tarixi (buyurtma bergan bo‘lsangiz)</td>
-        <td>
-          Buyurtma yozuvi buxgalteriya va soliq talablariga ko‘ra saqlanadi,
-          lekin undagi shaxsiy ma’lumotlar (ism, telefon, manzil) o‘chiriladi —
-          ya’ni u endi siz bilan bog‘lanmaydi.
-        </td>
-      </tr>
-    </tbody>
-  </table>
+      <h2>1. Ilova orqali o'chirish (Tezkor va Avtomatik)</h2>
+      <ol>
+        <li>Smartfoningizda <strong>Barakali Bozor</strong> ilovasini oching;</li>
+        <li>Quyi menyudagi <strong>“Profil”</strong> sahifasiga kiring;</li>
+        <li>Sahifaning eng pastki qismiga tushib, <strong>“Hisobni o‘chirish”</strong> tugmasini bosing;</li>
+        <li>Chiqadigan ogohlantirish oynasini tasdiqlang;</li>
+        <li>Hisobingiz va unga bog'liq barcha ma'lumotlar bir zumda o'chiriladi.</li>
+      </ol>
 
-  <p class="meta">
-    Shuningdek: <a href="/privacy">Maxfiylik siyosati</a> ·
-    <a href="/terms">Ommaviy oferta</a>
-  </p>
+      <h2>2. Murojaat orqali o'chirish (Ilovadan foydalana olmasangiz)</h2>
+      <p>
+        Agar telefoningiz yo'qolgan bo'lsa yoki ilovaga kira olmasangiz, ro'yxatdan o'tgan telefon raqamingizni ko'rsatgan holda bizning qo'llab-quvvatlash xizmatimizga so'rov yuborishingiz mumkin:
+      </p>
+      <ul>
+        <li><strong>Email:</strong> <a href="mailto:kamoliddinmirzaboyev05@gmail.com">kamoliddinmirzaboyev05@gmail.com</a></li>
+        <li><strong>Telegram:</strong> <a href="https://t.me/MrMirzaboyev" target="_blank">@MrMirzaboyev</a></li>
+        <li><strong>Telefon:</strong> <a href="tel:+998909888899">+998 90 988 88 99</a></li>
+      </ul>
+      <p>So'rov qabul qilingandan so'ng, shaxsingiz tasdiqlanadi va hisob 3 ish kuni ichida to'liq o'chiriladi.</p>
+
+      <h2>3. Qaysi ma'lumotlar o'chiriladi, qaysilari qoladi?</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Ma'lumot turi</th>
+            <th>Holati</th>
+            <th>Izoh</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Telefon raqami va Ism</td>
+            <td><strong>To'liq o'chiriladi</strong></td>
+            <td>Hisob bilan birga tizimdan butunlay yo'q qilinadi</td>
+          </tr>
+          <tr>
+            <td>Yetkazish manzillari</td>
+            <td><strong>To'liq o'chiriladi</strong></td>
+            <td>Xaritadagi saqlangan manzillar tozalanadi</td>
+          </tr>
+          <tr>
+            <td>FCM Push tokenlar</td>
+            <td><strong>To'liq o'chiriladi</strong></td>
+            <td>Qurilmangizga bildirishnoma yuborish to'xtatiladi</td>
+          </tr>
+          <tr>
+            <td>Yakunlangan buyurtmalar tarixi</td>
+            <td>Anonimlashtiriladi</td>
+            <td>Moliya va soliq hisoboti uchun ism va telefon olib tashlangan holda arxivlanadi</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <a href="https://t.me/MrMirzaboyev" class="btn-contact" target="_blank">
+        💬 Administratorga yozish
+      </a>
+    </div>
+  </main>
+
 </body>
 </html>

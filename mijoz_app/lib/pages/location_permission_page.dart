@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
+import '../core/i18n.dart';
 import '../core/theme.dart';
 import '../widgets/common.dart';
 import 'notification_permission_page.dart';
@@ -38,6 +39,7 @@ class _LocationPermissionPageState extends State<LocationPermissionPage> {
 
   @override
   Widget build(BuildContext context) {
+    final tr = context.tr;
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -69,9 +71,9 @@ class _LocationPermissionPageState extends State<LocationPermissionPage> {
                 child: const Icon(Icons.location_on_rounded, size: 52, color: Colors.white),
               ),
               const SizedBox(height: 32),
-              const Text(
-                'Joylashuvingizni ulashing 📍',
-                style: TextStyle(
+              Text(
+                tr.permLocationTitle,
+                style: const TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.w900,
                   color: AppColors.slate900,
@@ -80,21 +82,21 @@ class _LocationPermissionPageState extends State<LocationPermissionPage> {
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 12),
-              const Text(
-                'Sizga eng yaqin bo\'lgan filiallarni ko\'rsatish va yetkazib berish vaqtini daqiqasigacha aniq hisoblash uchun joylashuv ruxsati zarur.',
-                style: TextStyle(fontSize: 14, color: AppColors.slate500, height: 1.45),
+              Text(
+                tr.permLocationDesc,
+                style: const TextStyle(fontSize: 14, color: AppColors.slate500, height: 1.45),
                 textAlign: TextAlign.center,
               ),
               const Spacer(),
               AppButton(
-                label: 'Ruxsat berish',
+                label: tr.permLocationAllow,
                 expand: true,
                 loading: _loading,
                 onPressed: _allow,
               ),
               const SizedBox(height: 12),
               GhostButton(
-                label: 'Keyinroq',
+                label: tr.permLocationLater,
                 expand: true,
                 textColor: AppColors.slate500,
                 borderColor: Colors.transparent,

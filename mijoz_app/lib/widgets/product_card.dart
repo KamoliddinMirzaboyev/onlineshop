@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../core/format.dart';
+import '../core/i18n.dart';
 import '../core/theme.dart';
 import '../models/catalog.dart';
 import '../services/cart.dart';
@@ -80,9 +81,9 @@ class ProductCard extends StatelessWidget {
                             color: AppColors.red600,
                             borderRadius: BorderRadius.circular(6),
                           ),
-                          child: const Text(
-                            'Tugagan',
-                            style: TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.w700),
+                          child: Text(
+                            context.tr.productOutOfStock,
+                            style: const TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.w700),
                           ),
                         ),
                       ),
@@ -108,7 +109,7 @@ class ProductCard extends StatelessWidget {
                       children: [
                         // Narx (katta va qora)
                         Text(
-                          '${money(product.price)} so\'m',
+                          context.tr.formatMoney(product.price),
                           style: const TextStyle(
                             fontSize: 13.5,
                             fontWeight: FontWeight.w800,
@@ -122,7 +123,7 @@ class ProductCard extends StatelessWidget {
 
                         // Nomi (aniq va kattaroq)
                         Text(
-                          product.nameUz,
+                          product.name(context.currentLangCode),
                           style: const TextStyle(
                             fontSize: 12.5,
                             fontWeight: FontWeight.w600,
@@ -136,9 +137,7 @@ class ProductCard extends StatelessWidget {
 
                         // Birligi (1 dona / kg)
                         Text(
-                          product.unit != null && product.unit!.isNotEmpty
-                              ? '1 ${product.unit}'
-                              : '1 dona',
+                          context.tr.qtyWithUnit(1, product.unit),
                           style: const TextStyle(
                             fontSize: 11.5,
                             fontWeight: FontWeight.w500,
@@ -164,9 +163,9 @@ class ProductCard extends StatelessWidget {
                         color: const Color(0xFFF1F5F9),
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: const Text(
-                        'Yo\'q',
-                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.slate400),
+                      child: Text(
+                        context.tr.productOutOfStock,
+                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.slate400),
                       ),
                     )
                   else if (qty == 0)
@@ -220,9 +219,9 @@ class _CartPillButtonState extends State<_CartPillButton> {
               ),
             ],
           ),
-          child: const Text(
-            'Savatga',
-            style: TextStyle(
+          child: Text(
+            context.tr.productAddToCart,
+            style: const TextStyle(
               fontSize: 11.5,
               fontWeight: FontWeight.w600,
               color: Color(0xFF0F172A),

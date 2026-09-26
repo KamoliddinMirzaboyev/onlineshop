@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../core/i18n.dart';
 import '../core/theme.dart';
 import '../widgets/common.dart';
 
@@ -11,6 +12,7 @@ class ForceUpdatePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tr = context.tr;
     return PopScope(
       canPop: false,
       child: Scaffold(
@@ -37,9 +39,9 @@ class ForceUpdatePage extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 24),
-                  const Text(
-                    'Yangi versiya chiqdi',
-                    style: TextStyle(
+                  Text(
+                    tr.updateRequiredTitle,
+                    style: const TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.w800,
                       color: AppColors.slate900,
@@ -47,14 +49,14 @@ class ForceUpdatePage extends StatelessWidget {
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 10),
-                  const Text(
-                    'Davom etish uchun ilovani yangilang. Eski versiyada ishlash vaqtincha to\'xtatildi.',
-                    style: TextStyle(fontSize: 14, color: AppColors.slate500, height: 1.4),
+                  Text(
+                    tr.updateRequiredDesc,
+                    style: const TextStyle(fontSize: 14, color: AppColors.slate500, height: 1.4),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 28),
                   AppButton(
-                    label: 'Play Marketda yangilash',
+                    label: tr.updateInPlayMarket,
                     icon: Icons.download_rounded,
                     expand: true,
                     onPressed: () => launchUrl(

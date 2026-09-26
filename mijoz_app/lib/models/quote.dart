@@ -8,6 +8,7 @@ class QuoteIssue {
   QuoteIssue({
     required this.productId,
     required this.nameUz,
+    this.nameRu = '',
     required this.reason,
     required this.availableStock,
     required this.message,
@@ -15,15 +16,36 @@ class QuoteIssue {
 
   final int productId;
   final String nameUz;
+  final String nameRu;
 
   /// "unavailable" — sotuvdan olingan; "out_of_stock" — qoldiq yetmaydi.
   final String reason;
   final double availableStock;
   final String message;
 
+  String localizedMessage(String lang) {
+    if (lang == 'ru') {
+      final name = nameRu.isNotEmpty ? nameRu : nameUz;
+      switch (reason) {
+        case 'unavailable':
+          return '"$name" снят с продажи — удалите из корзины';
+        case 'out_of_stock':
+          return availableStock <= 0
+              ? '"$name" закончился — удалите из корзины'
+              : '"$name" — доступно только ${availableStock.toInt()} шт';
+        case 'price_changed':
+          return 'Цена на "$name" изменилась';
+        default:
+          return message;
+      }
+    }
+    return message;
+  }
+
   factory QuoteIssue.fromJson(Map<String, dynamic> json) => QuoteIssue(
         productId: json['product_id'] as int,
         nameUz: (json['name_uz'] ?? '') as String,
+        nameRu: (json['name_ru'] ?? '') as String,
         reason: (json['reason'] ?? '') as String,
         availableStock: (json['available_stock'] as num?)?.toDouble() ?? 0,
         message: (json['message'] ?? '') as String,

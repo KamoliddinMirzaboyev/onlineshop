@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../core/i18n.dart';
 import '../core/theme.dart';
 
 class _SlidingGradientTransform extends GradientTransform {
@@ -401,7 +402,7 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
                       ),
                     ),
                     child: Text(
-                      'Tezkor va sifatli yetkazib berish',
+                      context.tr.splashSlogan,
                       style: const TextStyle(
                         fontSize: 13.5,
                         fontWeight: FontWeight.w600,

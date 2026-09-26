@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../core/format.dart';
+import '../core/i18n.dart';
 import '../core/theme.dart';
 import '../services/cart.dart';
 import '../services/store.dart';
@@ -23,13 +24,16 @@ class CartPage extends StatelessWidget {
         (store?.freeDeliveryFrom ?? 0) > 0 ? store!.freeDeliveryFrom : 50000;
     final freeDelivery = cart.totalPrice >= freeFrom;
 
+    final tr = context.tr;
+    final langCode = context.currentLangCode;
+
     return Scaffold(
       backgroundColor: AppColors.slate50,
       body: SafeArea(
         child: items.isEmpty
             ? Column(
                 children: [
-                  const PageHeader(title: 'Savatcha', back: true),
+                  PageHeader(title: tr.cartTitle, back: true),
                   Expanded(
                     child: Center(
                       child: Padding(
@@ -47,19 +51,19 @@ class CartPage extends StatelessWidget {
                               child: const Icon(Icons.shopping_cart_outlined, size: 50, color: AppColors.brand),
                             ),
                             const SizedBox(height: 20),
-                            const Text(
-                              'Savatchangiz bo\'sh',
-                              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: AppColors.slate900),
+                            Text(
+                              tr.cartEmptyTitle,
+                              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: AppColors.slate900),
                             ),
                             const SizedBox(height: 8),
-                            const Text(
-                              'Katalogimizdan sifatli va sara mahsulotlarni tanlang',
+                            Text(
+                              tr.cartEmptyDesc,
                               textAlign: TextAlign.center,
-                              style: TextStyle(fontSize: 14, color: AppColors.slate500),
+                              style: const TextStyle(fontSize: 14, color: AppColors.slate500),
                             ),
                             const SizedBox(height: 28),
                             AppButton(
-                              label: 'Xaridni boshlash',
+                              label: tr.cartStartShopping,
                               icon: Icons.arrow_back,
                               onPressed: () => Navigator.of(context).pop(),
                             ),
@@ -73,12 +77,12 @@ class CartPage extends StatelessWidget {
             : Column(
                 children: [
                   PageHeader(
-                    title: 'Savatcha',
-                    subtitle: '${cart.totalItems} ta mahsulot',
+                    title: tr.cartTitle,
+                    subtitle: tr.itemsCount(cart.totalItems),
                     back: true,
                     trailing: TextButton(
                       onPressed: cart.clear,
-                      child: const Text('Tozalash', style: TextStyle(color: AppColors.red600, fontWeight: FontWeight.w600)),
+                      child: Text(tr.cartClearBtn, style: const TextStyle(color: AppColors.red600, fontWeight: FontWeight.w600)),
                     ),
                   ),
                   // Bepul yetkazib berish progress paneli
@@ -105,8 +109,8 @@ class CartPage extends StatelessWidget {
                               Expanded(
                                 child: Text(
                                   freeDelivery
-                                      ? 'Yetkazib berish bepul!'
-                                      : 'Bepul yetkazib berishgacha yana ${money(freeFrom - cart.totalPrice)} so‘m',
+                                      ? tr.cartFreeDeliveryUnlocked
+                                      : tr.cartFreeDeliveryRemaining(freeFrom - cart.totalPrice),
                                   style: TextStyle(
                                     fontSize: 12.5,
                                     fontWeight: FontWeight.w600,
@@ -174,14 +178,14 @@ class CartPage extends StatelessWidget {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      p.nameUz,
+                                      p.name(langCode),
                                       style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14.5, color: AppColors.slate900),
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                     const SizedBox(height: 3),
                                     Text(
-                                      p.unit != null ? '1 ${p.unit}' : '',
+                                      p.unit != null ? '1 ${tr.formatUnit(p.unit)}' : '',
                                       style: const TextStyle(fontSize: 12, color: AppColors.slate400),
                                     ),
                                     const SizedBox(height: 8),
@@ -189,7 +193,7 @@ class CartPage extends StatelessWidget {
                                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                       children: [
                                         Text(
-                                          '${money(p.price * item.quantity)} so\'m',
+                                          tr.formatMoney(p.price * item.quantity),
                                           style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: AppColors.slate900),
                                         ),
                                         Container(
@@ -264,19 +268,19 @@ class CartPage extends StatelessWidget {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text('Mahsulotlar summasi', style: TextStyle(color: AppColors.slate500, fontSize: 13.5)),
-                            Text('${money(cart.totalPrice)} so\'m', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                            Text(tr.productsCost, style: const TextStyle(color: AppColors.slate500, fontSize: 13.5)),
+                            Text(tr.formatMoney(cart.totalPrice), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
                           ],
                         ),
                         const SizedBox(height: 6),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text('Yetkazib berish', style: TextStyle(color: AppColors.slate500, fontSize: 13.5)),
+                            Text(tr.delivery, style: const TextStyle(color: AppColors.slate500, fontSize: 13.5)),
                             // Bepul chegaradan o'tган bo'lsa aniq 0; aks holda
                             // haq masofaga bog'liq — manzil tanlangach hisoblanadi.
                             Text(
-                              freeDelivery ? 'Bepul' : 'Manzilga qarab',
+                              freeDelivery ? tr.free : tr.cartDeliveryDependsOnAddress,
                               style: TextStyle(
                                 fontWeight: FontWeight.w600,
                                 fontSize: 14,
@@ -293,21 +297,21 @@ class CartPage extends StatelessWidget {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
-                              freeDelivery ? 'Jami to\'lov' : 'Mahsulotlar uchun',
+                              freeDelivery ? tr.cartTotalToPay : tr.cartTotalForProducts,
                               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.slate900),
                             ),
                             Text(
-                              '${money(cart.totalPrice)} so\'m',
+                              tr.formatMoney(cart.totalPrice),
                               style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: AppColors.brand),
                             ),
                           ],
                         ),
                         if (!freeDelivery)
-                          const Padding(
-                            padding: EdgeInsets.only(top: 4),
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4),
                             child: Text(
-                              'Yetkazish haqi manzil tanlangach qo\'shiladi',
-                              style: TextStyle(fontSize: 11.5, color: AppColors.slate400),
+                              tr.cartDeliveryAddedAtCheckout,
+                              style: const TextStyle(fontSize: 11.5, color: AppColors.slate400),
                             ),
                           ),
                         const SizedBox(height: 12),
@@ -329,12 +333,12 @@ class CartPage extends StatelessWidget {
                                 ),
                               ],
                             ),
-                            child: const Row(
+                            child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 Text(
-                                  'Buyurtma berish',
-                                  style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700),
+                                  tr.cartCheckoutBtn,
+                                  style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700),
                                 ),
                                 SizedBox(width: 8),
                                 Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 20),

@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 
+import '../core/i18n.dart';
 import '../core/theme.dart';
 
 /// Internet aloqasi uzilganda ekran tepasida ingichka ogohlantirish paydo
@@ -108,17 +109,18 @@ class _ConnectivityBannerState extends State<ConnectivityBanner> with WidgetsBin
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
-                  children: const [
-                    Icon(Icons.wifi_off_rounded, size: 16, color: Colors.white),
-                    SizedBox(width: 8),
+                  children: [
+                    const Icon(Icons.wifi_off_rounded, size: 16, color: Colors.white),
+                    const SizedBox(width: 8),
                     Text(
-                      'Internet aloqasi yo\'q',
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13),
+                      context.tr.noInternetConnection,
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13),
                     ),
                   ],
                 ),
               ),
             ),
+          ),
           ),
         ),
       ),

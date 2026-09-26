@@ -7,6 +7,7 @@ import '../services/cart.dart';
 import '../services/api.dart';
 import '../services/store.dart';
 import '../core/format.dart';
+import '../core/i18n.dart';
 import '../core/theme.dart';
 import '../widgets/common.dart';
 import 'app_shell.dart';
@@ -201,9 +202,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
       // Aniq GPS ulgurmadi — mijoz xaritadan aniqlashtiradi.
       if (_lat != null) {
         await _fillAddressFromCoords(_lat!, _lng!);
-        setState(() => _locError = 'Aniq joylashuv olinmadi — xaritadan tekshiring.');
+        setState(() => _locError = context.tr.checkoutLocInaccurate);
       } else {
-        setState(() => _locError = 'Joylashuv olinmadi. Xaritadan tanlang.');
+        setState(() => _locError = context.tr.checkoutLocFailed);
       }
     } finally {
       if (mounted) setState(() => _locating = false);
@@ -216,18 +217,18 @@ class _CheckoutPageState extends State<CheckoutPage> {
     // bitta savatdan ikkita buyurtma ochilardi (ombor ham 2 marta kamayardi).
     if (_loading) return;
 
+    final tr = context.tr;
     final address = _addressController.text.trim();
     if (address.length < 3) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Iltimos, yetkazib berish manzilini kiriting')),
+        SnackBar(content: Text(tr.checkoutAddressRequired)),
       );
       return;
     }
 
     if (_accuracyM != null && _accuracyM! > _maxSubmitAccuracyM) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text(
-            'Joylashuv aniqligi past. Iltimos, xaritadan aniq joyni belgilang')),
+        SnackBar(content: Text(tr.checkoutGpsLow(_accuracyM!.round()))),
       );
       return;
     }
@@ -244,7 +245,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
             : null);
     if (restaurantId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Do‘kon topilmadi')),
+        SnackBar(content: Text(tr.checkoutStoreNotFound)),
       );
       return;
     }
@@ -284,7 +285,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
       }
     } catch (e) {
       if (mounted) {
-        String msg = 'Buyurtma berib bo\'lmadi. Qayta urinib ko\'ring.';
+        String msg = tr.errorOccurred;
         if (e is ApiException) {
           msg = e.userFriendlyMessage;
         }
@@ -302,6 +303,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
   @override
   Widget build(BuildContext context) {
+    final tr = context.tr;
+    final langCode = context.currentLangCode;
     final cart = context.watch<CartProvider>();
     final store = context.watch<StoreProvider>().store;
     final storeClosed = store?.isOpen == false;
@@ -319,7 +322,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
       body: SafeArea(
         child: Column(
           children: [
-            const PageHeader(title: 'Rasmiylashtirish', back: true),
+            PageHeader(title: tr.checkoutTitle, back: true),
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(16),
@@ -335,14 +338,14 @@ class _CheckoutPageState extends State<CheckoutPage> {
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(color: const Color(0xFFFCA5A5)),
                         ),
-                        child: const Row(
+                        child: Row(
                           children: [
-                            Icon(Icons.info_outline, color: AppColors.red600, size: 20),
-                            SizedBox(width: 10),
+                            const Icon(Icons.info_outline, color: AppColors.red600, size: 20),
+                            const SizedBox(width: 10),
                             Expanded(
                               child: Text(
-                                'Do\'kon hozir yopiq — buyurtma qabul qilinmaydi.',
-                                style: TextStyle(color: AppColors.red600, fontSize: 13, fontWeight: FontWeight.w600),
+                                tr.checkoutStoreClosed,
+                                style: const TextStyle(color: AppColors.red600, fontSize: 13, fontWeight: FontWeight.w600),
                               ),
                             ),
                           ],
@@ -351,7 +354,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
                     // Manzil bloki
                     _buildCard(
-                      title: 'Yetkazib berish manzili',
+                      title: tr.checkoutDeliveryAddress,
                       icon: Icons.location_on_rounded,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -361,7 +364,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                               spacing: 8,
                               children: _savedAddresses.map((a) {
                                 final text = a['address_line'] ?? '';
-                                final label = a['label'] ?? 'Manzil';
+                                final label = a['label'] ?? tr.orderAddress;
                                 return ActionChip(
                                   avatar: const Icon(Icons.bookmark_border_rounded, size: 16, color: AppColors.brand),
                                   label: Text('$label: $text', style: const TextStyle(fontSize: 12)),
@@ -378,7 +381,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                             maxLines: 2,
                             onChanged: (_) => _addressAuto = false,
                             decoration: InputDecoration(
-                              hintText: 'Ko\'cha, uy, xonadon, mo\'ljal...',
+                              hintText: tr.checkoutAddressHint,
                               hintStyle: const TextStyle(fontSize: 13, color: AppColors.slate400),
                               filled: true,
                               fillColor: AppColors.slate50,
@@ -389,7 +392,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                                 icon: _locating
                                     ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.brand))
                                     : const Icon(Icons.my_location_rounded, color: AppColors.brand),
-                                tooltip: 'Joriy GPS joylashuv',
+                                tooltip: tr.mapMyLocation,
                               ),
                             ),
                           ),
@@ -405,8 +408,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
                                 child: OutlinedButton.icon(
                                   onPressed: _pickOnMap,
                                   icon: const Icon(Icons.map_rounded, size: 18, color: AppColors.brand),
-                                  label: const Text('Xaritadan tanlash',
-                                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.brand)),
+                                  label: Text(tr.checkoutAddressPickMap,
+                                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.brand)),
                                   style: OutlinedButton.styleFrom(
                                     padding: const EdgeInsets.symmetric(vertical: 12),
                                     side: const BorderSide(color: Color(0xFFE2E8F0)),
@@ -421,8 +424,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
                               padding: const EdgeInsets.only(top: 6),
                               child: Text(
                                 _accuracyM! > _maxSubmitAccuracyM
-                                    ? 'GPS aniqligi past (~${_accuracyM!.round()} m) — xaritadan belgilang'
-                                    : 'GPS aniqligi ~${_accuracyM!.round()} m · manzilni qo\'lda tahrirlashingiz mumkin',
+                                    ? tr.checkoutGpsLow(_accuracyM!.round())
+                                    : tr.checkoutGpsAccurate(_accuracyM!.round()),
                                 style: TextStyle(
                                   fontSize: 11.5,
                                   color: _accuracyM! > _maxSubmitAccuracyM ? AppColors.red600 : AppColors.slate400,
@@ -436,7 +439,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
                     // Telefon raqami
                     _buildCard(
-                      title: 'Aloqa uchun telefon',
+                      title: tr.checkoutPhone,
                       icon: Icons.phone_rounded,
                       child: TextField(
                         controller: _phoneController,
@@ -456,16 +459,11 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
                     // To'lov usullari
                     _buildCard(
-                      title: 'To\'lov usuli',
+                      title: tr.checkoutPaymentMethod,
                       icon: Icons.payments_rounded,
                       child: Column(
                         children: [
-                          _buildPaymentTile('cash', 'Naqd pul orqali', 'Yetkazilganda kuryerga', Icons.money_rounded),
-                          // Onlayn to'lov hali ulanmagan — integratsiya tayyor bo'lganda ochiladi.
-                          // const Divider(height: 1, color: Color(0xFFF1F5F9)),
-                          // _buildPaymentTile('click', 'Click orqali', 'Onlayn to\'lov', Icons.credit_card_rounded, enabled: false),
-                          // const Divider(height: 1, color: Color(0xFFF1F5F9)),
-                          // _buildPaymentTile('payme', 'Payme orqali', 'Onlayn to\'lov', Icons.credit_card_rounded, enabled: false),
+                          _buildPaymentTile('cash', tr.checkoutPayCashTitle, tr.checkoutPayCashSubtitle, Icons.money_rounded),
                         ],
                       ),
                     ),
@@ -473,13 +471,13 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
                     // Kuryer uchun izoh
                     _buildCard(
-                      title: 'Kuryer uchun izoh',
+                      title: tr.checkoutComment,
                       icon: Icons.chat_bubble_outline_rounded,
                       child: TextField(
                         controller: _commentController,
                         maxLines: 2,
                         decoration: InputDecoration(
-                          hintText: 'Domofon kodi, qavat, eslatmalar...',
+                          hintText: tr.checkoutCommentHint,
                           hintStyle: const TextStyle(fontSize: 13, color: AppColors.slate400),
                           filled: true,
                           fillColor: AppColors.slate50,
@@ -492,31 +490,31 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
                     // Hisob kvitansiyasi
                     _buildCard(
-                      title: 'To\'lov hisobi',
+                      title: tr.checkoutOrderSummary,
                       icon: Icons.receipt_long_rounded,
                       child: Column(
                         children: [
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text('Mahsulotlar (${cart.totalItems} ta)', style: const TextStyle(color: AppColors.slate500, fontSize: 13.5)),
-                              Text('${money(itemsTotal)} so\'m', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                              Text(tr.itemsCount(cart.totalItems), style: const TextStyle(color: AppColors.slate500, fontSize: 13.5)),
+                              Text('${money(itemsTotal)} ${tr.currency}', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
                             ],
                           ),
                           const SizedBox(height: 8),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Text('Yetkazib berish', style: TextStyle(color: AppColors.slate500, fontSize: 13.5)),
+                              Text(tr.delivery, style: const TextStyle(color: AppColors.slate500, fontSize: 13.5)),
                               if (quote == null)
-                                const Text('Hisoblanmoqda…',
-                                    style: TextStyle(fontSize: 13, color: AppColors.slate400))
+                                Text(tr.checkoutCalculating,
+                                    style: const TextStyle(fontSize: 13, color: AppColors.slate400))
                               else if (!quote.deliveryFeeKnown)
-                                const Text('Manzilga qarab',
-                                    style: TextStyle(fontSize: 13, color: AppColors.slate400))
+                                Text(tr.cartDeliveryDependsOnAddress,
+                                    style: const TextStyle(fontSize: 13, color: AppColors.slate400))
                               else
                                 Text(
-                                  quote.isFreeDelivery ? 'Bepul' : '${money(quote.deliveryFee)} so\'m',
+                                  quote.isFreeDelivery ? tr.free : '${money(quote.deliveryFee)} ${tr.currency}',
                                   style: TextStyle(
                                     fontWeight: FontWeight.w600,
                                     fontSize: 14,
@@ -531,7 +529,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                               child: Align(
                                 alignment: Alignment.centerRight,
                                 child: Text(
-                                  '${quote.distanceKm!.toStringAsFixed(1)} km • ${money(quote.freeDeliveryFrom)} so\'mdan bepul',
+                                  '${quote.distanceKm!.toStringAsFixed(1)} km • ${tr.checkoutFreeFrom(quote.freeDeliveryFrom)}',
                                   style: const TextStyle(fontSize: 11.5, color: AppColors.slate400),
                                 ),
                               ),
@@ -543,11 +541,11 @@ class _CheckoutPageState extends State<CheckoutPage> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Text('Jami', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.slate900)),
+                              Text(tr.total, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.slate900)),
                               Text(
                                 _quoteLoading && quote == null
                                     ? '…'
-                                    : '${money(total)} so\'m',
+                                    : '${money(total)} ${tr.currency}',
                                 style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w900, color: AppColors.brand),
                               ),
                             ],
@@ -570,14 +568,14 @@ class _CheckoutPageState extends State<CheckoutPage> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Row(
+                            Row(
                               children: [
-                                Icon(Icons.remove_shopping_cart_outlined, color: AppColors.red600, size: 18),
-                                SizedBox(width: 8),
+                                const Icon(Icons.remove_shopping_cart_outlined, color: AppColors.red600, size: 18),
+                                const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
-                                    'Savatni to\'g\'rilash kerak',
-                                    style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.red600, fontSize: 13.5),
+                                    tr.checkoutFixCart,
+                                    style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.red600, fontSize: 13.5),
                                   ),
                                 ),
                               ],
@@ -586,7 +584,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                             for (final issue in blockingIssues)
                               Padding(
                                 padding: const EdgeInsets.only(top: 4),
-                                child: Text('• ${issue.message}',
+                                child: Text('• ${issue.localizedMessage(langCode)}',
                                     style: const TextStyle(fontSize: 12.5, color: Color(0xFF991B1B))),
                               ),
                           ],
@@ -617,9 +615,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
                         child: Center(
                           child: _loading
                               ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white))
-                              : const Text(
-                                  'Buyurtmani tasdiqlash',
-                                  style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700),
+                              : Text(
+                                  tr.checkoutSubmitBtn,
+                                  style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700),
                                 ),
                         ),
                       ),
@@ -674,10 +672,11 @@ class _CheckoutPageState extends State<CheckoutPage> {
     return InkWell(
       onTap: () {
         if (!enabled) {
+          final tr = context.tr;
           ScaffoldMessenger.of(context).hideCurrentSnackBar();
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('$title tizimi tez orada ishga tushadi. Hozircha naqd to\'lov amal qiladi.'),
+              content: Text(tr.checkoutOnlineSoon(title)),
               duration: const Duration(seconds: 2),
               behavior: SnackBarBehavior.floating,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -724,9 +723,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
                             color: const Color(0xFFFEF3C7),
                             borderRadius: BorderRadius.circular(6),
                           ),
-                          child: const Text(
-                            'Tez kunda',
-                            style: TextStyle(
+                          child: Text(
+                            context.tr.checkoutComingSoon,
+                            style: const TextStyle(
                               color: Color(0xFFB45309),
                               fontSize: 10,
                               fontWeight: FontWeight.w700,

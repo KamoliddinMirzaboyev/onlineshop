@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../services/store.dart';
 import '../services/notification_center.dart';
 import '../models/catalog.dart';
+import '../core/i18n.dart';
 import '../core/theme.dart';
 import '../widgets/cart_pill.dart';
 import '../widgets/common.dart';
@@ -45,26 +46,29 @@ class _HomePageState extends State<HomePage> {
   int _bannerIndex = 0;
   Timer? _bannerTimer;
 
-  static const _fallbackBanners = [
-    (
-      'Tezkor yetkazib berish ⚡️',
-      'Do\'konimizdan yangi mahsulotlar 25-35 daqiqada uyingizda',
-      Color(0xFF15803D), // solid brand green — NO GRADIENT
-      Icons.delivery_dining_rounded,
-    ),
-    (
-      'Barakali narxlar 🛒',
-      'Har kuni sifatli va hamyonbop mahsulotlar xaridi',
-      Color(0xFF0F172A), // solid dark slate — NO GRADIENT
-      Icons.shopping_bag_rounded,
-    ),
-    (
-      'Keng assortiment 🍎🥬',
-      'Do\'konimizdagi yuzlab sara mahsulotlardan tanlang',
-      Color(0xFF1E293B), // solid slate — NO GRADIENT
-      Icons.storefront_rounded,
-    ),
-  ];
+  List<(String, String, Color, IconData)> _getFallbackBanners(BuildContext context) {
+    final tr = context.tr;
+    return [
+      (
+        tr.homeBanner1Title,
+        tr.homeBanner1Desc,
+        const Color(0xFF15803D), // solid brand green — NO GRADIENT
+        Icons.delivery_dining_rounded,
+      ),
+      (
+        tr.homeBanner2Title,
+        tr.homeBanner2Desc,
+        const Color(0xFF0F172A), // solid dark slate — NO GRADIENT
+        Icons.shopping_bag_rounded,
+      ),
+      (
+        tr.homeBanner3Title,
+        tr.homeBanner3Desc,
+        const Color(0xFF1E293B), // solid slate — NO GRADIENT
+        Icons.storefront_rounded,
+      ),
+    ];
+  }
 
   @override
   void initState() {
@@ -191,7 +195,7 @@ class _HomePageState extends State<HomePage> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      isOpen ? 'Ochiq • Yetkazish ~${store?.avgDeliveryMinutes ?? 30} daqiqa' : 'Hozircha yopiq',
+                      isOpen ? context.tr.homeStoreOpen(store?.avgDeliveryMinutes ?? 30) : context.tr.homeStoreClosed,
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
@@ -260,13 +264,13 @@ class _HomePageState extends State<HomePage> {
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(color: const Color(0xFFE2E8F0), width: 1),
               ),
-              child: const Row(
+              child: Row(
                 children: [
-                  Icon(Icons.search_rounded, size: 20, color: AppColors.slate400),
-                  SizedBox(width: 10),
+                  const Icon(Icons.search_rounded, size: 20, color: AppColors.slate400),
+                  const SizedBox(width: 10),
                   Text(
-                    'Mahsulotlarni qidirish...',
-                    style: TextStyle(color: AppColors.slate400, fontSize: 13.5, fontWeight: FontWeight.w500),
+                    context.tr.homeSearchPlaceholder,
+                    style: const TextStyle(color: AppColors.slate400, fontSize: 13.5, fontWeight: FontWeight.w500),
                   ),
                 ],
               ),
@@ -290,9 +294,9 @@ class _HomePageState extends State<HomePage> {
             children: [
               const Icon(Icons.wifi_off_rounded, size: 48, color: AppColors.slate400),
               const SizedBox(height: 12),
-              const Text('Internetga ulanishda xatolik', style: TextStyle(color: AppColors.slate500, fontSize: 15)),
+              Text(context.tr.networkError, style: const TextStyle(color: AppColors.slate500, fontSize: 15)),
               const SizedBox(height: 16),
-              AppButton(label: 'Qayta urinish', onPressed: storeProvider.load),
+              AppButton(label: context.tr.retry, onPressed: storeProvider.load),
             ],
           ),
         ),
@@ -302,11 +306,12 @@ class _HomePageState extends State<HomePage> {
     final store = storeProvider.store;
     if (store == null) return const SizedBox.shrink();
 
+    final langCode = context.currentLangCode;
     final groups = store.categoryGroups;
     final categories = store.categories;
     final sections = <(String?, String?, List<Category>)>[
       for (final g in groups)
-        (g.nameUz, g.bgColor, categories.where((c) => c.groupId == g.id).toList()),
+        (g.name(langCode), g.bgColor, categories.where((c) => c.groupId == g.id).toList()),
       (null, null, categories.where((c) => !groups.any((g) => g.id == c.groupId)).toList()),
     ].where((s) => s.$3.isNotEmpty).toList();
 
@@ -326,16 +331,15 @@ class _HomePageState extends State<HomePage> {
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: const Color(0xFFFDE68A)),
               ),
-              child: const Row(
+              child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.location_off_rounded, size: 20, color: Color(0xFFB45309)),
-                  SizedBox(width: 10),
+                  const Icon(Icons.location_off_rounded, size: 20, color: Color(0xFFB45309)),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      'Sizning hududingizga hozircha yetkazib bermaymiz — '
-                      'katalogni ko\'rishingiz mumkin, lekin buyurtma qabul qilinmaydi.',
-                      style: TextStyle(
+                      context.tr.homeOutOfRangeDesc,
+                      style: const TextStyle(
                         color: Color(0xFF92400E), fontSize: 12.5, height: 1.45,
                         fontWeight: FontWeight.w500,
                       ),
@@ -353,7 +357,7 @@ class _HomePageState extends State<HomePage> {
 
           // Bo'limlar va kategoriyalar
           if (sections.isEmpty)
-            const Center(child: Text('Kategoriyalar yo\'q', style: TextStyle(color: AppColors.slate400)))
+            Center(child: Text(context.tr.homeEmptyCatalog, style: const TextStyle(color: AppColors.slate400)))
           else
             for (int si = 0; si < sections.length; si++) ...[
               if (sections[si].$1 != null) ...[
@@ -365,7 +369,7 @@ class _HomePageState extends State<HomePage> {
                       style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.slate900),
                     ),
                     Text(
-                      '${sections[si].$3.length} turkum',
+                      context.tr.homeCategoriesCount(sections[si].$3.length),
                       style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.slate400),
                     ),
                   ],
@@ -401,7 +405,8 @@ class _HomePageState extends State<HomePage> {
   Widget _buildBanners(StoreProvider storeProvider) {
     final backendBanners = storeProvider.store?.banners ?? [];
     final hasBackend = backendBanners.isNotEmpty;
-    final totalCount = hasBackend ? backendBanners.length : _fallbackBanners.length;
+    final fallbackBanners = _getFallbackBanners(context);
+    final totalCount = hasBackend ? backendBanners.length : fallbackBanners.length;
 
     if (totalCount == 0) return const SizedBox.shrink();
 
@@ -541,7 +546,7 @@ class _HomePageState extends State<HomePage> {
               }
 
               // Fallback solid banner
-              final (title, subtitle, solidColor, icon) = _fallbackBanners[idx];
+              final (title, subtitle, solidColor, icon) = fallbackBanners[idx];
               return Container(
                 margin: const EdgeInsets.symmetric(horizontal: 2),
                 padding: const EdgeInsets.all(18),
@@ -748,7 +753,7 @@ class _CategoryCardState extends State<_CategoryCard> {
                 child: Align(
                   alignment: Alignment.topLeft,
                   child: Text(
-                    category.nameUz,
+                    category.name(context.currentLangCode),
                     style: const TextStyle(
                       fontWeight: FontWeight.w800,
                       fontSize: 16,

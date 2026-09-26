@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 
+import '../core/i18n.dart';
 import '../widgets/toast.dart';
 
 /// HTTP client mirroring `src/api.ts`. Holds the client bearer token in memory
@@ -28,7 +29,7 @@ class ApiException implements Exception {
         return detail.toString();
       }
     } catch (_) {}
-    return message.trim().isNotEmpty ? message : 'Xatolik yuz berdi';
+    return message.trim().isNotEmpty ? message : LanguageProvider.currentStrings.generalError;
   }
 
   @override
@@ -46,10 +47,12 @@ class ApiService {
   static const _base = 'https://api.barakali-bozor.uz/api';
   static const _tokenKey = 'af_mijoz_token';
   static const _refreshTokenKey = 'af_mijoz_refresh_token';
+  static const _onboardedKey = 'af_mijoz_onboarded';
   static const _storage = FlutterSecureStorage();
 
   String? _token;
   String? _refreshToken;
+  bool _onboarded = false;
   /// Parallel so'rovlar bitta refreshni kutadi. Avval `bool _isRefreshing` edi:
   /// ikkinchi so'rov darhol `false` olib, tokenlarni o'chirib foydalanuvchini
   /// login ekraniga tashlardi — refresh aslida muvaffaqiyatli bo'lsa ham.
@@ -60,15 +63,31 @@ class ApiService {
     try {
       _token = await _storage.read(key: _tokenKey);
       _refreshToken = await _storage.read(key: _refreshTokenKey);
+      _onboarded = (await _storage.read(key: _onboardedKey)) == '1';
     } catch (_) {
       _token = null;
       _refreshToken = null;
+      _onboarded = false;
     }
   }
 
   bool get hasToken => _token != null && _token!.isNotEmpty;
   String? get token => _token;
   String? get refreshToken => _refreshToken;
+
+  /// Login (ism so'rash + joylashuv/bildirishnoma ruxsat) zanjiri to'liq
+  /// bosib o'tilganini bildiradi. `_BootGate` shusiz zanjir yarim yo'lda
+  /// tashlab ketilgan bo'lsa ham (ilova o'chirilsa/tarmoq uzilsa) `hasToken`
+  /// asosida to'g'ridan-to'g'ri Home'ga o'tkazib yuborardi — foydalanuvchi
+  /// ismi bo'sh, ruxsatlar so'ralmagan holda qolib ketardi.
+  bool get onboarded => _onboarded;
+
+  Future<void> markOnboarded() async {
+    _onboarded = true;
+    try {
+      await _storage.write(key: _onboardedKey, value: '1');
+    } catch (_) {}
+  }
 
   Future<void> setTokens({String? access, String? refresh}) async {
     _token = access;
@@ -89,6 +108,11 @@ class ApiService {
       } else if (access == null) {
         await _storage.delete(key: _refreshTokenKey);
       }
+      if (access == null) {
+        // Chiqish/401 — keyingi kirishda onboarding zanjiri qaytadan o'tsin.
+        _onboarded = false;
+        await _storage.delete(key: _onboardedKey);
+      }
     } catch (_) {
       // Keychain/Keystore vaqtincha ishlamasa ham — xotirada saqlanadi.
     }
@@ -98,6 +122,7 @@ class ApiService {
 
   Map<String, String> get _headers => {
         'Content-Type': 'application/json',
+        'Accept-Language': LanguageProvider.currentCode,
         if (hasToken) 'Authorization': 'Bearer $_token',
       };
 
@@ -114,7 +139,7 @@ class ApiService {
       return;
     }
     _lastNetworkToast = now;
-    toast.error(msg, title: 'Aloqa yo\'q');
+    toast.error(msg, title: LanguageProvider.currentStrings.noInternetConnection);
   }
 
   /// Fondagi avtomatik Refresh Token almashinuvi.
@@ -185,21 +210,21 @@ class ApiService {
       if (!isNetRetry) {
         return _request(method, path, body: body, isRetry: isRetry, isNetRetry: true);
       }
-      _notifyNetworkError('Internet sekin ishlayapti. Mobil tarmoqni tekshiring.');
+      _notifyNetworkError(LanguageProvider.currentStrings.networkSlow);
       rethrow;
     } on SocketException {
       if (!isNetRetry) {
         await Future.delayed(const Duration(milliseconds: 800));
         return _request(method, path, body: body, isRetry: isRetry, isNetRetry: true);
       }
-      _notifyNetworkError('Internet aloqasi yo\'q. Mobil tarmoqni yoqib ko\'ring.');
+      _notifyNetworkError(LanguageProvider.currentStrings.networkNoConnection);
       rethrow;
     } on http.ClientException {
       if (!isNetRetry) {
         await Future.delayed(const Duration(milliseconds: 800));
         return _request(method, path, body: body, isRetry: isRetry, isNetRetry: true);
       }
-      _notifyNetworkError('Internet aloqasi yo\'q. Mobil tarmoqni yoqib ko\'ring.');
+      _notifyNetworkError(LanguageProvider.currentStrings.networkNoConnection);
       rethrow;
     }
 
