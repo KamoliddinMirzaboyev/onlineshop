@@ -25,6 +25,7 @@ from app.schemas.auth import (
     LogoutIn,
     OtpRequestIn,
     OtpVerifyIn,
+    PhoneAuthIn,
     RefreshTokenIn,
     TelegramAuthIn,
     TokenOut,
@@ -42,6 +43,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
+_phone_auth_limit = rate_limiter("phone_auth", limit=15, window_seconds=60)
 _tg_auth_limit = rate_limiter("tg_auth", limit=30, window_seconds=60)
 _otp_request_limit = rate_limiter("otp_request", limit=5, window_seconds=60)
 _otp_verify_limit = rate_limiter("otp_verify", limit=15, window_seconds=60)
@@ -102,6 +104,45 @@ def telegram_auth(data: TelegramAuthIn, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(user)
 
+    access_token = create_access_token(subject=str(user.id), role="user")
+    refresh_token = create_refresh_token(subject=str(user.id), role="user")
+    return AuthResult(
+        token=TokenOut(access_token=access_token, refresh_token=refresh_token),
+        user=UserOut.model_validate(user),
+    )
+
+
+@router.post("/phone", response_model=AuthResult, dependencies=[Depends(_phone_auth_limit)])
+def phone_auth(data: PhoneAuthIn, db: Session = Depends(get_db)):
+    """Mijoz ilovasi (mijoz_app) uchun soddalashtirilgan kirish/ro'yxatdan o'tish.
+
+    SMS OTP yoki Telegram bot kodi talab qilinmaydi.
+    - Agar raqam bazada bo'lsa (mavjud mijoz) -> tokenlar beriladi.
+    - Agar raqam bo'lmasa -> yangi User ochiladi va tokenlar beriladi.
+    """
+    phone = data.phone
+    user = db.scalar(
+        select(User)
+        .where(User.phone.in_([phone, phone.lstrip("+")]))
+        .order_by(User.id)
+    )
+    if user is not None and user.phone != phone:
+        user.phone = phone
+        db.commit()
+    if user is None:
+        user = User(phone=phone)
+        db.add(user)
+        try:
+            db.commit()
+        except IntegrityError:
+            db.rollback()
+            user = db.scalar(select(User).where(User.phone == phone))
+            if not user:
+                raise
+    if user.is_blocked:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Akkauntingiz bloklangan")
+
+    db.refresh(user)
     access_token = create_access_token(subject=str(user.id), role="user")
     refresh_token = create_refresh_token(subject=str(user.id), role="user")
     return AuthResult(

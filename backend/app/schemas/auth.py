@@ -9,6 +9,15 @@ class TelegramAuthIn(BaseModel):
     init_data: str
 
 
+class PhoneAuthIn(BaseModel):
+    phone: str
+
+    @field_validator("phone")
+    @classmethod
+    def _phone(cls, v: str) -> str:
+        return require_phone(v)
+
+
 class OtpRequestIn(BaseModel):
     phone: str
 
