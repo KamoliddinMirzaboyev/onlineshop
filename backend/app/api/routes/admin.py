@@ -209,11 +209,14 @@ def stats(store: Restaurant = Depends(current_restaurant), db: Session = Depends
         select(func.count(func.distinct(Order.user_id))).where(Order.restaurant_id == rid)
     ) or 0
     products_total = db.scalar(
-        select(func.count(Product.id)).where(Product.restaurant_id == rid)
+        select(func.count(Product.id)).where(
+            Product.restaurant_id == rid, Product.is_archived.is_(False)
+        )
     ) or 0
     low_stock_count = db.scalar(
         select(func.count(Product.id)).where(
-            Product.stock <= Product.low_stock_threshold, Product.restaurant_id == rid
+            Product.stock <= Product.low_stock_threshold, Product.restaurant_id == rid,
+            Product.is_archived.is_(False),
         )
     ) or 0
 
@@ -457,7 +460,7 @@ def list_products(
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Not your store")
     return db.scalars(
         select(Product)
-        .where(Product.restaurant_id == rid)
+        .where(Product.restaurant_id == rid, Product.is_archived.is_(False))
         .order_by(Product.sort_order)
         .limit(limit)
         .offset(offset)
@@ -511,18 +514,19 @@ def update_product(
 def delete_product(
     pid: int, store: Restaurant = Depends(current_restaurant), db: Session = Depends(get_db)
 ):
+    """Buyurtma tarixida ishlatilgan mahsulot FK tufayli o'chib bo'lmaydi —
+    unda arxivlanadi (mijoz va admin ro'yxatida ko'rinmaydi, tarix saqlanadi)."""
     p = db.get(Product, pid)
-    if p and p.restaurant_id == store.id:
+    if p and p.restaurant_id == store.id and not p.is_archived:
         try:
             db.delete(p)
             db.commit()
         except IntegrityError:
             db.rollback()
-            raise HTTPException(
-                status.HTTP_409_CONFLICT,
-                "Mahsulot buyurtmalar tarixida ishlatilgan — o'chirib bo'lmaydi, "
-                "'mavjud emas' qilib belgilang",
-            )
+            p = db.get(Product, pid)
+            p.is_archived = True
+            p.is_available = False
+            db.commit()
         invalidate_restaurant_catalog(store.id)
 
 

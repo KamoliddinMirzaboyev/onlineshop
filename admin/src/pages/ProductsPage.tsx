@@ -117,7 +117,7 @@ export default function ProductsPage() {
     if (!storeId) return;
     const ok = await confirm({
       title: `"${p.name_uz}" o'chirilsinmi?`,
-      message: "Mahsulot ro'yxatdan olib tashlanadi.",
+      message: "Mahsulot ro'yxatdan olib tashlanadi. Buyurtma tarixi saqlanib qoladi.",
       confirmText: "O'chirish",
       danger: true,
     });
@@ -126,8 +126,13 @@ export default function ProductsPage() {
       await del(`/admin/products/${p.id}`);
       await loadData(storeId);
       toast.success("Mahsulot o'chirildi");
-    } catch {
-      toast.error("O'chirib bo'lmadi");
+    } catch (e) {
+      let msg = "O'chirib bo'lmadi";
+      try {
+        const d = JSON.parse(String((e as Error).message).replace(/^\d+:\s*/, "")).detail;
+        if (typeof d === "string") msg = d;
+      } catch { /* umumiy xabar */ }
+      toast.error(msg);
     }
   };
 

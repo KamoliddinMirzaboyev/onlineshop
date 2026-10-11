@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, Numeric, String, Text, func
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, Numeric, String, Text, false, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -108,6 +108,8 @@ class Product(Base):
     unit: Mapped[str] = mapped_column(String(32), default="dona")        # oʻlchov birligi
     low_stock_threshold: Mapped[float] = mapped_column(Float, default=10.0)  # kam qoldiq chegarasi
     is_available: Mapped[bool] = mapped_column(Boolean, default=True)
+    # Buyurtma tarixi bor mahsulot o'chirilganda arxivlanadi (FK tufayli o'chib bo'lmaydi)
+    is_archived: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
 
     restaurant = relationship("Restaurant", back_populates="products")

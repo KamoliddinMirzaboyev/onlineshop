@@ -70,7 +70,7 @@ def _build_detail(restaurant: Restaurant, db: Session):
             products = [
                 ProductOut.model_validate(p)
                 for p in sorted(sub.products, key=lambda x: x.sort_order)
-                if p.is_available
+                if p.is_available and not p.is_archived
             ]
             sw = SubcategoryOut.model_validate(sub)
             sw.products = products
