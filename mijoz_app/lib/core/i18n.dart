@@ -73,10 +73,23 @@ class LanguageProvider extends ChangeNotifier {
 }
 
 /// Qulay chaqiruv: `context.tr` yoki `I18n.of(context)`
+///
+/// `build` ichida til o'zgarganda vidjet qayta chizilishi uchun `watch`
+/// ishlatiladi. Tugma bosilishi kabi handler'larda (build'dan tashqarida)
+/// Provider `watch`ni debug'da assertion bilan rad etadi — u holda `read`ga
+/// o'tamiz (handler'da obuna kerak emas, joriy qiymat yetarli).
+LanguageProvider _languageOf(BuildContext context) {
+  try {
+    return context.watch<LanguageProvider>();
+  } on AssertionError {
+    return context.read<LanguageProvider>();
+  }
+}
+
 extension LanguageContextExt on BuildContext {
-  AppStrings get tr => watch<LanguageProvider>().strings;
-  LanguageProvider get lang => watch<LanguageProvider>();
-  String get currentLangCode => watch<LanguageProvider>().code;
+  AppStrings get tr => _languageOf(this).strings;
+  LanguageProvider get lang => _languageOf(this);
+  String get currentLangCode => _languageOf(this).code;
 }
 
 class I18n {
