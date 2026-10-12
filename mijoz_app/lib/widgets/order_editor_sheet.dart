@@ -80,6 +80,8 @@ class _OrderEditorSheetState extends State<_OrderEditorSheet> {
   bool _picker = false;
   bool _saving = false;
   String _query = '';
+  Category? _cat; // tanlovdagi kategoriya
+  Subcategory? _sub; // tanlovdagi sub-kategoriya
   String? _error;
 
   List<Product> get _available => [
@@ -88,6 +90,40 @@ class _OrderEditorSheetState extends State<_OrderEditorSheet> {
             for (final p in sc.products)
               if (p.inStock) p,
       ];
+
+  List<Category> get _categories => [
+        for (final c in widget.store?.categories ?? const <Category>[])
+          if (c.subcategories.any((sc) => sc.products.any((p) => p.inStock))) c,
+      ];
+
+  List<Subcategory> _subsOf(Category c) =>
+      [for (final sc in c.subcategories) if (sc.products.any((p) => p.inStock)) sc];
+
+  void _openCategory(Category c) {
+    final subs = _subsOf(c);
+    setState(() {
+      _cat = c;
+      // Bitta sub-kategoriya bo'lsa — ortiqcha qadamsiz to'g'ridan-to'g'ri mahsulotlar.
+      _sub = subs.length == 1 ? subs.first : null;
+    });
+  }
+
+  /// Orqaga: mahsulotlar → sub-kategoriyalar → kategoriyalar → buyurtma ro'yxati.
+  void _back() {
+    setState(() {
+      if (!_picker) return;
+      if (_query.isNotEmpty) {
+        _query = '';
+      } else if (_sub != null && _cat != null && _subsOf(_cat!).length > 1) {
+        _sub = null;
+      } else if (_cat != null) {
+        _cat = null;
+        _sub = null;
+      } else {
+        _picker = false;
+      }
+    });
+  }
 
   void _setQty(int pid, double qty) => setState(() {
         if (qty <= 1e-9) {
@@ -154,13 +190,20 @@ class _OrderEditorSheetState extends State<_OrderEditorSheet> {
               children: [
                 Expanded(
                   child: Text(
-                    _picker ? tr.orderEditAddProduct : tr.orderEdit,
+                    !_picker
+                        ? tr.orderEdit
+                        : (_sub?.name(context.currentLangCode) ??
+                            _cat?.name(context.currentLangCode) ??
+                            tr.orderEditAddProduct),
                     style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: AppColors.slate900),
                   ),
                 ),
                 IconButton(
-                  onPressed: () => _picker ? setState(() => _picker = false) : Navigator.of(context).pop(),
-                  icon: const Icon(Icons.close_rounded, color: AppColors.slate700),
+                  onPressed: () => _picker ? _back() : Navigator.of(context).pop(),
+                  icon: Icon(
+                    _picker ? Icons.arrow_back_rounded : Icons.close_rounded,
+                    color: AppColors.slate700,
+                  ),
                 ),
               ],
             ),
@@ -252,6 +295,8 @@ class _OrderEditorSheetState extends State<_OrderEditorSheet> {
         OutlinedButton.icon(
           onPressed: () => setState(() {
             _query = '';
+            _cat = null;
+            _sub = null;
             _picker = true;
           }),
           icon: const Icon(Icons.add_rounded, size: 18),
@@ -267,66 +312,124 @@ class _OrderEditorSheetState extends State<_OrderEditorSheet> {
     );
   }
 
+  Widget _productRow(Product p, String lang) {
+    final inDraft = _draft[p.id];
+    final step = p.qtyStep;
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+      leading: _thumb(p.imageUrl),
+      title: Text(p.name(lang), maxLines: 2, overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+      subtitle: Text(formatPrice(p.price, lang),
+          style: const TextStyle(fontSize: 12, color: AppColors.slate400)),
+      trailing: inDraft == null
+          ? _roundBtn(Icons.add_rounded, () => _add(p), filled: true)
+          : Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _roundBtn(
+                  inDraft.quantity <= step ? Icons.delete_outline_rounded : Icons.remove_rounded,
+                  () => _setQty(p.id, inDraft.quantity - step),
+                  iconColor: inDraft.quantity <= step ? AppColors.red600 : null,
+                ),
+                SizedBox(
+                  width: 36,
+                  child: Text(formatQty(inDraft.quantity),
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontWeight: FontWeight.w700)),
+                ),
+                _roundBtn(Icons.add_rounded, () => _add(p), filled: true),
+              ],
+            ),
+    );
+  }
+
+  Widget _navRow(String title, String? subtitle, String? image, VoidCallback onTap) => ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+        leading: _thumb(image),
+        title: Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+        subtitle: subtitle == null
+            ? null
+            : Text(subtitle, style: const TextStyle(fontSize: 12, color: AppColors.slate400)),
+        trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.slate400),
+        onTap: onTap,
+      );
+
   Widget _buildPicker(AppStrings tr, String lang) {
     final q = _query.trim().toLowerCase();
-    final found = _available
-        .where((p) => q.isEmpty || p.nameUz.toLowerCase().contains(q) || p.nameRu.toLowerCase().contains(q))
-        .toList();
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-          child: TextField(
-            onChanged: (v) => setState(() => _query = v),
-            decoration: InputDecoration(
-              hintText: tr.orderEditSearch,
-              prefixIcon: const Icon(Icons.search_rounded, size: 20),
-              filled: true,
-              fillColor: AppColors.slate100,
-              isDense: true,
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
-            ),
-          ),
+
+    // Qidiruv — ixtiyoriy yordamchi; asosiy yo'l kategoriyalar orqali.
+    final search = Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+      child: TextField(
+        onChanged: (v) => setState(() => _query = v),
+        decoration: InputDecoration(
+          hintText: tr.orderEditSearch,
+          prefixIcon: const Icon(Icons.search_rounded, size: 20),
+          filled: true,
+          fillColor: AppColors.slate100,
+          isDense: true,
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
         ),
-        Flexible(
-          child: found.isEmpty
+      ),
+    );
+
+    Widget list(List<Widget> children) => Flexible(
+          child: children.isEmpty
               ? Padding(
                   padding: const EdgeInsets.all(32),
                   child: Text(tr.orderEditNotFound, style: const TextStyle(color: AppColors.slate400)),
                 )
-              : ListView.builder(
-                  shrinkWrap: true,
-                  padding: const EdgeInsets.all(12),
-                  itemCount: found.length,
-                  itemBuilder: (_, i) {
-                    final p = found[i];
-                    final inDraft = _draft[p.id]?.quantity;
-                    return ListTile(
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-                      leading: _thumb(p.imageUrl),
-                      title: Text(p.name(lang), maxLines: 1, overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-                      subtitle: Text(formatPrice(p.price, lang),
-                          style: const TextStyle(fontSize: 12, color: AppColors.slate400)),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (inDraft != null)
-                            Padding(
-                              padding: const EdgeInsets.only(right: 8),
-                              child: Text('×${formatQty(inDraft)}',
-                                  style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.slate700)),
-                            ),
-                          _roundBtn(Icons.add_rounded, () => _add(p), filled: true),
-                        ],
-                      ),
-                    );
-                  },
-                ),
-        ),
-      ],
-    );
+              : ListView(shrinkWrap: true, padding: const EdgeInsets.all(12), children: children),
+        );
+
+    if (q.isNotEmpty) {
+      final found = _available
+          .where((p) => p.nameUz.toLowerCase().contains(q) || p.nameRu.toLowerCase().contains(q))
+          .toList();
+      return Column(mainAxisSize: MainAxisSize.min, children: [
+        search,
+        list([for (final p in found) _productRow(p, lang)]),
+      ]);
+    }
+
+    // 3-daraja: mahsulotlar
+    if (_sub != null) {
+      final products = _sub!.products.where((p) => p.inStock).toList();
+      return Column(mainAxisSize: MainAxisSize.min, children: [
+        list([for (final p in products) _productRow(p, lang)]),
+      ]);
+    }
+
+    // 2-daraja: sub-kategoriyalar
+    if (_cat != null) {
+      return Column(mainAxisSize: MainAxisSize.min, children: [
+        list([
+          for (final sc in _subsOf(_cat!))
+            _navRow(
+              sc.name(lang),
+              '${sc.products.where((p) => p.inStock).length}',
+              sc.imageUrl ?? sc.products.firstWhere((p) => p.inStock).imageUrl,
+              () => setState(() => _sub = sc),
+            ),
+        ]),
+      ]);
+    }
+
+    // 1-daraja: kategoriyalar
+    return Column(mainAxisSize: MainAxisSize.min, children: [
+      search,
+      list([
+        for (final c in _categories)
+          _navRow(
+            c.name(lang),
+            null,
+            c.imageUrl ??
+                c.subcategories.expand((sc) => sc.products).firstWhere((p) => p.inStock).imageUrl,
+            () => _openCategory(c),
+          ),
+      ]),
+    ]);
   }
 
   Widget _buildFooter(AppStrings tr, String lang) {

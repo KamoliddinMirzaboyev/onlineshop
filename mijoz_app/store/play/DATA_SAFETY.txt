@@ -1,0 +1,60 @@
+Google Play Console → App content → Data safety (to‘ldirish bo‘yicha)
+
+Ilova: Barakali Bozor (uz.barakalibozor.mijoz)
+Maxfiylik siyosati URL: https://www.barakali-bozor.uz/privacy
+Hisobni o‘chirish URL:  https://www.barakali-bozor.uz/account-deletion
+(Ilovaning o‘zida ham: Profil → Hisobni o‘chirish)
+
+────────────────────────────────────
+Yig‘iladigan ma’lumotlar
+────────────────────────────────────
+✓ Joylashuv — aniq va taxminiy (ACCESS_FINE/COARSE_LOCATION)
+  Maqsad: App functionality (eng yaqin do‘kon, yetkazish manzili)
+  Majburiy: yo‘q (xaritadan yoki matn bilan manzil kiritish mumkin)
+  Uchinchi tomonga uzatiladi: YO‘Q
+
+✓ Shaxsiy ma’lumot — ism, familiya, telefon raqami
+  Maqsad: App functionality, Account management
+  Majburiy: ha (buyurtma va kirish uchun)
+  Sotiladi / reklama uchun ishlatiladi: YO‘Q
+
+✓ Manzil ma’lumotlari (yetkazish manzili, izoh)
+  Maqsad: App functionality
+  Sotiladi: YO‘Q
+
+✓ Xaridlar tarixi — buyurtmalar
+  Maqsad: App functionality
+  Sotiladi: YO‘Q
+
+✓ Qurilma yoki boshqa ID — FCM push token
+  Maqsad: App functionality (buyurtma bildirishnomalari)
+  Sotiladi: YO‘Q
+
+✓ Ilova ishlashi — crash loglar va diagnostika (Firebase Crashlytics)
+  Maqsad: Analytics (barqarorlik)
+  Sotiladi: YO‘Q   (xizmat ko‘rsatuvchi — Google Firebase, ma’lumotni biz nomimizdan qayta ishlaydi)
+
+────────────────────────────────────
+Xavfsizlik amaliyotlari
+────────────────────────────────────
+✓ Ma’lumotlar tranzitda shifrlangan (HTTPS; cleartext trafik o‘chirilgan)
+✓ Foydalanuvchi ma’lumotlarini o‘chirishni so‘rashi mumkin (ilova ichida va veb-sahifa orqali)
+✓ Tokenlar qurilmada Keystore/Keychain (flutter_secure_storage) da saqlanadi
+
+────────────────────────────────────
+Boshqa deklaratsiyalar
+────────────────────────────────────
+Reklama ID: ishlatilmaydi → Advertising ID: NO
+Reklama ko‘rsatiladimi: YO‘Q
+Content rating (IARC): Everyone / 3+  (shaxsiy savdo ilovasi, zo‘ravonlik/qimor/kontent yo‘q)
+Target audience: 18+ (to‘lov — naqd; bolalar uchun mo‘ljallanmagan)
+Kategoriya: Food & Drink (yoki Shopping)
+App access: ilova SMS-kod bilan kiradi → reviewer uchun DEMO kirish kerak (quyiga qarang)
+
+────────────────────────────────────
+Reviewer (App access) uchun
+────────────────────────────────────
+Reviewer real SMS ololmaydi. Reviewga yuborishdan oldin serverda
+`DEMO_LOGIN_ENABLED=true` va `DEMO_PHONES` ni sozlang, Console'da "App access"
+bo‘limiga shu raqam va kodni yozing; review tugagach DEMO_LOGIN_ENABLED ni o‘chiring.
+(backend/app/services/otp.py → _is_demo)
