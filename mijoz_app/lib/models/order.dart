@@ -7,6 +7,7 @@ int? _toInt(dynamic v) => v == null ? null : (v as num).toInt();
 class OrderItem {
   OrderItem({
     required this.id,
+    this.productId = 0,
     required this.nameUz,
     required this.nameRu,
     this.imageUrl,
@@ -17,6 +18,7 @@ class OrderItem {
   });
 
   final int id;
+  final int productId;
   final String nameUz;
   final String nameRu;
   final String? imageUrl;
@@ -30,6 +32,7 @@ class OrderItem {
 
   factory OrderItem.fromJson(Map<String, dynamic> j) => OrderItem(
         id: j['id'] as int,
+        productId: (j['product_id'] ?? 0) as int,
         nameUz: (j['name_uz'] ?? '') as String,
         nameRu: (j['name_ru'] ?? '') as String,
         imageUrl: j['image_url'] as String?,

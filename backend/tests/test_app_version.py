@@ -16,7 +16,13 @@ def platform_token(db_session) -> str:
 def test_public_version_check_defaults_to_zero_when_missing(client):
     resp = client.get("/api/app/version/mijoz")
     assert resp.status_code == 200
-    assert resp.json() == {"min_version_code": 0, "store_url": None}
+    assert resp.json() == {
+        "min_version_code": 0,
+        "store_url": None,
+        "latest_version_code": 0,
+        "release_notes_uz": None,
+        "release_notes_ru": None,
+    }
 
 
 def test_platform_admin_can_set_and_read_app_version(client, platform_token):
@@ -41,3 +47,20 @@ def test_non_platform_admin_cannot_set_app_version(client, tenant_a):
         headers=auth(tenant_a.business_token),
     )
     assert resp.status_code == 401
+
+
+def test_optional_update_fields_roundtrip(client, platform_token):
+    resp = client.put(
+        "/api/platform/app-version/kuryer",
+        json={
+            "min_version_code": 0,
+            "latest_version_code": 9,
+            "release_notes_uz": "Yangi imkoniyatlar",
+            "release_notes_ru": "Новые возможности",
+        },
+        headers=auth(platform_token),
+    )
+    assert resp.status_code == 200
+    body = client.get("/api/app/version/kuryer").json()
+    assert body["latest_version_code"] == 9
+    assert body["release_notes_ru"] == "Новые возможности"

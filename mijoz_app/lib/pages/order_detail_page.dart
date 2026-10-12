@@ -7,7 +7,9 @@ import '../core/theme.dart';
 import '../models/catalog.dart';
 import '../models/order.dart';
 import '../services/api.dart';
+import '../widgets/toast.dart';
 import '../widgets/common.dart';
+import '../widgets/order_editor_sheet.dart';
 import '../widgets/skeleton.dart';
 import 'contact_page.dart';
 
@@ -41,6 +43,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> with WidgetsBindingOb
   Order? _order;
   RestaurantDetail? _store;
   bool _error = false;
+  bool _cancelling = false;
   Timer? _timer;
 
   @override
@@ -94,6 +97,59 @@ class _OrderDetailPageState extends State<OrderDetailPage> with WidgetsBindingOb
     } catch (_) {
       if (mounted) setState(() => _error = true);
     }
+  }
+
+  Future<void> _cancelOrder() async {
+    final order = _order;
+    if (order == null || _cancelling) return;
+    final tr = context.tr;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: Text(tr.orderCancelConfirmTitle,
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+        content: Text(tr.orderCancelConfirmDesc,
+            style: const TextStyle(fontSize: 14, color: AppColors.slate500, height: 1.4)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text(tr.orderCancelKeep, style: const TextStyle(color: AppColors.slate700)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text(tr.orderCancel,
+                style: const TextStyle(color: AppColors.red600, fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    setState(() => _cancelling = true);
+    try {
+      final res = await api.post('/orders/${order.id}/cancel', {});
+      if (!mounted) return;
+      setState(() => _order = Order.fromJson(res as Map<String, dynamic>));
+      _timer?.cancel();
+      toast.success(tr.orderCancelDone);
+    } on ApiException catch (e) {
+      // Masalan do'kon shu orada tasdiqlab ulgurgan — server sababini ko'rsatamiz
+      // va holatni yangilaymiz (tugma yo'qoladi).
+      toast.error(e.userFriendlyMessage);
+      _load();
+    } catch (_) {
+      // Tarmoq xatosi api.dart'dagi umumiy toast orqali ko'rsatiladi.
+    } finally {
+      if (mounted) setState(() => _cancelling = false);
+    }
+  }
+
+  Future<void> _editOrder() async {
+    final order = _order;
+    if (order == null) return;
+    final updated = await showOrderEditorSheet(context, order: order, store: _store);
+    if (updated != null && mounted) setState(() => _order = updated);
   }
 
   void _showReceipt() {
@@ -173,6 +229,38 @@ class _OrderDetailPageState extends State<OrderDetailPage> with WidgetsBindingOb
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   // Status bannerlari
+                  if (order.status == 'pending')
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: OutlinedButton.icon(
+                        onPressed: _editOrder,
+                        icon: const Icon(Icons.edit_rounded, size: 18),
+                        label: Text(tr.orderEdit),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.brand,
+                          side: BorderSide(color: AppColors.brand.withValues(alpha: 0.4)),
+                          padding: const EdgeInsets.symmetric(vertical: 13),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        ),
+                      ),
+                    ),
+                  if (order.status == 'pending')
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: OutlinedButton.icon(
+                        onPressed: _cancelling ? null : _cancelOrder,
+                        icon: _cancelling
+                            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                            : const Icon(Icons.cancel_outlined, size: 18),
+                        label: Text(tr.orderCancel),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.red600,
+                          side: BorderSide(color: AppColors.red600.withValues(alpha: 0.35)),
+                          padding: const EdgeInsets.symmetric(vertical: 13),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        ),
+                      ),
+                    ),
                   if (order.status == 'pending')
                     Container(
                       margin: const EdgeInsets.only(bottom: 16),

@@ -316,6 +316,9 @@ def set_app_version(app: str, data: AppVersionIn, db: Session = Depends(get_db))
         db.add(row)
     row.min_version_code = data.min_version_code
     row.store_url = data.store_url
+    row.latest_version_code = data.latest_version_code
+    row.release_notes_uz = data.release_notes_uz
+    row.release_notes_ru = data.release_notes_ru
     db.commit()
     db.refresh(row)
     return row

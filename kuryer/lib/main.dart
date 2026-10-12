@@ -26,6 +26,7 @@ import 'state/order_alerts.dart';
 import 'widgets/connectivity_banner.dart';
 import 'widgets/nav_shell.dart';
 import 'widgets/splash.dart';
+import 'widgets/update_dialog.dart';
 import 'widgets/toast.dart';
 
 Future<void> main() async {
@@ -79,7 +80,8 @@ class BarakaliCourierApp extends StatefulWidget {
   State<BarakaliCourierApp> createState() => _BarakaliCourierAppState();
 }
 
-class _BarakaliCourierAppState extends State<BarakaliCourierApp> {
+class _BarakaliCourierAppState extends State<BarakaliCourierApp> with WidgetsBindingObserver {
+  final _navKey = GlobalKey<NavigatorState>();
   // Boot splash: shown once on cold start with a minimum on-screen time so the
   // brand animation reads even on a fast connection (mirrors App.tsx).
   bool _booting = true;
@@ -89,6 +91,7 @@ class _BarakaliCourierAppState extends State<BarakaliCourierApp> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     Timer(const Duration(milliseconds: 1700), () {
       if (mounted) setState(() => _booting = false);
     });
@@ -102,8 +105,28 @@ class _BarakaliCourierAppState extends State<BarakaliCourierApp> {
   }
 
   Future<void> _checkForceUpdate() async {
-    final url = await checkForceUpdateStoreUrl();
-    if (mounted && url != null) setState(() => _forceUpdateUrl = url);
+    final update = await fetchAppUpdate();
+    if (!mounted || update == null) return;
+    if (update.force) {
+      setState(() => _forceUpdateUrl = update.storeUrl);
+    } else {
+      // Splash tugab, asosiy ekran chizilgach modal ko'rsatiladi.
+      await Future<void>.delayed(const Duration(milliseconds: 2500));
+      final ctx = _navKey.currentContext;
+      if (mounted && ctx != null && ctx.mounted) showUpdateDialog(ctx, update);
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  /// Kunlab fonda turgan ilova ham yangi min/latest versiyani ko'rsin.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) checkAndPromptUpdate(_navKey);
   }
 
   @override
@@ -115,6 +138,7 @@ class _BarakaliCourierAppState extends State<BarakaliCourierApp> {
       ],
       child: MaterialApp(
         title: 'BB Kuryer',
+        navigatorKey: _navKey,
         debugShowCheckedModeBanner: false,
         theme: AppTheme.light,
         home: _forceUpdateUrl != null
