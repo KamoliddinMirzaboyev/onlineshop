@@ -1,12 +1,14 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'core/theme.dart';
 import 'core/i18n.dart';
+import 'core/uz_localizations.dart';
 import 'services/api.dart';
 import 'pages/app_shell.dart';
 import 'pages/auth_page.dart';
@@ -21,6 +23,7 @@ import 'services/notification_center.dart';
 import 'services/push.dart';
 import 'widgets/connectivity_banner.dart';
 import 'widgets/splash.dart';
+import 'widgets/update_dialog.dart';
 import 'widgets/toast.dart';
 
 /// App yopiq/fonda bo'lganda kelgan push — tizim bildirishnomani o'zi
@@ -79,12 +82,13 @@ class MijozApp extends StatefulWidget {
   State<MijozApp> createState() => _MijozAppState();
 }
 
-class _MijozAppState extends State<MijozApp> {
+class _MijozAppState extends State<MijozApp> with WidgetsBindingObserver {
   final _navKey = GlobalKey<NavigatorState>();
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     api.onUnauthorized = () {
       // Token muddati tugaganda / bekor bo'lganda kirish sahifasiga yo'naltirish.
       // Savatcha o'chirilmaydi — foydalanuvchi qayta kirganda buyumlari saqlanib qoladi.
@@ -98,6 +102,18 @@ class _MijozAppState extends State<MijozApp> {
       _setupFCM();
       notificationCenter.refresh();
     }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  /// Kunlab fonda turgan ilova ham yangi min/latest versiyani ko'rsin.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) checkAndPromptUpdate(_navKey);
   }
 
   /// Foreground push (ilova ochiq ekan kelsa — tizim buni o'zi ko'rsatmaydi,
@@ -152,6 +168,12 @@ class _MijozAppState extends State<MijozApp> {
           title: 'Barakali Bozor',
           locale: Locale(lang.code),
           supportedLocales: const [Locale('uz'), Locale('ru')],
+          localizationsDelegates: const [
+            ...UzFallbackLocalizations.delegates,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
           navigatorKey: _navKey,
           theme: AppTheme.light,
           debugShowCheckedModeBanner: false,
@@ -183,6 +205,7 @@ class _BootGate extends StatefulWidget {
 class _BootGateState extends State<_BootGate> {
   bool _ready = false;
   String? _forceUpdateUrl;
+  AppUpdate? _optionalUpdate;
 
   @override
   void initState() {
@@ -191,13 +214,22 @@ class _BootGateState extends State<_BootGate> {
     // ichida majburiy yangilanish tekshiruvi ham parallel bajariladi.
     Future.wait([
       Future<void>.delayed(const Duration(milliseconds: 2100)),
-      checkForceUpdateStoreUrl(),
+      fetchAppUpdate(),
     ]).then((results) {
       if (!mounted) return;
+      final update = results[1] as AppUpdate?;
       setState(() {
-        _forceUpdateUrl = results[1] as String?;
+        _forceUpdateUrl = (update?.force ?? false) ? update!.storeUrl : null;
+        _optionalUpdate = (update != null && !update.force) ? update : null;
         _ready = true;
       });
+      final optional = _optionalUpdate;
+      if (optional != null) {
+        // Asosiy ekran chizilgach modal ko'rsatiladi.
+        Future<void>.delayed(const Duration(milliseconds: 900), () {
+          if (mounted) showUpdateDialog(context, optional);
+        });
+      }
     });
   }
 

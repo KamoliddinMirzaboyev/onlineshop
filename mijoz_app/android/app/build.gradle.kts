@@ -56,6 +56,13 @@ android {
         }
     }
 
+    // Play'ga yuklanadigan AAB debug kalit bilan imzolanib qolmasin.
+    gradle.taskGraph.whenReady {
+        if (!keystorePropertiesFile.exists() && allTasks.any { it.name == "bundleRelease" }) {
+            throw GradleException("android/key.properties topilmadi — release AAB imzosiz/debug kalit bilan chiqarilmaydi")
+        }
+    }
+
     buildTypes {
         release {
             // Falls back to the debug key only when key.properties is absent (e.g. a

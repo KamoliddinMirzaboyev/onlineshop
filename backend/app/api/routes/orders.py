@@ -155,7 +155,7 @@ def cancel_my_order(
             status.HTTP_400_BAD_REQUEST,
             "Kuryerga biriktirilgan buyurtmani faqat do'kon bekor qila oladi",
         )
-    order = cancel_order(db, order)
+    order = cancel_order(db, order, only_pending=True)
     courier_events.publish({"type": "orders_updated", "restaurant_id": order.restaurant_id})
     return order
 

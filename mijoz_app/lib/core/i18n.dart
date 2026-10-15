@@ -73,10 +73,23 @@ class LanguageProvider extends ChangeNotifier {
 }
 
 /// Qulay chaqiruv: `context.tr` yoki `I18n.of(context)`
+///
+/// `build` ichida til o'zgarganda vidjet qayta chizilishi uchun `watch`
+/// ishlatiladi. Tugma bosilishi kabi handler'larda (build'dan tashqarida)
+/// Provider `watch`ni debug'da assertion bilan rad etadi — u holda `read`ga
+/// o'tamiz (handler'da obuna kerak emas, joriy qiymat yetarli).
+LanguageProvider _languageOf(BuildContext context) {
+  try {
+    return context.watch<LanguageProvider>();
+  } on AssertionError {
+    return context.read<LanguageProvider>();
+  }
+}
+
 extension LanguageContextExt on BuildContext {
-  AppStrings get tr => watch<LanguageProvider>().strings;
-  LanguageProvider get lang => watch<LanguageProvider>();
-  String get currentLangCode => watch<LanguageProvider>().code;
+  AppStrings get tr => _languageOf(this).strings;
+  LanguageProvider get lang => _languageOf(this);
+  String get currentLangCode => _languageOf(this).code;
 }
 
 class I18n {
@@ -237,6 +250,22 @@ abstract class AppStrings {
   String get ordersEmptyDesc;
   String get orderLoadFailed;
   String get orderPendingBanner;
+  String get orderCancel;
+  String get orderCancelConfirmTitle;
+  String get orderCancelConfirmDesc;
+  String get orderCancelKeep;
+  String get orderCancelDone;
+  String get updateAvailableTitle;
+  String get updateAvailableDesc;
+  String get updateLater;
+  String get orderEdit;
+  String get orderEditAddProduct;
+  String get orderEditKeepOne;
+  String get orderEditRecalcNote;
+  String get orderEditSaved;
+  String get orderEditProducts;
+  String get orderEditSearch;
+  String get orderEditNotFound;
   String get orderJustPlacedBanner;
   String get orderCancelledBanner;
   String get orderCourier;
@@ -244,8 +273,6 @@ abstract class AppStrings {
   String get orderReceipt;
   String get orderViewReceipt;
   String get orderCancelBtn;
-  String get orderCancelConfirmTitle;
-  String get orderCancelConfirmDesc;
   String get orderStore;
   String get orderAddress;
   String get orderPayment;
@@ -599,6 +626,22 @@ class _StringsUz implements AppStrings {
   @override String get ordersEmptyDesc => 'Birorta buyurtma bersangiz, u shu yerda chiqadi';
   @override String get orderLoadFailed => 'Buyurtmani yuklab bo\'lmadi';
   @override String get orderPendingBanner => 'Buyurtmangiz do‘kon tomonidan ko‘rib chiqilmoqda.';
+  @override String get orderCancel => 'Buyurtmani bekor qilish';
+  @override String get orderCancelConfirmTitle => 'Buyurtmani bekor qilasizmi?';
+  @override String get orderCancelConfirmDesc => 'Buyurtma bekor qilinadi va mahsulotlar do‘konga qaytariladi. Bu amalni ortga qaytarib bo‘lmaydi.';
+  @override String get orderCancelKeep => 'Yo‘q, qoldirish';
+  @override String get orderCancelDone => 'Buyurtma bekor qilindi';
+  @override String get updateAvailableTitle => 'Yangi versiya mavjud';
+  @override String get updateAvailableDesc => 'Ilovaning yangi versiyasi chiqdi. Yangilab, yangi imkoniyatlardan foydalaning.';
+  @override String get updateLater => 'Keyinroq';
+  @override String get orderEdit => 'Buyurtmani tahrirlash';
+  @override String get orderEditAddProduct => 'Mahsulot qo‘shish';
+  @override String get orderEditKeepOne => 'Kamida bitta mahsulot qoldiring';
+  @override String get orderEditRecalcNote => 'Yetkazish narxi va yakuniy summa saqlaganda qayta hisoblanadi.';
+  @override String get orderEditSaved => 'Buyurtma yangilandi';
+  @override String get orderEditProducts => 'Mahsulotlar';
+  @override String get orderEditSearch => 'Qidirish…';
+  @override String get orderEditNotFound => 'Topilmadi';
   @override String get orderJustPlacedBanner => 'Buyurtma qabul qilindi. Tez orada yetkaziladi!';
   @override String get orderCancelledBanner => 'Buyurtma bekor qilingan';
   @override String get orderCourier => 'Kuryer';
@@ -606,8 +649,6 @@ class _StringsUz implements AppStrings {
   @override String get orderReceipt => 'Chek';
   @override String get orderViewReceipt => 'Chekni ko\'rish';
   @override String get orderCancelBtn => 'Buyurtmani bekor qilish';
-  @override String get orderCancelConfirmTitle => 'Buyurtmani bekor qilish';
-  @override String get orderCancelConfirmDesc => 'Haqiqatan ham buyurtmani bekor qilmoqchimisiz?';
   @override String get orderStore => 'Do\'kon';
   @override String get orderAddress => 'Manzil';
   @override String get orderPayment => 'To\'lov';
@@ -960,6 +1001,22 @@ class _StringsRu implements AppStrings {
   @override String get ordersEmptyDesc => 'Когда вы сделаете заказ, он появится здесь';
   @override String get orderLoadFailed => 'Не удалось загрузить заказ';
   @override String get orderPendingBanner => 'Ваш заказ рассматривается магазином.';
+  @override String get orderCancel => 'Отменить заказ';
+  @override String get orderCancelConfirmTitle => 'Отменить заказ?';
+  @override String get orderCancelConfirmDesc => 'Заказ будет отменён, а товары вернутся в магазин. Это действие нельзя отменить.';
+  @override String get orderCancelKeep => 'Нет, оставить';
+  @override String get orderCancelDone => 'Заказ отменён';
+  @override String get updateAvailableTitle => 'Доступна новая версия';
+  @override String get updateAvailableDesc => 'Вышла новая версия приложения. Обновите, чтобы получить новые возможности.';
+  @override String get updateLater => 'Позже';
+  @override String get orderEdit => 'Редактировать заказ';
+  @override String get orderEditAddProduct => 'Добавить товар';
+  @override String get orderEditKeepOne => 'Оставьте хотя бы один товар';
+  @override String get orderEditRecalcNote => 'Стоимость доставки и итог пересчитаются после сохранения.';
+  @override String get orderEditSaved => 'Заказ обновлён';
+  @override String get orderEditProducts => 'Товары';
+  @override String get orderEditSearch => 'Поиск…';
+  @override String get orderEditNotFound => 'Ничего не найдено';
   @override String get orderJustPlacedBanner => 'Заказ принят. Скоро будет доставлен!';
   @override String get orderCancelledBanner => 'Заказ отменён';
   @override String get orderCourier => 'Курьер';
@@ -967,8 +1024,6 @@ class _StringsRu implements AppStrings {
   @override String get orderReceipt => 'Чек';
   @override String get orderViewReceipt => 'Посмотреть чек';
   @override String get orderCancelBtn => 'Отменить заказ';
-  @override String get orderCancelConfirmTitle => 'Отменить заказ';
-  @override String get orderCancelConfirmDesc => 'Вы действительно хотите отменить заказ?';
   @override String get orderStore => 'Магазин';
   @override String get orderAddress => 'Адрес';
   @override String get orderPayment => 'Оплата';

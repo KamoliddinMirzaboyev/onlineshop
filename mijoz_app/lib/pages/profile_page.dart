@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 import '../core/i18n.dart';
 import '../core/theme.dart';
@@ -621,7 +622,7 @@ class _ProfilePageState extends State<ProfilePage> {
                               _ActionItemRow(
                                 icon: Icons.info_outline_rounded,
                                 label: tr.profileVersion,
-                                trailing: const Text('v1.0.0', style: TextStyle(color: AppColors.slate400, fontSize: 13, fontWeight: FontWeight.w600)),
+                                trailing: const _AppVersionText(),
                               ),
                             ],
                           ),
@@ -976,6 +977,25 @@ class _ActionItemRow extends StatelessWidget {
             trailing,
           ],
         ),
+      ),
+    );
+  }
+}
+
+
+/// Ilova versiyasi — pubspec/build'dan o'qiladi (qo'lda yozilgan matn eskirib qolardi).
+class _AppVersionText extends StatelessWidget {
+  const _AppVersionText();
+
+  static final Future<PackageInfo> _info = PackageInfo.fromPlatform();
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<PackageInfo>(
+      future: _info,
+      builder: (_, snap) => Text(
+        snap.hasData ? 'v${snap.data!.version} (${snap.data!.buildNumber})' : '',
+        style: const TextStyle(color: AppColors.slate400, fontSize: 13, fontWeight: FontWeight.w600),
       ),
     );
   }

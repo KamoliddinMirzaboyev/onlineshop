@@ -1,0 +1,46 @@
+Barakali Bozor — Play Market listing (o‘zbek, uz-UZ)
+
+═══════════════════════════════════════
+Ilova nomi (30 belgi max)
+═══════════════════════════════════════
+Barakali Bozor
+
+═══════════════════════════════════════
+Qisqa tavsif (80 belgi max)
+═══════════════════════════════════════
+Mevalar, oziq-ovqat va maishiy tovarlarni uyingizgacha tez yetkazib beramiz.
+
+═══════════════════════════════════════
+To‘liq tavsif (4000 belgi max)
+═══════════════════════════════════════
+Barakali Bozor — yangi mevalar, sabzavotlar, go‘sht, sut mahsulotlari, quruq mevalar, ichimliklar va uy-ro‘zg‘or tovarlarini bir necha bosishda uyingizgacha yetkazib beruvchi ilova.
+
+Nima uchun Barakali Bozor?
+• Keng assortiment — meva-sabzavot, go‘sht va kolbasa, sut mahsulotlari, non va shirinliklar, quruq meva va yong‘oqlar, ichimliklar, bakaleya, maishiy kimyo
+• Tez yetkazib berish — kuryer buyurtmangizni manzilingizgacha olib keladi
+• Qulay buyurtma — kategoriyani tanlang, mahsulotni savatga qo‘shing, manzilni xaritadan belgilang
+• Buyurtma kuzatuvi — qabul qilindi, tayyorlanmoqda, yo‘lda, yetkazildi: har bosqich ilovada ko‘rinib turadi
+• Buyurtmani tahrirlash va bekor qilish — do‘kon tasdiqlamaguncha mahsulot qo‘shish, miqdorni o‘zgartirish yoki bekor qilish mumkin
+• Aniq narx — yetkazish haqi va yakuniy summa buyurtma berishdan oldin ko‘rinadi
+• Bepul yetkazib berish — belgilangan summadan yuqori buyurtmalarda
+• Naqd to‘lov — mahsulotni qabul qilganingizda to‘laysiz
+• Push-bildirishnomalar — buyurtma holati o‘zgarsa darhol xabar olasiz
+• Ikki til — o‘zbekcha va ruscha
+
+Qanday ishlaydi?
+1. Telefon raqamingiz bilan kiring (SMS-kod orqali)
+2. Mahsulotlarni tanlab, savatga qo‘shing
+3. Yetkazish manzilini kiriting yoki xaritadan belgilang
+4. Buyurtmani tasdiqlang va kuryerni kuzating
+
+Maxfiylik: ma’lumotlaringiz faqat buyurtmani yetkazish uchun ishlatiladi. Hisobingizni istalgan vaqtda ilovaning o‘zidan o‘chirishingiz mumkin.
+
+Savollar bo‘lsa — ilovadagi «Aloqa» bo‘limi orqali yozing.
+
+═══════════════════════════════════════
+Yangilanish eslatmalari (v1.1.0)
+═══════════════════════════════════════
+• Buyurtmani tahrirlash va bekor qilish
+• Yangi versiya chiqqanda yangilash taklifi
+• Xatolar va buyurtma ekranlari o‘zbek va rus tillarida aniqroq
+• Barqarorlik yaxshilandi

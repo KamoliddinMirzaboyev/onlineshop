@@ -1,7 +1,11 @@
 from fastapi import APIRouter, FastAPI, Request, Response
+from fastapi.exception_handlers import http_exception_handler
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.api.routes import (
@@ -10,6 +14,7 @@ from app.api.routes import (
 )
 from app.api.routes.uploads import UPLOAD_DIR
 from app.core.config import settings
+from app.core.i18n_errors import VALIDATION_MSG, pick_lang, translate
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
@@ -96,6 +101,32 @@ if settings.environment == "production":
         )
 
 app = FastAPI(title="Barakali Bozor API", version="1.0.0", docs_url="/docs" if settings.environment != "production" else None, redoc_url=None if settings.environment == "production" else "/redoc")
+
+
+@app.exception_handler(StarletteHTTPException)
+async def _http_exception_handler(request: Request, exc: StarletteHTTPException):
+    """FastAPI'ning standart javobi + `Accept-Language` (uz/ru) bo'lsa matn tarjimasi.
+    Header yo'q (admin panellar, testlar) — matn o'zgarishsiz."""
+    if isinstance(exc.detail, str):
+        lang = pick_lang(request.headers.get("accept-language"))
+        exc = StarletteHTTPException(exc.status_code, translate(exc.detail, lang), exc.headers)
+    return await http_exception_handler(request, exc)
+
+
+@app.exception_handler(RequestValidationError)
+async def _validation_exception_handler(request: Request, exc: RequestValidationError):
+    from fastapi.encoders import jsonable_encoder
+
+    errors = jsonable_encoder(exc.errors())
+    lang = pick_lang(request.headers.get("accept-language"))
+    if lang:
+        # Mobil ilova birinchi `msg`ni ko'rsatadi — inglizcha texnik matn o'rniga
+        # tushunarli xabar; `loc`/`type` saqlanadi.
+        for e in errors:
+            e["msg"] = VALIDATION_MSG[lang]
+    return JSONResponse({"detail": errors}, status_code=422)
+
+
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 app.add_middleware(SecurityHeadersMiddleware)
 

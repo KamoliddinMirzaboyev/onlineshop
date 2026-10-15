@@ -687,20 +687,24 @@ def edit_pending_order(db: Session, order: Order, new_items: list) -> Order:
         raise
 
 
-def cancel_order(db: Session, order: Order) -> Order:
-    """Buyurtmani bekor qiladi, zaxirani qaytaradi (atomik — double-cancel stock shishmaydi)."""
+def cancel_order(db: Session, order: Order, *, only_pending: bool = False) -> Order:
+    """Buyurtmani bekor qiladi, zaxirani qaytaradi (atomik — double-cancel stock shishmaydi).
+
+    `only_pending=True` (mijoz bekor qilishi): do'kon parallel tasdiqlab ulgurgan
+    bo'lsa ham UPDATE faqat `pending` qatorga tegadi — tasdiqlangan buyurtma
+    mijoz tomonidan bekor bo'lib ketmaydi."""
     if order.status == OrderStatus.cancelled:
         return order
     ensure_transition(order.status, OrderStatus.cancelled)
 
     # Atomik: faqat bir marta cancelled bo'ladi (concurrent cancel → bitta stock restore).
+    guard = (
+        Order.status == OrderStatus.pending
+        if only_pending
+        else Order.status.notin_((OrderStatus.cancelled, OrderStatus.delivered))
+    )
     result = db.execute(
-        update(Order)
-        .where(
-            Order.id == order.id,
-            Order.status.notin_((OrderStatus.cancelled, OrderStatus.delivered)),
-        )
-        .values(status=OrderStatus.cancelled)
+        update(Order).where(Order.id == order.id, guard).values(status=OrderStatus.cancelled)
     )
     if result.rowcount == 0:
         db.refresh(order)
