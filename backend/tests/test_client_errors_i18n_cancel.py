@@ -17,7 +17,7 @@ def _order(db_session, user, tenant, status: OrderStatus, number: str) -> Order:
     order = Order(
         user_id=user.id, restaurant_id=tenant.restaurant_id, number=number,
         status=status, payment_method=PaymentMethod.cash,
-        payment_status=PaymentStatus.pending,
+        payment_status=PaymentStatus.unpaid,
         items_total=10_000, delivery_fee=0, total=10_000, address_line="Test manzil",
     )
     db_session.add(order)
